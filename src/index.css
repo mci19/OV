@@ -1,0 +1,87 @@
+@import "tailwindcss";
+
+@theme {
+  --color-paper: #FAFAF7;
+  --color-ink: #0A0A0A;
+  --color-accent: #FF5C00;
+  --color-rule: #1F1F1B;
+  --color-soft: #E8E6DD;
+
+  --font-sans: 'Inter Tight', 'Inter', system-ui, -apple-system, sans-serif;
+  --font-mono: 'IBM Plex Mono', 'Space Mono', ui-monospace, monospace;
+}
+
+html, body {
+  height: 100%;
+  margin: 0;
+  background: var(--color-paper);
+  color: var(--color-ink);
+  font-family: var(--font-sans);
+  font-feature-settings: "tnum", "ss01";
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+#root { min-height: 100vh; }
+
+input[type="number"]::-webkit-outer-spin-button,
+input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+input[type="number"] { -moz-appearance: textfield; }
+
+/* Form field reset */
+.field-input {
+  font-family: var(--font-mono);
+  background: transparent;
+  border: 0;
+  border-bottom: 1px solid var(--color-ink);
+  padding: 6px 0;
+  outline: none;
+  width: 100%;
+  font-size: 14px;
+}
+.field-input:focus {
+  border-color: var(--color-accent);
+  box-shadow: 0 1px 0 0 var(--color-accent);
+}
+.field-label {
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #5b5b53;
+  font-weight: 500;
+}
+
+/* Radio/checkbox pill */
+.option-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border: 1px solid var(--color-ink);
+  border-radius: 0;
+  font-size: 13px;
+  cursor: pointer;
+  background: transparent;
+  user-select: none;
+}
+.option-chip[data-active="true"] {
+  background: var(--color-ink);
+  color: var(--color-paper);
+}
+.option-chip[data-error="true"] {
+  border-color: var(--color-accent);
+}
+
+.section-h {
+  font-size: 12px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--color-ink);
+  font-weight: 600;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--color-ink);
+  margin-bottom: 14px;
+}
+
+/* Print styles */
+@import "./styles/print.css";
