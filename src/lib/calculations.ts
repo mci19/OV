@@ -1,127 +1,102 @@
-import type { DoorConfig, DoorGeometry, ValidationIssue } from './types'
+import type { OrderData, ValidationIssue } from './types'
 
-export function computeGeometry(config: DoorConfig): DoorGeometry {
-  const { hoogte, breedte, verticaleLijnVanafLinks } = config
-
-  const bladeVertical = hoogte - 30
-  const bladeHorizontal = breedte - 88
-
-  const glassKaderVertGelaste = bladeVertical - 40
-  const glassKaderHorizGelaste = bladeHorizontal - 30
-  const glassKaderVertPoederlak = bladeVertical - 42
-  const glassKaderHorizPoederlak = bladeHorizontal - 32
-
-  const designVertGelaste = glassKaderVertGelaste - 30
-  const designVertPoederlak = glassKaderVertGelaste - 32
-
-  const crossbarLeftGelaste = verticaleLijnVanafLinks + 1
-  const crossbarLeftPoederlak = verticaleLijnVanafLinks
-  const crossbarRightGelaste = glassKaderHorizGelaste - crossbarLeftGelaste - 15
-  const crossbarRightPoederlak = glassKaderHorizPoederlak - crossbarLeftPoederlak - 15
-
-  const glassWidth = bladeHorizontal - 8
-  const glassHeight = bladeVertical - 48
-
-  return {
-    outerVerticalLength: hoogte,
-    outerHorizontalLength: breedte - 40,
-    bladeVertical,
-    bladeHorizontal,
-    glassKaderVertGelaste,
-    glassKaderHorizGelaste,
-    glassKaderVertPoederlak,
-    glassKaderHorizPoederlak,
-    designVertGelaste,
-    designVertPoederlak,
-    crossbarLeftGelaste,
-    crossbarLeftPoederlak,
-    crossbarRightGelaste,
-    crossbarRightPoederlak,
-    glassWidth,
-    glassHeight,
-    juostaVertical: hoogte,
-    juostaHorizontal: breedte - 70,
-    kampasLength: 700,
-    kampasCount: 2,
-  }
-}
-
-export function validateConfig(config: DoorConfig): ValidationIssue[] {
+export function validateOrder(order: OrderData): ValidationIssue[] {
   const issues: ValidationIssue[] = []
-  const { hoogte, breedte, designEnabled, verticaleLijnVanafLinks, horizontaleDwarslatVanafOnder } = config
+  const { hoogte, breedte, aantalDeuren, sketch } = order
 
   if (!Number.isFinite(hoogte) || hoogte < 1800)
-    issues.push({ field: 'hoogte', message: 'Hoogte moet ten minste 1800 mm zijn', severity: 'error' })
+    issues.push({ field: 'hoogte', message: 'Hoogte minimaal 1800 mm', severity: 'error' })
   if (hoogte > 3500)
-    issues.push({ field: 'hoogte', message: 'Hoogte mag maximaal 3500 mm zijn', severity: 'error' })
+    issues.push({ field: 'hoogte', message: 'Hoogte maximaal 3500 mm', severity: 'error' })
   if (!Number.isFinite(breedte) || breedte < 600)
-    issues.push({ field: 'breedte', message: 'Breedte moet ten minste 600 mm zijn', severity: 'error' })
+    issues.push({ field: 'breedte', message: 'Breedte minimaal 600 mm', severity: 'error' })
   if (breedte > 1500)
-    issues.push({ field: 'breedte', message: 'Breedte mag maximaal 1500 mm zijn', severity: 'error' })
+    issues.push({ field: 'breedte', message: 'Breedte maximaal 1500 mm', severity: 'error' })
+  if (!Number.isFinite(aantalDeuren) || aantalDeuren < 1)
+    issues.push({ field: 'aantalDeuren', message: 'Minimaal 1 deur', severity: 'error' })
+  if (!order.klantNaam.trim())
+    issues.push({ field: 'klantNaam', message: 'Klantnaam ontbreekt', severity: 'warning' })
 
-  if (issues.some((i) => i.severity === 'error')) return issues
-
-  const geo = computeGeometry(config)
-  if (geo.bladeHorizontal <= 100)
-    issues.push({
-      field: 'breedte',
-      message: 'Deurbladbreedte wordt te klein door speling-aftrek',
-      severity: 'error',
-    })
-
-  if (designEnabled) {
-    if (verticaleLijnVanafLinks < 50)
-      issues.push({
-        field: 'verticaleLijnVanafLinks',
-        message: 'Verticale lijn moet ten minste 50 mm van de linker rand liggen',
-        severity: 'error',
-      })
-    if (verticaleLijnVanafLinks > geo.glassKaderHorizPoederlak - 50)
-      issues.push({
-        field: 'verticaleLijnVanafLinks',
-        message: `Verticale lijn moet binnen het kader vallen (max ${geo.glassKaderHorizPoederlak - 50} mm)`,
-        severity: 'error',
-      })
-
-    if (horizontaleDwarslatVanafOnder < 100)
-      issues.push({
-        field: 'horizontaleDwarslatVanafOnder',
-        message: 'Dwarslat moet ten minste 100 mm van de onderrand liggen',
-        severity: 'warning',
-      })
-    if (horizontaleDwarslatVanafOnder > geo.glassKaderVertPoederlak - 100)
-      issues.push({
-        field: 'horizontaleDwarslatVanafOnder',
-        message: `Dwarslat moet binnen het kader vallen (max ${geo.glassKaderVertPoederlak - 100} mm)`,
-        severity: 'error',
-      })
-
-    if (geo.crossbarRightGelaste < 50 || geo.crossbarRightPoederlak < 50)
-      issues.push({
-        field: 'verticaleLijnVanafLinks',
-        message: 'Rechtersegment van dwarslat wordt kleiner dan 50 mm',
-        severity: 'warning',
-      })
+  for (const v of sketch.verticalLines) {
+    if (v.x < 50 || v.x > breedte - 50)
+      issues.push({ field: `vline-${v.id}`, message: `Verticale lijn op ${v.x} mm valt te dicht bij de rand`, severity: 'warning' })
   }
+  for (const h of sketch.horizontalLines) {
+    if (h.y < 100 || h.y > hoogte - 100)
+      issues.push({ field: `hline-${h.id}`, message: `Horizontale lijn op ${h.y} mm valt te dicht bij rand`, severity: 'warning' })
+  }
+
+  if (sketch.verticalLines.length > 5)
+    issues.push({ field: 'sketch', message: 'Te veel verticale lijnen (max 5)', severity: 'error' })
+  if (sketch.horizontalLines.length > 5)
+    issues.push({ field: 'sketch', message: 'Te veel horizontale lijnen (max 5)', severity: 'error' })
 
   return issues
 }
 
-export function ralLabel(config: DoorConfig): string {
-  if (config.colorKind === 'ral_9005') return 'RAL 9005'
-  if (config.colorKind === 'ral_9010') return 'RAL 9010'
-  return config.colorOther.trim() || 'RAL ?'
+export function ralLabel(o: OrderData): string {
+  if (o.colorKind === 'ral_9005') return 'RAL 9005 (zwart)'
+  if (o.colorKind === 'ral_9010') return 'RAL 9010 (wit)'
+  return o.colorOther.trim() || 'RAL ?'
 }
 
-export function glassLabel(config: DoorConfig): string {
-  switch (config.glassType) {
-    case 'clear':
-      return 'Clear glass'
-    case 'matt':
-      return 'Matt glass'
-    case 'cathedraal_flute':
-      return 'Cathedraal-Flute'
-    case 'other':
-      return config.glassOther.trim() || 'Other glass'
+export function glassLabel(o: OrderData): string {
+  switch (o.glassType) {
+    case 'clear': return 'Helder glas'
+    case 'matt': return 'Mat glas'
+    case 'cathedraal_flute': return 'Cathedraal / Flute'
+    case 'other': return o.glassOther.trim() || 'Ander glas'
   }
+}
+
+export function systemLabel(o: OrderData): string {
+  return { hinges: 'Scharnieren', pivotica: 'Pivotica', sliding: 'Schuifsysteem' }[o.system]
+}
+
+export function finishingLabel(o: OrderData): string {
+  return {
+    glasslist_10: 'Glaslijst 10×10',
+    glasslist_15: 'Glaslijst 15×15',
+    soudal_mastiek: 'Soudal Mastiek',
+  }[o.finishing]
+}
+
+export function handleLabel(o: OrderData): string {
+  if (o.handleKind === 'l_grip') return 'L-greep'
+  if (o.handleKind === 'l_vertical') return `L-verticaal ${o.handleVerticalMm} mm`
+  return o.handleOther.trim() || 'Greep — vrij'
+}
+
+export function lockLabel(o: OrderData): string {
+  if (o.lockKind === 'cilinder_litto') return 'Cilinder Litto 30/30'
+  if (o.lockKind === 'no_cilinder') return 'Geen cilinder'
+  return o.lockOther.trim() || 'Ander slot'
+}
+
+export function hingeLabel(o: OrderData): string {
+  if (o.hingeKind === 'single') {
+    return o.hingeSide === 'belgisch_links' ? 'Single — Belgisch Links (DIN R)' : 'Single — Belgisch Rechts (DIN L)'
+  }
+  return `Double — ${o.hingeSide.replace('double_', 'optie ')}`
+}
+
+export function variantLabel(o: OrderData): string {
+  if (!o.variants.length) return '—'
+  const map: Record<string, string> = {
+    panel_door: 'Panel + Deur',
+    double_door: 'Dubbele deur',
+    fritsjurgens_3: 'Fritsjurgens 3',
+  }
+  return o.variants.map((v) => map[v] ?? v).join(', ')
+}
+
+// Voor visuele weergave op de schets: breedte/hoogte van het deurblad
+// (excl. kozijn) en glas-uitsparing. Slechts informatief — fabrikant
+// rekent zelf de exacte profielmaten.
+export function visualGeometry(o: OrderData) {
+  const bladeWidth = Math.max(0, o.breedte - 88) // 40+40 profiel + 4+4 speling
+  const bladeHeight = Math.max(0, o.hoogte - 30)
+  const glassWidth = Math.max(0, bladeWidth - 8)
+  const glassHeight = Math.max(0, bladeHeight - 48)
+  return { bladeWidth, bladeHeight, glassWidth, glassHeight }
 }

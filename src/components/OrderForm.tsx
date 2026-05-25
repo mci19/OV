@@ -1,89 +1,127 @@
-import type { DoorConfig, ValidationIssue } from '../lib/types'
+import type { OrderData, ValidationIssue } from '../lib/types'
 import { Chips, Field, FieldRow, MultiChips } from './Field'
 
 interface Props {
-  config: DoorConfig
-  set: <K extends keyof DoorConfig>(k: K, v: DoorConfig[K]) => void
+  order: OrderData
+  set: <K extends keyof OrderData>(k: K, v: OrderData[K]) => void
   issues: ValidationIssue[]
 }
 
 function errorFor(issues: ValidationIssue[], field: string): string | null {
-  return issues.find((i) => i.field === field)?.message ?? null
+  const it = issues.find((i) => i.field === field)
+  return it ? it.message : null
 }
 
-export function OrderForm({ config, set, issues }: Props) {
+const VERKOPERS = ['Muharrem', 'Joeri', 'Andere']
+
+export function OrderForm({ order, set, issues }: Props) {
   return (
-    <div className="space-y-10">
+    <div className="space-y-8">
       <section>
-        <h2 className="section-h">Referentie</h2>
+        <h2 className="section-h">Header</h2>
         <FieldRow>
           <Field
-            label="Klant / referentie"
-            value={config.referentie}
-            onChange={(e) => set('referentie', e.target.value)}
+            label="Klantnaam"
+            value={order.klantNaam}
+            onChange={(e) => set('klantNaam', e.target.value)}
+            error={errorFor(issues, 'klantNaam')}
+            placeholder="bv. Jan Janssens"
           />
           <Field
-            label="Datum"
-            type="date"
-            value={config.datum}
-            onChange={(e) => set('datum', e.target.value)}
+            label="Referentie"
+            value={order.referentie}
+            onChange={(e) => set('referentie', e.target.value)}
+            placeholder="optioneel"
           />
         </FieldRow>
-        <div className="mt-4">
-          <Chips
-            label="Type"
-            value={config.doorType}
-            options={[
-              { value: 'door_opening', label: 'Door opening' },
-              { value: 'production', label: 'Production' },
-            ]}
-            onChange={(v) => set('doorType', v)}
-          />
+        <div className="mt-3">
+          <FieldRow>
+            <Field
+              label="Datum"
+              type="date"
+              value={order.datum}
+              onChange={(e) => set('datum', e.target.value)}
+            />
+            <label className="block">
+              <span className="field-label">Verkoper</span>
+              <select
+                className="field-input"
+                value={order.verkoper}
+                onChange={(e) => set('verkoper', e.target.value)}
+              >
+                {VERKOPERS.map((v) => (
+                  <option key={v} value={v}>{v}</option>
+                ))}
+              </select>
+            </label>
+          </FieldRow>
         </div>
       </section>
 
       <section>
         <h2 className="section-h">Dimensies</h2>
-        <FieldRow>
+        <Chips
+          label="Type meting"
+          value={order.doorType}
+          options={[
+            { value: 'door_opening', label: 'Door opening' },
+            { value: 'production', label: 'Production' },
+          ]}
+          onChange={(v) => set('doorType', v)}
+        />
+        <div className="mt-3">
+          <FieldRow>
+            <Field
+              label="Hoogte"
+              unit="mm"
+              type="number"
+              value={order.hoogte}
+              min={1800}
+              max={3500}
+              onChange={(e) => set('hoogte', Number(e.target.value))}
+              error={errorFor(issues, 'hoogte')}
+            />
+            <Field
+              label="Breedte"
+              unit="mm"
+              type="number"
+              value={order.breedte}
+              min={600}
+              max={1500}
+              onChange={(e) => set('breedte', Number(e.target.value))}
+              error={errorFor(issues, 'breedte')}
+            />
+          </FieldRow>
+        </div>
+        <div className="mt-3">
           <Field
-            label="Hoogte"
-            unit="mm"
+            label="Aantal deuren"
             type="number"
-            value={config.hoogte}
-            min={1800}
-            max={3500}
-            onChange={(e) => set('hoogte', Number(e.target.value))}
-            error={errorFor(issues, 'hoogte')}
+            value={order.aantalDeuren}
+            min={1}
+            max={20}
+            onChange={(e) => set('aantalDeuren', Number(e.target.value))}
+            error={errorFor(issues, 'aantalDeuren')}
           />
-          <Field
-            label="Breedte"
-            unit="mm"
-            type="number"
-            value={config.breedte}
-            min={600}
-            max={1500}
-            onChange={(e) => set('breedte', Number(e.target.value))}
-            error={errorFor(issues, 'breedte')}
-          />
-        </FieldRow>
+        </div>
       </section>
 
       <section>
         <h2 className="section-h">Top view — scharnier</h2>
         <Chips
           label="Type"
-          value={config.hingeKind}
+          value={order.hingeKind}
           options={[
             { value: 'single', label: 'Single' },
             { value: 'double', label: 'Double' },
           ]}
           onChange={(v) => set('hingeKind', v)}
         />
-        <div className="mt-4">
-          {config.hingeKind === 'single' ? (
+        <div className="mt-3">
+          {order.hingeKind === 'single' ? (
             <Chips
-              label="Scharnierzijde"
-              value={config.hingeSide}
+              label="Zijde"
+              value={order.hingeSide}
               options={[
                 { value: 'belgisch_links', label: 'Belgisch Links (DIN R)' },
                 { value: 'belgisch_rechts', label: 'Belgisch Rechts (DIN L)' },
@@ -92,8 +130,8 @@ export function OrderForm({ config, set, issues }: Props) {
             />
           ) : (
             <Chips
-              label="Double — optie"
-              value={config.hingeSide}
+              label="Optie"
+              value={order.hingeSide}
               options={[
                 { value: 'double_1', label: 'Optie 1' },
                 { value: 'double_2', label: 'Optie 2' },
@@ -109,21 +147,21 @@ export function OrderForm({ config, set, issues }: Props) {
       <section>
         <h2 className="section-h">Glas</h2>
         <Chips
-          label="Glass type"
-          value={config.glassType}
+          label="Type glas"
+          value={order.glassType}
           options={[
-            { value: 'clear', label: 'Clear' },
-            { value: 'matt', label: 'Matt' },
+            { value: 'clear', label: 'Helder' },
+            { value: 'matt', label: 'Mat' },
             { value: 'cathedraal_flute', label: 'Cathedraal-Flute' },
             { value: 'other', label: 'Other' },
           ]}
           onChange={(v) => set('glassType', v)}
         />
-        {config.glassType === 'other' ? (
+        {order.glassType === 'other' ? (
           <div className="mt-3">
             <Field
               label="Andere glassoort"
-              value={config.glassOther}
+              value={order.glassOther}
               onChange={(e) => set('glassOther', e.target.value)}
             />
           </div>
@@ -134,7 +172,7 @@ export function OrderForm({ config, set, issues }: Props) {
         <h2 className="section-h">Systeem</h2>
         <Chips
           label="Systeem"
-          value={config.system}
+          value={order.system}
           options={[
             { value: 'hinges', label: 'Hinges' },
             { value: 'pivotica', label: 'Pivotica' },
@@ -142,10 +180,10 @@ export function OrderForm({ config, set, issues }: Props) {
           ]}
           onChange={(v) => set('system', v)}
         />
-        <div className="mt-4">
+        <div className="mt-3">
           <MultiChips
             label="Variant"
-            values={config.variants}
+            values={order.variants}
             options={[
               { value: 'panel_door', label: 'Panel + Door' },
               { value: 'double_door', label: 'Double Door' },
@@ -154,11 +192,11 @@ export function OrderForm({ config, set, issues }: Props) {
             onChange={(v) => set('variants', v)}
           />
         </div>
-        <div className="mt-4 flex gap-6 font-mono text-sm">
+        <div className="mt-3 flex gap-6 font-mono text-sm">
           <label className="flex items-center gap-2">
             <input
               type="checkbox"
-              checked={config.softOpen}
+              checked={order.softOpen}
               onChange={(e) => set('softOpen', e.target.checked)}
             />
             Soft open
@@ -166,7 +204,7 @@ export function OrderForm({ config, set, issues }: Props) {
           <label className="flex items-center gap-2">
             <input
               type="checkbox"
-              checked={config.softClose}
+              checked={order.softClose}
               onChange={(e) => set('softClose', e.target.checked)}
             />
             Soft close
@@ -175,10 +213,10 @@ export function OrderForm({ config, set, issues }: Props) {
       </section>
 
       <section>
-        <h2 className="section-h">Afwerking</h2>
+        <h2 className="section-h">Finishing</h2>
         <Chips
-          label="Finishing"
-          value={config.finishing}
+          label="Afwerking"
+          value={order.finishing}
           options={[
             { value: 'glasslist_10', label: 'Glasslist 10×10' },
             { value: 'glasslist_15', label: 'Glasslist 15×15' },
@@ -189,10 +227,10 @@ export function OrderForm({ config, set, issues }: Props) {
       </section>
 
       <section>
-        <h2 className="section-h">Greep / Handle</h2>
+        <h2 className="section-h">Greep</h2>
         <Chips
           label="Type"
-          value={config.handleKind}
+          value={order.handleKind}
           options={[
             { value: 'l_grip', label: 'L-grip' },
             { value: 'l_vertical', label: 'L-vertical' },
@@ -200,34 +238,62 @@ export function OrderForm({ config, set, issues }: Props) {
           ]}
           onChange={(v) => set('handleKind', v)}
         />
-        {config.handleKind === 'l_vertical' ? (
+        {order.handleKind === 'l_vertical' ? (
           <div className="mt-3">
             <Field
               label="Lengte L-vertical"
               unit="mm"
               type="number"
-              value={config.handleVerticalMm}
+              value={order.handleVerticalMm}
               onChange={(e) => set('handleVerticalMm', Number(e.target.value))}
             />
           </div>
         ) : null}
-        {config.handleKind === 'other' ? (
+        {order.handleKind === 'other' ? (
           <div className="mt-3">
             <Field
               label="Andere greep"
-              value={config.handleOther}
+              value={order.handleOther}
               onChange={(e) => set('handleOther', e.target.value)}
-              hint="bv. long handle"
+              hint="bv. long handle 700mm"
             />
           </div>
         ) : null}
+        <div className="mt-3">
+          <FieldRow>
+            <Chips
+              label="Greep zijde"
+              value={order.handlePosition.side}
+              options={[
+                { value: 'left', label: 'Links' },
+                { value: 'right', label: 'Rechts' },
+              ]}
+              onChange={(side) =>
+                set('handlePosition', { ...order.handlePosition, side })
+              }
+            />
+            <Field
+              label="Greep-hoogte vanaf onder"
+              unit="mm"
+              type="number"
+              value={order.handlePosition.heightFromBottom}
+              onChange={(e) =>
+                set('handlePosition', {
+                  ...order.handlePosition,
+                  heightFromBottom: Number(e.target.value),
+                })
+              }
+              hint="ergonomisch 1050"
+            />
+          </FieldRow>
+        </div>
       </section>
 
       <section>
         <h2 className="section-h">Slot</h2>
         <Chips
           label="Lock case"
-          value={config.lockKind}
+          value={order.lockKind}
           options={[
             { value: 'cilinder_litto', label: 'Cilinder (Litto 30/30)' },
             { value: 'no_cilinder', label: 'No cilinder' },
@@ -235,11 +301,11 @@ export function OrderForm({ config, set, issues }: Props) {
           ]}
           onChange={(v) => set('lockKind', v)}
         />
-        {config.lockKind === 'other' ? (
+        {order.lockKind === 'other' ? (
           <div className="mt-3">
             <Field
               label="Slot — vrij veld"
-              value={config.lockOther}
+              value={order.lockOther}
               onChange={(e) => set('lockOther', e.target.value)}
             />
           </div>
@@ -250,19 +316,19 @@ export function OrderForm({ config, set, issues }: Props) {
         <h2 className="section-h">Kleur</h2>
         <Chips
           label="RAL"
-          value={config.colorKind}
+          value={order.colorKind}
           options={[
-            { value: 'ral_9005', label: 'Black RAL 9005' },
-            { value: 'ral_9010', label: 'White RAL 9010' },
+            { value: 'ral_9005', label: 'Zwart RAL 9005' },
+            { value: 'ral_9010', label: 'Wit RAL 9010' },
             { value: 'other', label: 'Other' },
           ]}
           onChange={(v) => set('colorKind', v)}
         />
-        {config.colorKind === 'other' ? (
+        {order.colorKind === 'other' ? (
           <div className="mt-3">
             <Field
-              label="RAL nummer"
-              value={config.colorOther}
+              label="RAL-code"
+              value={order.colorOther}
               onChange={(e) => set('colorOther', e.target.value)}
               hint="bv. RAL 7016"
             />
@@ -271,35 +337,25 @@ export function OrderForm({ config, set, issues }: Props) {
       </section>
 
       <section>
-        <h2 className="section-h">Design-verdeling</h2>
+        <h2 className="section-h">Extra</h2>
         <label className="flex items-center gap-2 font-mono text-sm mb-3">
           <input
             type="checkbox"
-            checked={!config.designEnabled}
-            onChange={(e) => set('designEnabled', !e.target.checked)}
+            checked={order.plaatsingInbegrepen}
+            onChange={(e) => set('plaatsingInbegrepen', e.target.checked)}
           />
-          Geen design-verdeling (eenvoudige deur)
+          Plaatsing inbegrepen
         </label>
-        {config.designEnabled ? (
-          <FieldRow>
-            <Field
-              label="Verticale lijn vanaf links"
-              unit="mm"
-              type="number"
-              value={config.verticaleLijnVanafLinks}
-              onChange={(e) => set('verticaleLijnVanafLinks', Number(e.target.value))}
-              error={errorFor(issues, 'verticaleLijnVanafLinks')}
-            />
-            <Field
-              label="Horizontale dwarslat vanaf onder"
-              unit="mm"
-              type="number"
-              value={config.horizontaleDwarslatVanafOnder}
-              onChange={(e) => set('horizontaleDwarslatVanafOnder', Number(e.target.value))}
-              error={errorFor(issues, 'horizontaleDwarslatVanafOnder')}
-            />
-          </FieldRow>
-        ) : null}
+        <label className="block">
+          <span className="field-label">Opmerkingen voor fabrikant</span>
+          <textarea
+            className="field-input min-h-[80px]"
+            rows={3}
+            value={order.opmerkingen}
+            onChange={(e) => set('opmerkingen', e.target.value)}
+            placeholder="bv. levering vóór 15/06, extra montagestrip nodig"
+          />
+        </label>
       </section>
     </div>
   )
