@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { Sparkles } from 'lucide-react'
 import type { OrderData, SketchData, SketchMode } from '../../lib/types'
 import { applyTemplate } from '../../lib/templates'
+import { sketchFromFreehand, sketchFromText } from '../../lib/ai'
 import { DoorOutline } from './DoorOutline'
 import { DraggableLine } from './DraggableLine'
 import { DimensionLabels } from './DimensionLabels'
@@ -18,6 +20,10 @@ const MARGIN = 200 // mm margin around door for dimension labels
 
 export function SketchEditor({ order, onChange }: Props) {
   const [mode, setMode] = useState<SketchMode>('lijnen')
+  const [aiPrompt, setAiPrompt] = useState('')
+  const [aiBusy, setAiBusy] = useState(false)
+  const [aiError, setAiError] = useState<string | null>(null)
+  const [aiHint, setAiHint] = useState<string | null>(null)
   const [snapMode, setSnapMode] = useState<SnapMode>('10')
   const [clientView, setClientView] = useState(false)
   const [exactInput, setExactInput] = useState<{
@@ -97,6 +103,62 @@ export function SketchEditor({ order, onChange }: Props) {
   function pickTemplate(id: string) {
     onChange(applyTemplate(order, id))
     setMode('lijnen')
+  }
+
+  async function runAiFromText() {
+    const text = aiPrompt.trim()
+    if (!text || aiBusy) return
+    setAiBusy(true)
+    setAiError(null)
+    setAiHint(null)
+    try {
+      const result = await sketchFromText({ text, doorWidth: breedte, doorHeight: hoogte })
+      const stamp = Date.now().toString(36)
+      updateSketch({
+        verticalLines: result.verticalLines.map((v, i) => ({ id: `ai-v-${stamp}-${i}`, x: v.x })),
+        horizontalLines: result.horizontalLines.map((h, i) => ({ id: `ai-h-${stamp}-${i}`, y: h.y })),
+        templateId: undefined,
+      })
+      setAiHint(result.explanation || `${result.verticalLines.length}v + ${result.horizontalLines.length}h lijnen toegevoegd`)
+      setAiPrompt('')
+      setMode('lijnen')
+    } catch (err) {
+      setAiError(err instanceof Error ? err.message : 'AI-fout')
+    } finally {
+      setAiBusy(false)
+    }
+  }
+
+  async function convertFreehandToLines() {
+    if (sketch.freehand.length === 0 || aiBusy) return
+    setAiBusy(true)
+    setAiError(null)
+    setAiHint(null)
+    try {
+      const result = await sketchFromFreehand({
+        strokes: sketch.freehand,
+        doorWidth: breedte,
+        doorHeight: hoogte,
+      })
+      const stamp = Date.now().toString(36)
+      updateSketch({
+        verticalLines: [
+          ...sketch.verticalLines,
+          ...result.verticalLines.map((v, i) => ({ id: `ai-v-${stamp}-${i}`, x: v.x })),
+        ],
+        horizontalLines: [
+          ...sketch.horizontalLines,
+          ...result.horizontalLines.map((h, i) => ({ id: `ai-h-${stamp}-${i}`, y: h.y })),
+        ],
+        freehand: [],
+      })
+      setAiHint(result.explanation || `Vrije schets omgezet in ${result.verticalLines.length + result.horizontalLines.length} lijnen`)
+      setMode('lijnen')
+    } catch (err) {
+      setAiError(err instanceof Error ? err.message : 'AI-fout')
+    } finally {
+      setAiBusy(false)
+    }
   }
 
   // grid lijnen op de achtergrond, alleen in lijnen-modus
@@ -184,6 +246,18 @@ export function SketchEditor({ order, onChange }: Props) {
                   Ongedaan
                 </button>
               ) : null}
+              {sketch.freehand.length > 0 ? (
+                <button
+                  type="button"
+                  className="chip"
+                  data-active
+                  onClick={convertFreehandToLines}
+                  disabled={aiBusy}
+                  title="Laat AI je vrije schets omzetten naar exacte lijnen"
+                >
+                  <Sparkles size={14} /> {aiBusy ? 'AI bezig…' : 'AI: omzet naar lijnen'}
+                </button>
+              ) : null}
             </>
           ) : null}
           <button
@@ -196,6 +270,39 @@ export function SketchEditor({ order, onChange }: Props) {
           </button>
         </div>
       </div>
+
+      {/* AI-prompt row — beschrijf de gewenste verdeling in tekst */}
+      <div className="no-print border-b border-black/10 bg-paper/60 px-3 py-2 flex items-center gap-2">
+        <Sparkles size={14} className="text-accent shrink-0" />
+        <input
+          className="field-input !border-soft-2 !py-1 text-sm flex-1 min-w-0"
+          placeholder="Beschrijf de verdeling — bv. '2 dwarslatten onder + verticale lijn in midden'"
+          value={aiPrompt}
+          onChange={(e) => setAiPrompt(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') {
+              e.preventDefault()
+              runAiFromText()
+            }
+          }}
+          disabled={aiBusy}
+        />
+        <button
+          type="button"
+          className="chip"
+          data-active
+          onClick={runAiFromText}
+          disabled={!aiPrompt.trim() || aiBusy}
+        >
+          {aiBusy ? '…' : 'Genereer'}
+        </button>
+      </div>
+
+      {aiError || aiHint ? (
+        <div className={`no-print px-3 py-1.5 text-xs font-mono ${aiError ? 'bg-accent text-paper' : 'bg-soft text-ink'}`}>
+          {aiError || aiHint}
+        </div>
+      ) : null}
 
       {mode === 'snel' ? (
         <div className="flex-1 overflow-auto">

@@ -1,0 +1,304 @@
+import type { Handler, HandlerEvent } from '@netlify/functions'
+import Anthropic from '@anthropic-ai/sdk'
+
+// Initialize Anthropic SDK. ANTHROPIC_API_KEY must be set in Netlify env vars.
+const client = new Anthropic()
+
+// ─── System prompt (cached) ─────────────────────────────────────
+// Stable across requests → eligible for prompt caching via cache_control.
+const SYSTEM_PROMPT = `Je bent een AI assistent voor MY DOORS, een Belgisch bedrijf dat
+stalen binnendeuren op maat maakt. Je interpreteert ofwel:
+
+1. Een Nederlandse tekstbeschrijving van een glasverdeling, OF
+2. Vrije schets-strokes (lijst van puntenreeksen) op een deurblad,
+
+en zet die om naar exacte structured grid-lijnen voor de productie.
+
+KADER:
+- De deur is "doorWidth" × "doorHeight" mm (gegeven in user message).
+- Verticale lijnen worden gemeten in mm vanaf de LINKER rand (x).
+- Horizontale lijnen (dwarslatten) worden gemeten in mm vanaf de ONDERRAND (y).
+- Alle waarden zijn integers in millimeters.
+- Marges: lijnen moeten minstens 50mm van een rand liggen, dus
+  50 ≤ x ≤ doorWidth-50  en  50 ≤ y ≤ doorHeight-50.
+- Max 5 verticale + 5 horizontale lijnen.
+
+VEELGEBRUIKTE TERMINOLOGIE (Nederlands):
+- "dwarslat" / "dwarsbalk" = horizontale lijn
+- "middenstijl" / "verticale lijn" = verticale lijn
+- "halfglas" = horizontale lijn op ~halve hoogte
+- "kruisverdeling" = 1 verticale + 1 horizontale
+- "raster 2×3" = 1 verticale + 2 horizontale (= 6 vakken)
+- "vanaf onder" / "onderaan" = lage y-waarde (bv. 200mm = laag)
+- "vanaf boven" / "bovenaan" = hoge y-waarde (= doorHeight - 200mm bij voorbeeld)
+- "midden" = doorWidth/2 of doorHeight/2
+- "1/3 hoogte" = doorHeight × 0.33 vanaf onder
+
+FREEHAND-INTERPRETATIE:
+Bij vrije strokes: kijk per stroke naar de START en END punten.
+- Als |dx| > |dy| EN het pad is relatief recht → horizontale lijn op gemiddelde y
+- Als |dy| > |dx| EN relatief recht → verticale lijn op gemiddelde x
+- Wiebelig of cirkelvormig → negeer (geen valide grid-lijn)
+- Snap naar logische posities indien dicht bij midden/1/3/2/3 (binnen 30mm).
+
+ALTIJD aanroepen: de tool "set_sketch_lines" met de bepaalde lijnen. Geef
+ook een korte uitleg in het Nederlands (1 zin) van wat je hebt geïnterpreteerd.`
+
+// ─── Tool definition for structured output ─────────────────────
+const SKETCH_TOOL: Anthropic.Tool = {
+  name: 'set_sketch_lines',
+  description:
+    'Stel de structured grid-lijnen in voor de deurschets. Roep deze tool exact één keer aan met de geïnterpreteerde lijnen.',
+  input_schema: {
+    type: 'object',
+    properties: {
+      verticalLines: {
+        type: 'array',
+        maxItems: 5,
+        items: {
+          type: 'object',
+          properties: {
+            x: {
+              type: 'integer',
+              description: 'Positie in mm vanaf links',
+            },
+          },
+          required: ['x'],
+        },
+      },
+      horizontalLines: {
+        type: 'array',
+        maxItems: 5,
+        items: {
+          type: 'object',
+          properties: {
+            y: {
+              type: 'integer',
+              description: 'Positie in mm vanaf onder',
+            },
+          },
+          required: ['y'],
+        },
+      },
+      explanation: {
+        type: 'string',
+        description: 'Korte uitleg in het Nederlands van de interpretatie',
+      },
+    },
+    required: ['verticalLines', 'horizontalLines', 'explanation'],
+  },
+}
+
+// ─── Request validation ─────────────────────────────────────────
+interface FreehandStrokeInput {
+  d?: string
+  points?: { x: number; y: number }[]
+}
+interface RequestBody {
+  mode: 'text' | 'freehand'
+  doorWidth: number
+  doorHeight: number
+  text?: string
+  strokes?: FreehandStrokeInput[]
+}
+
+function validate(body: unknown): { ok: true; body: RequestBody } | { ok: false; error: string } {
+  if (!body || typeof body !== 'object') return { ok: false, error: 'Body ontbreekt' }
+  const b = body as Record<string, unknown>
+  if (b.mode !== 'text' && b.mode !== 'freehand') return { ok: false, error: 'Ongeldige mode' }
+  const w = Number(b.doorWidth)
+  const h = Number(b.doorHeight)
+  if (!Number.isFinite(w) || w < 600 || w > 1500) return { ok: false, error: 'doorWidth buiten 600–1500' }
+  if (!Number.isFinite(h) || h < 1800 || h > 3500) return { ok: false, error: 'doorHeight buiten 1800–3500' }
+  if (b.mode === 'text') {
+    if (typeof b.text !== 'string' || !b.text.trim()) return { ok: false, error: 'text ontbreekt' }
+    if (b.text.length > 2000) return { ok: false, error: 'text te lang' }
+  } else {
+    if (!Array.isArray(b.strokes) || b.strokes.length === 0) return { ok: false, error: 'strokes ontbreken' }
+    if (b.strokes.length > 50) return { ok: false, error: 'te veel strokes' }
+  }
+  return { ok: true, body: b as unknown as RequestBody }
+}
+
+// ─── Stroke compression: full SVG paths kunnen veel tokens kosten ─
+// Pak per stroke de start, mid, end en bbox — genoeg voor interpretatie.
+function summarizeStrokes(strokes: FreehandStrokeInput[]): string {
+  const lines: string[] = []
+  for (let i = 0; i < strokes.length; i++) {
+    const s = strokes[i]
+    const pts = extractPoints(s)
+    if (pts.length === 0) {
+      lines.push(`stroke ${i + 1}: <leeg>`)
+      continue
+    }
+    const start = pts[0]
+    const end = pts[pts.length - 1]
+    const mid = pts[Math.floor(pts.length / 2)]
+    const xs = pts.map((p) => p.x)
+    const ys = pts.map((p) => p.y)
+    const minX = Math.min(...xs)
+    const maxX = Math.max(...xs)
+    const minY = Math.min(...ys)
+    const maxY = Math.max(...ys)
+    lines.push(
+      `stroke ${i + 1}: start(${start.x.toFixed(0)},${start.y.toFixed(0)}) mid(${mid.x.toFixed(0)},${mid.y.toFixed(0)}) end(${end.x.toFixed(0)},${end.y.toFixed(0)}) bbox(${minX.toFixed(0)}-${maxX.toFixed(0)}, ${minY.toFixed(0)}-${maxY.toFixed(0)}) ${pts.length}pts`,
+    )
+  }
+  return lines.join('\n')
+}
+
+function extractPoints(s: FreehandStrokeInput): { x: number; y: number }[] {
+  if (Array.isArray(s.points)) return s.points
+  if (typeof s.d !== 'string') return []
+  // Parse SVG path "M x y L x y L x y" — accepteert M/L/m/l, geen curves.
+  const out: { x: number; y: number }[] = []
+  const tokens = s.d.trim().split(/[\s,]+/)
+  let i = 0
+  while (i < tokens.length) {
+    const t = tokens[i]
+    if (t === 'M' || t === 'L' || t === 'm' || t === 'l') {
+      i++
+      const x = Number(tokens[i++])
+      const y = Number(tokens[i++])
+      if (Number.isFinite(x) && Number.isFinite(y)) out.push({ x, y })
+    } else if (!isNaN(Number(t))) {
+      const x = Number(t)
+      const y = Number(tokens[++i])
+      i++
+      if (Number.isFinite(x) && Number.isFinite(y)) out.push({ x, y })
+    } else {
+      i++
+    }
+  }
+  return out
+}
+
+function buildUserMessage(body: RequestBody): string {
+  if (body.mode === 'text') {
+    return `Deur: ${body.doorWidth} × ${body.doorHeight} mm
+
+Beschrijving van de glasverdeling:
+"${body.text!.trim()}"
+
+Geef de exacte verticale en horizontale lijnen.`
+  }
+  return `Deur: ${body.doorWidth} × ${body.doorHeight} mm
+
+De medewerker heeft deze vrije strokes op het deurblad getekend
+(coördinaten zijn in mm; oorsprong linksboven, x vanaf links, y vanaf BOVEN):
+
+${summarizeStrokes(body.strokes!)}
+
+LET OP: alle y-waarden hierboven zijn vanaf BOVEN. Bij teruggave moeten
+horizontale lijnen worden uitgedrukt vanaf ONDER, dus: y_terug = ${body.doorHeight} - y_top.
+
+Interpreteer de strokes als grid-lijnen. Negeer wiebelige of irrelevante strokes.`
+}
+
+// ─── Handler ────────────────────────────────────────────────────
+export const handler: Handler = async (event: HandlerEvent) => {
+  if (event.httpMethod === 'OPTIONS') {
+    return { statusCode: 204, headers: corsHeaders(), body: '' }
+  }
+  if (event.httpMethod !== 'POST') {
+    return json(405, { error: 'Method not allowed' })
+  }
+  if (!process.env.ANTHROPIC_API_KEY) {
+    return json(500, { error: 'AI niet geconfigureerd op de server (ANTHROPIC_API_KEY ontbreekt)' })
+  }
+
+  // Soft auth: vereis een Bearer header. Voorkomt anonieme hits.
+  // Volledige Supabase JWT-verificatie is mogelijk maar overkill voor v1.
+  const auth = event.headers.authorization || event.headers.Authorization
+  if (!auth || !auth.toLowerCase().startsWith('bearer ')) {
+    return json(401, { error: 'Authorization header ontbreekt' })
+  }
+
+  let body: unknown
+  try {
+    body = JSON.parse(event.body || '{}')
+  } catch {
+    return json(400, { error: 'Ongeldige JSON' })
+  }
+  const v = validate(body)
+  if (!v.ok) return json(400, { error: v.error })
+
+  const userMessage = buildUserMessage(v.body)
+
+  try {
+    const response = await client.messages.create({
+      model: 'claude-opus-4-7',
+      max_tokens: 1024,
+      // Cache het systeemprompt — het is identiek voor elke request.
+      system: [{ type: 'text', text: SYSTEM_PROMPT, cache_control: { type: 'ephemeral' } }],
+      tools: [SKETCH_TOOL],
+      tool_choice: { type: 'tool', name: 'set_sketch_lines' },
+      // Lage effort = snelle response voor deze parsing-taak.
+      output_config: { effort: 'low' },
+      messages: [{ role: 'user', content: userMessage }],
+    })
+
+    const toolUse = response.content.find(
+      (b): b is Anthropic.ToolUseBlock => b.type === 'tool_use',
+    )
+    if (!toolUse) {
+      return json(502, { error: 'Model gaf geen tool-output' })
+    }
+
+    const result = toolUse.input as {
+      verticalLines: { x: number }[]
+      horizontalLines: { y: number }[]
+      explanation: string
+    }
+
+    // Server-side clamp — paranoia voor model dat buiten range gaat.
+    const { doorWidth, doorHeight } = v.body
+    const safeV = (result.verticalLines || []).slice(0, 5).map((l) => ({
+      x: clamp(Math.round(l.x), 50, doorWidth - 50),
+    }))
+    const safeH = (result.horizontalLines || []).slice(0, 5).map((l) => ({
+      y: clamp(Math.round(l.y), 50, doorHeight - 50),
+    }))
+
+    return json(200, {
+      verticalLines: safeV,
+      horizontalLines: safeH,
+      explanation: result.explanation ?? '',
+      usage: {
+        input_tokens: response.usage.input_tokens,
+        output_tokens: response.usage.output_tokens,
+        cache_read: response.usage.cache_read_input_tokens ?? 0,
+        cache_create: response.usage.cache_creation_input_tokens ?? 0,
+      },
+    })
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err)
+    if (err instanceof Anthropic.RateLimitError) {
+      return json(429, { error: 'Rate limit bereikt; probeer over enkele seconden opnieuw' })
+    }
+    if (err instanceof Anthropic.AuthenticationError) {
+      return json(500, { error: 'AI niet correct geconfigureerd (auth-fout)' })
+    }
+    return json(500, { error: `AI-aanroep mislukt: ${message}` })
+  }
+}
+
+function clamp(v: number, lo: number, hi: number): number {
+  return Math.max(lo, Math.min(hi, v))
+}
+
+function corsHeaders() {
+  return {
+    'Access-Control-Allow-Origin': '*',
+    'Access-Control-Allow-Methods': 'POST, OPTIONS',
+    'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+  }
+}
+
+function json(statusCode: number, body: unknown) {
+  return {
+    statusCode,
+    headers: { 'Content-Type': 'application/json', ...corsHeaders() },
+    body: JSON.stringify(body),
+  }
+}

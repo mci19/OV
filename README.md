@@ -17,6 +17,8 @@ interactieve deur-schets en offerte-generatie. Auth + cloud-data via Supabase.
 | **Kanban-pipeline** | Drag-and-drop opportunities tussen stages (touch + mouse via @dnd-kit) |
 | **Productcatalogus** | CRUD over standaard-regels; picker in offerte-editor |
 | **Activity timeline** | Stage-wijzigingen auto-gelogd via Postgres trigger; notities + order/quote-events |
+| **AI tekst → schets** | Beschrijf in NL ("2 dwarslatten onder + verticaal midden") → Claude maakt exacte grid-lijnen |
+| **AI freehand → lijnen** | Vrije schets opschonen tot structured lines via Claude tool-use |
 | **Mobile** | Responsive met drawer-nav |
 | **PWA** | Installeerbaar op iPad home screen |
 
@@ -60,10 +62,31 @@ Open http://localhost:5173 → login.
 
 ### 4. Netlify
 
-Site settings → **Environment variables** → voeg de twee `VITE_*` vars toe.
+Site settings → **Environment variables** → voeg toe:
+- `VITE_SUPABASE_URL` — uit Supabase project settings
+- `VITE_SUPABASE_ANON_KEY` — publishable key uit Supabase
+- `ANTHROPIC_API_KEY` — voor de AI-features (vraag een key aan op
+  https://console.anthropic.com/settings/keys). **Server-side only**,
+  zonder `VITE_` prefix; alleen de Netlify Function leest deze.
+
 Daarna **Deploys → Trigger deploy → Clear cache and deploy site**.
 
-`netlify.toml` regelt build + SPA-fallback + PWA cache-headers automatisch.
+`netlify.toml` regelt build + SPA-fallback + PWA cache-headers automatisch,
+en mapt `/api/ai-sketch` naar de `netlify/functions/ai-sketch.ts` Lambda.
+
+### AI-features (optioneel)
+
+Twee features in de schets-module gebruiken Claude:
+
+- **Tekst-prompt in de toolbar** (altijd zichtbaar): typ bv.
+  *"deur met 1 dwarslat onder en verticale lijn in het midden"* → Enter.
+  Genereert direct exacte grid-lijnen.
+- **Freehand omzetten** (in Vrij-modus, na een schets): klik
+  *"AI: omzet naar lijnen"* om vrije strokes om te zetten naar structured lines.
+
+Beide gebruiken `claude-opus-4-7` met tool-use voor gegarandeerde JSON output,
+prompt caching op het systeemprompt, en `effort: "low"` voor lage latency.
+Werkt alleen als `ANTHROPIC_API_KEY` is gezet — anders krijg je een foutmelding.
 
 ## Scripts
 

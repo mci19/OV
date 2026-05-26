@@ -7,7 +7,18 @@
 [build.environment]
   NODE_VERSION = "22"
 
-# SPA fallback: alle routes → index.html (React rendert client-side).
+# Functions: TypeScript bundled door esbuild (Netlify's standaard).
+[functions]
+  directory = "netlify/functions"
+  node_bundler = "esbuild"
+
+# /api/* → serverless functions (ai-sketch etc.)
+[[redirects]]
+  from = "/api/ai-sketch"
+  to = "/.netlify/functions/ai-sketch"
+  status = 200
+
+# SPA fallback: alle andere routes → index.html (React rendert client-side).
 # 200 statuscode zodat het direct serveert i.p.v. een redirect.
 [[redirects]]
   from = "/*"
