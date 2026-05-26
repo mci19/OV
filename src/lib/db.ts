@@ -112,3 +112,29 @@ export const QUOTE_STATUS_LABELS: Record<QuoteStatus, string> = {
   accepted: 'Geaccepteerd',
   declined: 'Geweigerd',
 }
+
+// ─── Products + Activities (0002 migration) ─────────────────
+
+export interface Product {
+  id: string
+  name: string
+  description: string | null
+  category: string | null
+  unit: string
+  default_price_cents: number
+  active: boolean
+  sort_order: number
+  created_by: string | null
+  created_at: string
+  updated_at: string
+}
+
+export interface Activity {
+  id: string
+  opportunity_id: string
+  kind: string // 'stage_change' | 'note' | 'order_saved' | 'quote_sent' | ...
+  message: string
+  meta: Record<string, unknown> | null
+  actor_id: string | null
+  created_at: string
+}

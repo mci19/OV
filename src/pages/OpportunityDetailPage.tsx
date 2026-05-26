@@ -6,14 +6,15 @@ import { Chips } from '../components/Field'
 import { OrderForm } from '../components/OrderForm'
 import { SketchEditor } from '../components/sketch/SketchEditor'
 import { ActionBar } from '../components/ActionBar'
-import { useOpportunity, useOrderForOpportunity, useQuotes, useSaveOrder, useUpsertOpportunity, useDeleteOpportunity } from '../lib/queries'
+import { useOpportunity, useOrderForOpportunity, useQuotes, useSaveOrder, useUpsertOpportunity, useDeleteOpportunity, useLogActivity } from '../lib/queries'
 import { STAGE_LABELS, STAGE_ORDER, type OpportunityStage } from '../lib/db'
 import { DEFAULT_ORDER, type OrderData } from '../lib/types'
 import { validateOrder } from '../lib/calculations'
 import { EmptyState, formatEur } from './HomePage'
 import { OpportunityEditor } from './OpportunitiesPage'
+import { ActivityTimeline } from '../components/ActivityTimeline'
 
-type Tab = 'order' | 'quote'
+type Tab = 'order' | 'quote' | 'activity'
 
 export function OpportunityDetailPage() {
   const { id } = useParams()
@@ -24,6 +25,7 @@ export function OpportunityDetailPage() {
   const saveOrder = useSaveOrder()
   const updateOpp = useUpsertOpportunity()
   const delOpp = useDeleteOpportunity()
+  const logActivity = useLogActivity()
 
   const [order, setOrder] = useState<OrderData>(DEFAULT_ORDER)
   const [tab, setTab] = useState<Tab>('order')
@@ -72,6 +74,11 @@ export function OpportunityDetailPage() {
     if (!id) return
     await saveOrder.mutateAsync({ id: existingOrder?.id, opportunity_id: id, data: order })
     setDirty(false)
+    logActivity.mutate({
+      opportunity_id: id,
+      kind: 'order_saved',
+      message: `Bestelling opgeslagen: ${order.breedte}×${order.hoogte} mm`,
+    })
   }
 
   async function changeStage(stage: OpportunityStage) {
@@ -131,6 +138,9 @@ export function OpportunityDetailPage() {
           <button className="chip" data-active={tab === 'quote'} onClick={() => setTab('quote')}>
             Offertes {quotes.length ? `(${quotes.length})` : ''}
           </button>
+          <button className="chip" data-active={tab === 'activity'} onClick={() => setTab('activity')}>
+            Activiteit
+          </button>
         </div>
         {tab === 'order' ? (
           <div className="flex gap-1">
@@ -147,11 +157,11 @@ export function OpportunityDetailPage() {
               <Save size={14} /> {saveOrder.isPending ? '…' : dirty ? 'Bewaar' : 'Opgeslagen'}
             </button>
           </div>
-        ) : (
+        ) : tab === 'quote' ? (
           <Link to={`/opportunities/${id}/quote/new`} className="btn btn-primary">
             <Plus size={14} /> Nieuwe offerte
           </Link>
-        )}
+        ) : null}
       </div>
 
       {/* Content */}
@@ -164,9 +174,16 @@ export function OpportunityDetailPage() {
             <SketchEditor order={order} onChange={updateOrder} />
           </main>
         </div>
-      ) : (
+      ) : tab === 'quote' ? (
         <div className="flex-1 overflow-y-auto">
           <QuotesTab opportunityId={id!} orderData={order} />
+        </div>
+      ) : (
+        <div className="flex-1 overflow-y-auto">
+          <PageContainer>
+            <h2 className="section-h">Activiteit</h2>
+            <ActivityTimeline opportunityId={id!} />
+          </PageContainer>
         </div>
       )}
 

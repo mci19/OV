@@ -1,6 +1,6 @@
 import { useMemo, useState, type FormEvent } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
-import { Plus, Search } from 'lucide-react'
+import { Plus, Search, LayoutGrid, List } from 'lucide-react'
 import { PageContainer, PageHeader } from '../components/Layout'
 import { Chips, Field, FieldRow, SelectField, TextAreaField } from '../components/Field'
 import { Dialog } from '../components/Dialog'
@@ -8,6 +8,11 @@ import { EmptyState } from './HomePage'
 import { formatEur, relativeTimeNl } from '../lib/format'
 import { useCustomers, useOpportunities, useUpsertOpportunity } from '../lib/queries'
 import { STAGE_LABELS, STAGE_ORDER, type OpportunityStage } from '../lib/db'
+import { KanbanView } from './KanbanView'
+
+type ViewMode = 'list' | 'kanban'
+
+const VIEW_KEY = 'mydoors:oppview:v1'
 
 export function OpportunitiesPage() {
   const [params] = useSearchParams()
@@ -15,8 +20,16 @@ export function OpportunitiesPage() {
   const [stageFilter, setStageFilter] = useState<'all' | OpportunityStage>(
     (params.get('stage') as OpportunityStage) || 'all',
   )
+  const [view, setView] = useState<ViewMode>(() => {
+    try { return (localStorage.getItem(VIEW_KEY) as ViewMode) || 'kanban' } catch { return 'kanban' }
+  })
   const [editing, setEditing] = useState<{ customer_id?: string } | null>(null)
   const { data: opps = [], isLoading, error } = useOpportunities()
+
+  function setViewMode(m: ViewMode) {
+    setView(m)
+    try { localStorage.setItem(VIEW_KEY, m) } catch { /* */ }
+  }
 
   const filtered = useMemo(() => {
     let list = opps
@@ -38,9 +51,32 @@ export function OpportunitiesPage() {
         title="Opportunities"
         subtitle="Pipeline en lopende offertes"
         actions={
-          <button className="btn btn-primary" onClick={() => setEditing({})}>
-            <Plus size={16} /> Nieuw
-          </button>
+          <>
+            <div className="flex border border-ink">
+              <button
+                className="btn btn-ghost btn-icon"
+                data-active={view === 'kanban' || undefined}
+                aria-label="Kanban-weergave"
+                title="Kanban"
+                onClick={() => setViewMode('kanban')}
+                style={{ background: view === 'kanban' ? 'var(--color-ink)' : undefined, color: view === 'kanban' ? 'var(--color-paper)' : undefined }}
+              >
+                <LayoutGrid size={16} />
+              </button>
+              <button
+                className="btn btn-ghost btn-icon"
+                aria-label="Lijst-weergave"
+                title="Lijst"
+                onClick={() => setViewMode('list')}
+                style={{ background: view === 'list' ? 'var(--color-ink)' : undefined, color: view === 'list' ? 'var(--color-paper)' : undefined }}
+              >
+                <List size={16} />
+              </button>
+            </div>
+            <button className="btn btn-primary" onClick={() => setEditing({})}>
+              <Plus size={16} /> Nieuw
+            </button>
+          </>
         }
       />
 
@@ -56,24 +92,26 @@ export function OpportunitiesPage() {
         </div>
       </div>
 
-      <div className="flex gap-2 overflow-x-auto pb-2 mb-4">
-        <button className="chip" data-active={stageFilter === 'all'} onClick={() => setStageFilter('all')}>
-          Alle ({opps.length})
-        </button>
-        {STAGE_ORDER.map((s) => {
-          const count = opps.filter((o) => o.stage === s).length
-          return (
-            <button
-              key={s}
-              className="chip"
-              data-active={stageFilter === s}
-              onClick={() => setStageFilter(s)}
-            >
-              {STAGE_LABELS[s]} ({count})
-            </button>
-          )
-        })}
-      </div>
+      {view === 'list' ? (
+        <div className="flex gap-2 overflow-x-auto pb-2 mb-4">
+          <button className="chip" data-active={stageFilter === 'all'} onClick={() => setStageFilter('all')}>
+            Alle ({opps.length})
+          </button>
+          {STAGE_ORDER.map((s) => {
+            const count = opps.filter((o) => o.stage === s).length
+            return (
+              <button
+                key={s}
+                className="chip"
+                data-active={stageFilter === s}
+                onClick={() => setStageFilter(s)}
+              >
+                {STAGE_LABELS[s]} ({count})
+              </button>
+            )
+          })}
+        </div>
+      ) : null}
 
       {isLoading ? <div className="text-[--color-muted] font-mono text-sm">Laden…</div> : null}
       {error ? <div className="text-accent font-mono text-sm">{(error as Error).message}</div> : null}
@@ -86,23 +124,27 @@ export function OpportunitiesPage() {
         />
       ) : null}
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-        {filtered.map((o) => (
-          <Link key={o.id} to={`/opportunities/${o.id}`} className="card card-interactive flex flex-col">
-            <div className="flex items-start justify-between gap-2 mb-2">
-              <div className="font-bold text-sm leading-tight">{o.title}</div>
-              <span className="stage-pill shrink-0" data-stage={o.stage}>{STAGE_LABELS[o.stage]}</span>
-            </div>
-            <div className="text-xs text-[--color-muted] truncate">{o.customer_name ?? '—'}</div>
-            <div className="flex items-end justify-between mt-3 gap-2">
-              {o.expected_value_cents ? (
-                <div className="font-mono text-sm font-bold tabular-nums">{formatEur(o.expected_value_cents)}</div>
-              ) : <div />}
-              <div className="font-mono text-[10px] text-[--color-muted]">{relativeTimeNl(o.updated_at)}</div>
-            </div>
-          </Link>
-        ))}
-      </div>
+      {view === 'kanban' ? (
+        <KanbanView opportunities={search.trim() ? filtered : opps} />
+      ) : (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+          {filtered.map((o) => (
+            <Link key={o.id} to={`/opportunities/${o.id}`} className="card card-interactive flex flex-col">
+              <div className="flex items-start justify-between gap-2 mb-2">
+                <div className="font-bold text-sm leading-tight">{o.title}</div>
+                <span className="stage-pill shrink-0" data-stage={o.stage}>{STAGE_LABELS[o.stage]}</span>
+              </div>
+              <div className="text-xs text-[--color-muted] truncate">{o.customer_name ?? '—'}</div>
+              <div className="flex items-end justify-between mt-3 gap-2">
+                {o.expected_value_cents ? (
+                  <div className="font-mono text-sm font-bold tabular-nums">{formatEur(o.expected_value_cents)}</div>
+                ) : <div />}
+                <div className="font-mono text-[10px] text-[--color-muted]">{relativeTimeNl(o.updated_at)}</div>
+              </div>
+            </Link>
+          ))}
+        </div>
+      )}
 
       {editing ? (
         <OpportunityEditor

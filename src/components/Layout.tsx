@@ -1,6 +1,6 @@
 import { useState, type ReactNode } from 'react'
 import { NavLink, Outlet, useNavigate } from 'react-router-dom'
-import { Home, Users, Briefcase, LogOut, Menu, X } from 'lucide-react'
+import { Home, Users, Briefcase, Package, LogOut, Menu, X } from 'lucide-react'
 import { useAuth } from '../lib/auth'
 import { supabaseConfigured } from '../lib/supabase'
 
@@ -8,6 +8,7 @@ const NAV = [
   { to: '/', icon: Home, label: 'Overzicht', end: true },
   { to: '/opportunities', icon: Briefcase, label: 'Opportunities' },
   { to: '/customers', icon: Users, label: 'Klanten' },
+  { to: '/products', icon: Package, label: 'Catalogus' },
 ]
 
 export function Layout() {

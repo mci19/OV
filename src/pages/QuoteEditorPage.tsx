@@ -5,7 +5,8 @@ import { PageContainer, PageHeader } from '../components/Layout'
 import { Field, FieldRow, SelectField } from '../components/Field'
 import { EmptyState } from './HomePage'
 import { formatEur } from '../lib/format'
-import { useOpportunity, useOrderForOpportunity, useQuote, useUpsertQuote, useDeleteQuote } from '../lib/queries'
+import { useOpportunity, useOrderForOpportunity, useProducts, useQuote, useUpsertQuote, useDeleteQuote, useLogActivity } from '../lib/queries'
+import { Dialog } from '../components/Dialog'
 import type { LineItem, QuoteStatus } from '../lib/db'
 import { QUOTE_STATUS_LABELS } from '../lib/db'
 
@@ -24,6 +25,7 @@ export function QuoteEditorPage() {
   const { data: existing, isLoading } = useQuote(quoteId === 'new' ? undefined : quoteId)
   const upsert = useUpsertQuote()
   const del = useDeleteQuote()
+  const logActivity = useLogActivity()
 
   const [reference, setReference] = useState('')
   const [validUntil, setValidUntil] = useState('')
@@ -31,6 +33,7 @@ export function QuoteEditorPage() {
   const [vatRate, setVatRate] = useState(21)
   const [items, setItems] = useState<LineItem[]>(DEFAULT_LINEITEMS)
   const [pdfBusy, setPdfBusy] = useState(false)
+  const [picker, setPicker] = useState(false)
 
   useEffect(() => {
     if (existing) {
@@ -57,6 +60,17 @@ export function QuoteEditorPage() {
   function addLine() {
     setItems((arr) => [...arr, { id: `li-${Date.now().toString(36)}`, description: '', quantity: 1, unit_cents: 0 }])
   }
+  function addFromCatalog(picked: Array<{ description: string; unit_cents: number }>) {
+    setItems((arr) => [
+      ...arr,
+      ...picked.map((p, i) => ({
+        id: `li-${Date.now().toString(36)}-${i}`,
+        description: p.description,
+        quantity: 1,
+        unit_cents: p.unit_cents,
+      })),
+    ])
+  }
   function patchLine(id: string, patch: Partial<LineItem>) {
     setItems((arr) => arr.map((i) => (i.id === id ? { ...i, ...patch } : i)))
   }
@@ -76,7 +90,14 @@ export function QuoteEditorPage() {
       valid_until: validUntil || null,
       status,
     })
-    if (quoteId === 'new') navigate(`/opportunities/${oppId}/quote/${saved.id}`, { replace: true })
+    if (quoteId === 'new') {
+      logActivity.mutate({
+        opportunity_id: oppId,
+        kind: 'quote_created',
+        message: `Offerte ${saved.reference} aangemaakt`,
+      })
+      navigate(`/opportunities/${oppId}/quote/${saved.id}`, { replace: true })
+    }
   }
 
   async function downloadPdf() {
@@ -165,11 +186,16 @@ export function QuoteEditorPage() {
           </div>
 
           <div className="card">
-            <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center justify-between mb-3 gap-2 flex-wrap">
               <h3 className="section-h !mb-0 !pb-0 !border-0">Regels</h3>
-              <button className="btn btn-sm" onClick={addLine}>
-                <Plus size={14} /> Regel
-              </button>
+              <div className="flex gap-2">
+                <button className="btn btn-sm" onClick={() => setPicker(true)}>
+                  <Plus size={14} /> Uit catalogus
+                </button>
+                <button className="btn btn-sm" onClick={addLine}>
+                  <Plus size={14} /> Lege regel
+                </button>
+              </div>
             </div>
             <div className="space-y-2">
               {items.map((i) => (
@@ -214,7 +240,101 @@ export function QuoteEditorPage() {
           </div>
         </aside>
       </div>
+
+      {picker ? (
+        <ProductPickerDialog
+          onClose={() => setPicker(false)}
+          onPick={(items) => {
+            addFromCatalog(items)
+            setPicker(false)
+          }}
+        />
+      ) : null}
     </PageContainer>
+  )
+}
+
+function ProductPickerDialog({
+  onClose,
+  onPick,
+}: { onClose: () => void; onPick: (items: { description: string; unit_cents: number }[]) => void }) {
+  const { data: products = [], isLoading } = useProducts(true)
+  const [selected, setSelected] = useState<Set<string>>(new Set())
+
+  function toggle(id: string) {
+    setSelected((s) => {
+      const next = new Set(s)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  }
+
+  function confirm() {
+    const items = products
+      .filter((p) => selected.has(p.id))
+      .map((p) => ({
+        description: p.description ? `${p.name} — ${p.description}` : p.name,
+        unit_cents: p.default_price_cents,
+      }))
+    onPick(items)
+  }
+
+  const byCategory = products.reduce<Record<string, typeof products>>((acc, p) => {
+    const k = p.category ?? 'Overig'
+    if (!acc[k]) acc[k] = []
+    acc[k].push(p)
+    return acc
+  }, {})
+
+  return (
+    <Dialog
+      open
+      onClose={onClose}
+      title="Producten uit catalogus"
+      size="lg"
+      footer={
+        <>
+          <button type="button" className="btn" onClick={onClose}>Annuleer</button>
+          <button type="button" className="btn btn-primary" onClick={confirm} disabled={selected.size === 0}>
+            Voeg toe ({selected.size})
+          </button>
+        </>
+      }
+    >
+      {isLoading ? <div className="text-[--color-muted] font-mono text-sm">Laden…</div> : null}
+      {products.length === 0 && !isLoading ? (
+        <div className="text-[--color-muted] font-mono text-sm">
+          Geen actieve producten. Voeg producten toe via <strong>Catalogus</strong>.
+        </div>
+      ) : null}
+      <div className="space-y-5">
+        {Object.entries(byCategory).map(([cat, items]) => (
+          <div key={cat}>
+            <div className="field-label">{cat}</div>
+            <div className="space-y-1">
+              {items.map((p) => (
+                <label
+                  key={p.id}
+                  className="flex items-center gap-3 p-2 border border-soft-2 hover:border-ink cursor-pointer"
+                >
+                  <input
+                    type="checkbox"
+                    checked={selected.has(p.id)}
+                    onChange={() => toggle(p.id)}
+                  />
+                  <div className="flex-1 min-w-0">
+                    <div className="font-mono text-sm">{p.name}</div>
+                    {p.description ? <div className="text-xs text-[--color-muted] truncate">{p.description}</div> : null}
+                  </div>
+                  <div className="font-mono text-sm tabular-nums">{formatEur(p.default_price_cents)}</div>
+                </label>
+              ))}
+            </div>
+          </div>
+        ))}
+      </div>
+    </Dialog>
   )
 }
 

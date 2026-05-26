@@ -1,11 +1,14 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { supabase } from './supabase'
 import type {
+  Activity,
   Customer,
   LineItem,
   Opportunity,
+  OpportunityStage,
   OpportunityWithCustomer,
   Order,
+  Product,
   Quote,
 } from './db'
 import type { OrderData } from './types'
@@ -237,5 +240,107 @@ export function useDeleteQuote() {
       if (error) throw error
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ['quotes'] }),
+  })
+}
+
+// ─── Products ─────────────────────────────────────────────────
+
+export function useProducts(activeOnly = true) {
+  return useQuery({
+    queryKey: ['products', activeOnly],
+    queryFn: async () => {
+      let q = supabase.from('products').select('*').order('sort_order', { ascending: true }).order('name')
+      if (activeOnly) q = q.eq('active', true)
+      const { data, error } = await q
+      if (error) throw error
+      return (data ?? []) as Product[]
+    },
+    staleTime: 5 * 60 * 1000,
+  })
+}
+
+export function useUpsertProduct() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (payload: Partial<Product> & { name: string }) => {
+      const { data, error } = await supabase.from('products').upsert(payload).select().single()
+      if (error) throw error
+      return data as Product
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['products'] }),
+  })
+}
+
+export function useDeleteProduct() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.from('products').delete().eq('id', id)
+      if (error) throw error
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['products'] }),
+  })
+}
+
+// ─── Activities (timeline per opportunity) ──────────────────
+
+export function useActivities(opportunityId: string | undefined) {
+  return useQuery({
+    queryKey: ['activities', opportunityId],
+    queryFn: async () => {
+      if (!opportunityId) return []
+      const { data, error } = await supabase
+        .from('activities')
+        .select('*')
+        .eq('opportunity_id', opportunityId)
+        .order('created_at', { ascending: false })
+        .limit(50)
+      if (error) throw error
+      return (data ?? []) as Activity[]
+    },
+    enabled: !!opportunityId,
+  })
+}
+
+export function useLogActivity() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (input: { opportunity_id: string; kind: string; message: string; meta?: Record<string, unknown> }) => {
+      const { data, error } = await supabase.from('activities').insert(input).select().single()
+      if (error) throw error
+      return data as Activity
+    },
+    onSuccess: (a) => qc.invalidateQueries({ queryKey: ['activities', a.opportunity_id] }),
+  })
+}
+
+// ─── Inline stage change (voor kanban DnD) ──────────────────
+
+export function useUpdateStage() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (input: { id: string; stage: OpportunityStage }) => {
+      const { data, error } = await supabase
+        .from('opportunities')
+        .update({ stage: input.stage })
+        .eq('id', input.id)
+        .select()
+        .single()
+      if (error) throw error
+      return data as Opportunity
+    },
+    // Optimistic update zodat de kaart direct in de juiste kolom verschijnt
+    onMutate: async ({ id, stage }) => {
+      await qc.cancelQueries({ queryKey: ['opportunities'] })
+      const previous = qc.getQueriesData<OpportunityWithCustomer[]>({ queryKey: ['opportunities'] })
+      qc.setQueriesData<OpportunityWithCustomer[]>({ queryKey: ['opportunities'] }, (old) =>
+        old ? old.map((o) => (o.id === id ? { ...o, stage } : o)) : old,
+      )
+      return { previous }
+    },
+    onError: (_err, _vars, ctx) => {
+      ctx?.previous.forEach(([key, data]) => qc.setQueryData(key, data))
+    },
+    onSettled: () => qc.invalidateQueries({ queryKey: ['opportunities'] }),
   })
 }

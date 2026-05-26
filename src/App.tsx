@@ -10,6 +10,7 @@ const CustomerDetailPage = lazy(() => import('./pages/CustomersPage').then((m) =
 const OpportunitiesPage = lazy(() => import('./pages/OpportunitiesPage').then((m) => ({ default: m.OpportunitiesPage })))
 const OpportunityDetailPage = lazy(() => import('./pages/OpportunityDetailPage').then((m) => ({ default: m.OpportunityDetailPage })))
 const QuoteEditorPage = lazy(() => import('./pages/QuoteEditorPage').then((m) => ({ default: m.QuoteEditorPage })))
+const ProductsPage = lazy(() => import('./pages/ProductsPage').then((m) => ({ default: m.ProductsPage })))
 
 export default function App() {
   return (
@@ -23,6 +24,7 @@ export default function App() {
           <Route path="opportunities" element={<L><OpportunitiesPage /></L>} />
           <Route path="opportunities/:id" element={<L><OpportunityDetailPage /></L>} />
           <Route path="opportunities/:id/quote/:quoteId" element={<L><QuoteEditorPage /></L>} />
+          <Route path="products" element={<L><ProductsPage /></L>} />
         </Route>
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />
