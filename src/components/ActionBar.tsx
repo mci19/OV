@@ -92,12 +92,12 @@ export function ActionBar({ order, hasErrors, onSavedConcept }: Props) {
           </span>
         )}
       </div>
-      <button type="button" className="option-chip" onClick={snapConcept} disabled={!!busy}>
+      <button type="button" className="chip" onClick={snapConcept} disabled={!!busy}>
         Bewaar concept
       </button>
       <button
         type="button"
-        className="option-chip"
+        className="chip"
         onClick={() => downloadPdf('klant')}
         disabled={!!busy || hasErrors}
       >
@@ -105,7 +105,7 @@ export function ActionBar({ order, hasErrors, onSavedConcept }: Props) {
       </button>
       <button
         type="button"
-        className="option-chip"
+        className="chip"
         onClick={() => downloadPdf('fabrikant')}
         disabled={!!busy || hasErrors}
       >
@@ -113,7 +113,7 @@ export function ActionBar({ order, hasErrors, onSavedConcept }: Props) {
       </button>
       <button
         type="button"
-        className="option-chip"
+        className="chip"
         data-active
         onClick={() => sharePdf('fabrikant')}
         disabled={!!busy || hasErrors}

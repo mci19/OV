@@ -12,52 +12,9 @@ function errorFor(issues: ValidationIssue[], field: string): string | null {
   return it ? it.message : null
 }
 
-const VERKOPERS = ['Muharrem', 'Joeri', 'Andere']
-
 export function OrderForm({ order, set, issues }: Props) {
   return (
     <div className="space-y-8">
-      <section>
-        <h2 className="section-h">Header</h2>
-        <FieldRow>
-          <Field
-            label="Klantnaam"
-            value={order.klantNaam}
-            onChange={(e) => set('klantNaam', e.target.value)}
-            error={errorFor(issues, 'klantNaam')}
-            placeholder="bv. Jan Janssens"
-          />
-          <Field
-            label="Referentie"
-            value={order.referentie}
-            onChange={(e) => set('referentie', e.target.value)}
-            placeholder="optioneel"
-          />
-        </FieldRow>
-        <div className="mt-3">
-          <FieldRow>
-            <Field
-              label="Datum"
-              type="date"
-              value={order.datum}
-              onChange={(e) => set('datum', e.target.value)}
-            />
-            <label className="block">
-              <span className="field-label">Verkoper</span>
-              <select
-                className="field-input"
-                value={order.verkoper}
-                onChange={(e) => set('verkoper', e.target.value)}
-              >
-                {VERKOPERS.map((v) => (
-                  <option key={v} value={v}>{v}</option>
-                ))}
-              </select>
-            </label>
-          </FieldRow>
-        </div>
-      </section>
-
       <section>
         <h2 className="section-h">Dimensies</h2>
         <Chips

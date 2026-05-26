@@ -134,7 +134,7 @@ export function SketchEditor({ order, onChange }: Props) {
             <button
               key={m}
               type="button"
-              className="option-chip"
+              className="chip"
               data-active={mode === m}
               onClick={() => setMode(m)}
             >
@@ -145,14 +145,14 @@ export function SketchEditor({ order, onChange }: Props) {
         <div className="flex gap-1 items-center flex-wrap">
           {mode === 'lijnen' ? (
             <>
-              <button type="button" className="option-chip" onClick={addVertical}>
+              <button type="button" className="chip" onClick={addVertical}>
                 + Verticaal
               </button>
-              <button type="button" className="option-chip" onClick={addHorizontal}>
+              <button type="button" className="chip" onClick={addHorizontal}>
                 + Horizontaal
               </button>
               <select
-                className="option-chip cursor-pointer"
+                className="chip cursor-pointer"
                 value={snapMode}
                 onChange={(e) => setSnapMode(e.target.value as SnapMode)}
                 aria-label="Snap"
@@ -168,7 +168,7 @@ export function SketchEditor({ order, onChange }: Props) {
             <>
               <button
                 type="button"
-                className="option-chip"
+                className="chip"
                 onClick={() => updateSketch({ freehand: [] })}
               >
                 Wis vrij
@@ -176,7 +176,7 @@ export function SketchEditor({ order, onChange }: Props) {
               {sketch.freehand.length > 0 ? (
                 <button
                   type="button"
-                  className="option-chip"
+                  className="chip"
                   onClick={() =>
                     updateSketch({ freehand: sketch.freehand.slice(0, -1) })
                   }
@@ -188,7 +188,7 @@ export function SketchEditor({ order, onChange }: Props) {
           ) : null}
           <button
             type="button"
-            className="option-chip"
+            className="chip"
             data-active={clientView}
             onClick={() => setClientView((v) => !v)}
           >
@@ -341,16 +341,16 @@ function ExactDialog({ orientation, value, max, onCancel, onConfirm, onDelete }:
         />
         <div className="font-mono text-xs text-zinc-500 mt-2">0 – {max} mm</div>
         <div className="mt-5 flex gap-2 justify-between">
-          <button type="button" className="option-chip" onClick={onDelete}>
+          <button type="button" className="chip" onClick={onDelete}>
             Verwijder lijn
           </button>
           <div className="flex gap-2">
-            <button type="button" className="option-chip" onClick={onCancel}>
+            <button type="button" className="chip" onClick={onCancel}>
               Annuleer
             </button>
             <button
               type="button"
-              className="option-chip"
+              className="chip"
               data-active
               onClick={() => {
                 const inp = document.getElementById('exact-input') as HTMLInputElement | null
