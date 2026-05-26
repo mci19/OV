@@ -4,7 +4,8 @@ import { Plus, Search } from 'lucide-react'
 import { PageContainer, PageHeader } from '../components/Layout'
 import { Chips, Field, FieldRow, SelectField, TextAreaField } from '../components/Field'
 import { Dialog } from '../components/Dialog'
-import { EmptyState, formatEur } from './HomePage'
+import { EmptyState } from './HomePage'
+import { formatEur, relativeTimeNl } from '../lib/format'
 import { useCustomers, useOpportunities, useUpsertOpportunity } from '../lib/queries'
 import { STAGE_LABELS, STAGE_ORDER, type OpportunityStage } from '../lib/db'
 
@@ -87,15 +88,18 @@ export function OpportunitiesPage() {
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
         {filtered.map((o) => (
-          <Link key={o.id} to={`/opportunities/${o.id}`} className="card card-interactive">
+          <Link key={o.id} to={`/opportunities/${o.id}`} className="card card-interactive flex flex-col">
             <div className="flex items-start justify-between gap-2 mb-2">
-              <div className="font-bold text-sm truncate">{o.title}</div>
+              <div className="font-bold text-sm leading-tight">{o.title}</div>
               <span className="stage-pill shrink-0" data-stage={o.stage}>{STAGE_LABELS[o.stage]}</span>
             </div>
             <div className="text-xs text-[--color-muted] truncate">{o.customer_name ?? '—'}</div>
-            {o.expected_value_cents ? (
-              <div className="font-mono text-sm font-bold mt-3 tabular-nums">{formatEur(o.expected_value_cents)}</div>
-            ) : null}
+            <div className="flex items-end justify-between mt-3 gap-2">
+              {o.expected_value_cents ? (
+                <div className="font-mono text-sm font-bold tabular-nums">{formatEur(o.expected_value_cents)}</div>
+              ) : <div />}
+              <div className="font-mono text-[10px] text-[--color-muted]">{relativeTimeNl(o.updated_at)}</div>
+            </div>
           </Link>
         ))}
       </div>
@@ -110,17 +114,23 @@ export function OpportunitiesPage() {
   )
 }
 
-export function OpportunityEditor({ presetCustomerId, onClose }: { presetCustomerId?: string; onClose: () => void }) {
+interface OpportunityEditorProps {
+  presetCustomerId?: string
+  existing?: import('../lib/db').Opportunity | null
+  onClose: () => void
+}
+
+export function OpportunityEditor({ presetCustomerId, existing, onClose }: OpportunityEditorProps) {
   const { data: customers = [] } = useCustomers()
   const navigate = useNavigate()
   const upsert = useUpsertOpportunity()
   const [error, setError] = useState<string | null>(null)
   const [form, setForm] = useState({
-    customer_id: presetCustomerId ?? customers[0]?.id ?? '',
-    title: '',
-    stage: 'lead' as OpportunityStage,
-    expected_value_eur: '',
-    notes: '',
+    customer_id: existing?.customer_id ?? presetCustomerId ?? customers[0]?.id ?? '',
+    title: existing?.title ?? '',
+    stage: existing?.stage ?? ('lead' as OpportunityStage),
+    expected_value_eur: existing ? (existing.expected_value_cents / 100).toFixed(2) : '',
+    notes: existing?.notes ?? '',
   })
 
   async function onSubmit(e: FormEvent) {
@@ -130,6 +140,7 @@ export function OpportunityEditor({ presetCustomerId, onClose }: { presetCustome
     try {
       const cents = Math.round(Number(form.expected_value_eur.replace(',', '.') || 0) * 100)
       const opp = await upsert.mutateAsync({
+        ...(existing ? { id: existing.id } : {}),
         customer_id: form.customer_id,
         title: form.title.trim(),
         stage: form.stage,
@@ -137,7 +148,7 @@ export function OpportunityEditor({ presetCustomerId, onClose }: { presetCustome
         notes: form.notes || null,
       })
       onClose()
-      navigate(`/opportunities/${opp.id}`)
+      if (!existing) navigate(`/opportunities/${opp.id}`)
     } catch (err) {
       setError((err as Error).message)
     }
@@ -147,12 +158,12 @@ export function OpportunityEditor({ presetCustomerId, onClose }: { presetCustome
     <Dialog
       open
       onClose={onClose}
-      title="Nieuwe opportunity"
+      title={existing ? 'Opportunity bewerken' : 'Nieuwe opportunity'}
       footer={
         <>
           <button type="button" className="btn" onClick={onClose}>Annuleer</button>
           <button type="submit" form="opp-form" className="btn btn-primary" disabled={upsert.isPending}>
-            {upsert.isPending ? '…' : 'Maak aan'}
+            {upsert.isPending ? '…' : existing ? 'Bewaar' : 'Maak aan'}
           </button>
         </>
       }

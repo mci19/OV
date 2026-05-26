@@ -1,12 +1,15 @@
+import { lazy, Suspense } from 'react'
 import { Navigate, Outlet, Route, Routes } from 'react-router-dom'
 import { useAuth } from './lib/auth'
 import { Layout } from './components/Layout'
 import { LoginPage } from './pages/LoginPage'
-import { HomePage } from './pages/HomePage'
-import { CustomersPage, CustomerDetailPage } from './pages/CustomersPage'
-import { OpportunitiesPage } from './pages/OpportunitiesPage'
-import { OpportunityDetailPage } from './pages/OpportunityDetailPage'
-import { QuoteEditorPage } from './pages/QuoteEditorPage'
+
+const HomePage = lazy(() => import('./pages/HomePage').then((m) => ({ default: m.HomePage })))
+const CustomersPage = lazy(() => import('./pages/CustomersPage').then((m) => ({ default: m.CustomersPage })))
+const CustomerDetailPage = lazy(() => import('./pages/CustomersPage').then((m) => ({ default: m.CustomerDetailPage })))
+const OpportunitiesPage = lazy(() => import('./pages/OpportunitiesPage').then((m) => ({ default: m.OpportunitiesPage })))
+const OpportunityDetailPage = lazy(() => import('./pages/OpportunityDetailPage').then((m) => ({ default: m.OpportunityDetailPage })))
+const QuoteEditorPage = lazy(() => import('./pages/QuoteEditorPage').then((m) => ({ default: m.QuoteEditorPage })))
 
 export default function App() {
   return (
@@ -14,16 +17,24 @@ export default function App() {
       <Route path="/login" element={<LoginPage />} />
       <Route element={<AuthGate />}>
         <Route element={<Layout />}>
-          <Route index element={<HomePage />} />
-          <Route path="customers" element={<CustomersPage />} />
-          <Route path="customers/:id" element={<CustomerDetailPage />} />
-          <Route path="opportunities" element={<OpportunitiesPage />} />
-          <Route path="opportunities/:id" element={<OpportunityDetailPage />} />
-          <Route path="opportunities/:id/quote/:quoteId" element={<QuoteEditorPage />} />
+          <Route index element={<L><HomePage /></L>} />
+          <Route path="customers" element={<L><CustomersPage /></L>} />
+          <Route path="customers/:id" element={<L><CustomerDetailPage /></L>} />
+          <Route path="opportunities" element={<L><OpportunitiesPage /></L>} />
+          <Route path="opportunities/:id" element={<L><OpportunityDetailPage /></L>} />
+          <Route path="opportunities/:id/quote/:quoteId" element={<L><QuoteEditorPage /></L>} />
         </Route>
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
+  )
+}
+
+function L({ children }: { children: React.ReactNode }) {
+  return (
+    <Suspense fallback={<div className="p-8 font-mono text-sm text-[--color-muted]">Laden…</div>}>
+      {children}
+    </Suspense>
   )
 }
 

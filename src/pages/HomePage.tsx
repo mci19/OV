@@ -3,6 +3,9 @@ import { Briefcase, Users, ChevronRight } from 'lucide-react'
 import { PageContainer, PageHeader } from '../components/Layout'
 import { useCustomers, useOpportunities } from '../lib/queries'
 import { STAGE_LABELS } from '../lib/db'
+import { formatEur, relativeTimeNl } from '../lib/format'
+
+export { formatEur } from '../lib/format'
 
 export function HomePage() {
   const opps = useOpportunities()
@@ -65,13 +68,16 @@ export function HomePage() {
         {recent.map((o) => (
           <Link key={o.id} to={`/opportunities/${o.id}`} className="card card-interactive">
             <div className="flex items-center justify-between gap-2 mb-2">
-              <div className="font-mono font-bold text-sm truncate">{o.title}</div>
+              <div className="font-bold text-sm truncate">{o.title}</div>
               <span className="stage-pill" data-stage={o.stage}>{STAGE_LABELS[o.stage]}</span>
             </div>
-            <div className="text-xs text-[--color-muted]">{o.customer_name ?? '—'}</div>
-            {o.expected_value_cents ? (
-              <div className="font-mono text-xs mt-2">{formatEur(o.expected_value_cents)}</div>
-            ) : null}
+            <div className="text-xs text-[--color-muted] truncate">{o.customer_name ?? '—'}</div>
+            <div className="flex items-end justify-between mt-3 gap-2">
+              {o.expected_value_cents ? (
+                <div className="font-mono text-sm tabular-nums">{formatEur(o.expected_value_cents)}</div>
+              ) : <div />}
+              <div className="font-mono text-[10px] text-[--color-muted]">{relativeTimeNl(o.updated_at)}</div>
+            </div>
           </Link>
         ))}
       </div>
@@ -98,6 +104,3 @@ export function EmptyState({ title, subtitle, cta }: { title: string; subtitle?:
   )
 }
 
-export function formatEur(cents: number): string {
-  return new Intl.NumberFormat('nl-BE', { style: 'currency', currency: 'EUR' }).format(cents / 100)
-}

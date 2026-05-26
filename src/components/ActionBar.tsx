@@ -1,8 +1,5 @@
 import { useState } from 'react'
-import { pdf } from '@react-pdf/renderer'
 import type { OrderData } from '../lib/types'
-import { FabricantOrderPDF } from './pdf/FabricantOrderPDF'
-import { ClientConfirmPDF } from './pdf/ClientConfirmPDF'
 import { orderNumber, slug } from '../lib/orderNumber'
 import { saveConcept } from '../lib/storage'
 
@@ -23,6 +20,11 @@ export function ActionBar({ order, hasErrors, onSavedConcept }: Props) {
   }
 
   async function makeBlob(target: 'fabrikant' | 'klant'): Promise<Blob> {
+    const [{ pdf }, { FabricantOrderPDF }, { ClientConfirmPDF }] = await Promise.all([
+      import('@react-pdf/renderer'),
+      import('./pdf/FabricantOrderPDF'),
+      import('./pdf/ClientConfirmPDF'),
+    ])
     const doc = target === 'fabrikant' ? <FabricantOrderPDF order={order} /> : <ClientConfirmPDF order={order} />
     return pdf(doc).toBlob()
   }

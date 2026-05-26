@@ -1,14 +1,13 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { ChevronLeft, Plus, Trash2, Download } from 'lucide-react'
-import { pdf } from '@react-pdf/renderer'
 import { PageContainer, PageHeader } from '../components/Layout'
 import { Field, FieldRow, SelectField } from '../components/Field'
-import { EmptyState, formatEur } from './HomePage'
+import { EmptyState } from './HomePage'
+import { formatEur } from '../lib/format'
 import { useOpportunity, useOrderForOpportunity, useQuote, useUpsertQuote, useDeleteQuote } from '../lib/queries'
 import type { LineItem, QuoteStatus } from '../lib/db'
 import { QUOTE_STATUS_LABELS } from '../lib/db'
-import { QuotePDF } from '../components/pdf/QuotePDF'
 
 const DEFAULT_LINEITEMS: LineItem[] = [
   { id: 'li-1', description: 'Stalen deur op maat', quantity: 1, unit_cents: 0 },
@@ -84,6 +83,10 @@ export function QuoteEditorPage() {
     if (!opp) return
     setPdfBusy(true)
     try {
+      const [{ pdf }, { QuotePDF }] = await Promise.all([
+        import('@react-pdf/renderer'),
+        import('../components/pdf/QuotePDF'),
+      ])
       const blob = await pdf(
         <QuotePDF
           opportunity={opp}

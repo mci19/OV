@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
-import { ChevronLeft, Save, Trash2, Plus, FileText } from 'lucide-react'
+import { ChevronLeft, Save, Trash2, Plus, FileText, Pencil } from 'lucide-react'
 import { PageContainer } from '../components/Layout'
 import { Chips } from '../components/Field'
 import { OrderForm } from '../components/OrderForm'
@@ -11,6 +11,7 @@ import { STAGE_LABELS, STAGE_ORDER, type OpportunityStage } from '../lib/db'
 import { DEFAULT_ORDER, type OrderData } from '../lib/types'
 import { validateOrder } from '../lib/calculations'
 import { EmptyState, formatEur } from './HomePage'
+import { OpportunityEditor } from './OpportunitiesPage'
 
 type Tab = 'order' | 'quote'
 
@@ -28,6 +29,7 @@ export function OpportunityDetailPage() {
   const [tab, setTab] = useState<Tab>('order')
   const [view, setView] = useState<'form' | 'schets'>('schets')
   const [dirty, setDirty] = useState(false)
+  const [editingOpp, setEditingOpp] = useState(false)
 
   // bij eerste load: vul order vanuit DB OF uit opportunity-context
   useEffect(() => {
@@ -110,8 +112,11 @@ export function OpportunityDetailPage() {
           ))}
         </select>
         {opp.expected_value_cents ? (
-          <div className="font-mono text-sm font-bold hidden sm:block">{formatEur(opp.expected_value_cents)}</div>
+          <div className="font-mono text-sm font-bold hidden sm:block tabular-nums">{formatEur(opp.expected_value_cents)}</div>
         ) : null}
+        <button className="btn btn-ghost btn-icon" onClick={() => setEditingOpp(true)} aria-label="Bewerken">
+          <Pencil size={16} />
+        </button>
         <button className="btn btn-ghost btn-icon" onClick={onDelete} aria-label="Verwijder">
           <Trash2 size={16} />
         </button>
@@ -167,6 +172,10 @@ export function OpportunityDetailPage() {
 
       {tab === 'order' ? (
         <ActionBar order={order} hasErrors={hasErrors} />
+      ) : null}
+
+      {editingOpp ? (
+        <OpportunityEditor existing={opp} onClose={() => setEditingOpp(false)} />
       ) : null}
     </div>
   )
