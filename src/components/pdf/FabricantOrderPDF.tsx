@@ -11,7 +11,10 @@ import {
   variantLabel,
 } from '../../lib/calculations'
 import { orderNumber } from '../../lib/orderNumber'
+import { generateCutList } from '../../lib/cutList'
 import { SketchPdfBlock } from './SketchPdfBlock'
+import { CutListPdfBlock } from './CutListPdfBlock'
+import { CrossSectionPdf } from './CrossSectionPdf'
 
 const styles = StyleSheet.create({
   page: { padding: 36, fontFamily: 'Helvetica', fontSize: 10, color: '#0A0A0A' },
@@ -35,6 +38,7 @@ interface Props {
 
 export function FabricantOrderPDF({ order }: Props) {
   const nr = orderNumber(order)
+  const cutList = generateCutList(order)
   return (
     <Document title={`MY DOORS — ${nr}`} author="MY DOORS" subject="Fabrikant bestelling">
       <Page size="A4" style={styles.page}>
@@ -118,6 +122,34 @@ export function FabricantOrderPDF({ order }: Props) {
         </Text>
       </Page>
 
+      {/* Zaaglijst — exact in MY DOORS productie-format */}
+      <Page size="A4" style={styles.page}>
+        <View style={styles.header}>
+          <View>
+            <Text style={styles.h1}>Zaaglijst</Text>
+            <Text style={styles.hSub}>{order.datum} · MY DOORS-{order.klantNaam || order.referentie || 'klant'}</Text>
+          </View>
+          <View style={styles.rightHead}>
+            <Text>Nr.: {nr}</Text>
+          </View>
+        </View>
+
+        {/* Profiel-doorsnede bovenaan */}
+        <View style={{ alignItems: 'center', marginVertical: 10 }}>
+          <CrossSectionPdf width={420} height={100} />
+        </View>
+
+        {/* De zaaglijst zelf */}
+        <View style={{ marginTop: 6 }}>
+          <CutListPdfBlock items={cutList.items} headerLine={cutList.headerLine} ralLine={cutList.ralLine} />
+        </View>
+
+        <Text style={styles.footer} fixed>
+          <Text>MY DOORS · {nr}</Text>
+          <Text>zaaglijst</Text>
+        </Text>
+      </Page>
+
       {order.sketch.freehand.length > 0 ? (
         <Page size="A4" style={styles.page}>
           <View style={styles.header}>
@@ -134,7 +166,7 @@ export function FabricantOrderPDF({ order }: Props) {
           </View>
           <Text style={styles.footer} fixed>
             <Text>MY DOORS · {nr}</Text>
-            <Text>p. 3</Text>
+            <Text>p. 4</Text>
           </Text>
         </Page>
       ) : null}
