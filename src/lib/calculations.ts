@@ -62,15 +62,26 @@ export function finishingLabel(o: OrderData): string {
 }
 
 export function handleLabel(o: OrderData): string {
-  if (o.handleKind === 'l_grip') return 'L-greep'
-  if (o.handleKind === 'l_vertical') return `L-verticaal ${o.handleVerticalMm} mm`
-  return o.handleOther.trim() || 'Greep — vrij'
+  switch (o.handleKind) {
+    case 'l_grip':        return 'L-greep'
+    case 'l_vertical':    return `L-verticaal ${o.handleVerticalMm} mm`
+    case 'horizontal_bar': return 'Horizontale stang'
+    case 'round_knob':    return 'Ronde knop'
+    case 'pull_bar':      return `Pull-bar ${o.handleVerticalMm} mm`
+    case 'recessed_pull': return 'Verzonken greep'
+    case 'other':         return o.handleOther.trim() || 'Greep — vrij'
+  }
 }
 
 export function lockLabel(o: OrderData): string {
-  if (o.lockKind === 'cilinder_litto') return 'Cilinder Litto 30/30'
-  if (o.lockKind === 'no_cilinder') return 'Geen cilinder'
-  return o.lockOther.trim() || 'Ander slot'
+  switch (o.lockKind) {
+    case 'cilinder_litto': return 'Cilinder Litto 30/30'
+    case 'magnetic':       return 'Magneetslot'
+    case 'electronic':     return 'Elektronisch slot / smart-lock'
+    case 'keyhole_only':   return 'Alleen sleutelgat (zonder klink)'
+    case 'no_cilinder':    return 'Geen cilinder'
+    case 'other':          return o.lockOther.trim() || 'Ander slot'
+  }
 }
 
 export function hingeLabel(o: OrderData): string {

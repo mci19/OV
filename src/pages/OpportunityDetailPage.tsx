@@ -15,6 +15,7 @@ import { OpportunityEditor } from './OpportunitiesPage'
 import { ActivityTimeline } from '../components/ActivityTimeline'
 
 type Tab = 'order' | 'quote' | 'activity'
+type View = 'split' | 'schets' | 'form'
 
 export function OpportunityDetailPage() {
   const { id } = useParams()
@@ -30,7 +31,9 @@ export function OpportunityDetailPage() {
 
   const [order, setOrder] = useState<OrderData>(DEFAULT_ORDER)
   const [tab, setTab] = useState<Tab>('order')
-  const [view, setView] = useState<'form' | 'schets'>('schets')
+  const [view, setView] = useState<View>(() =>
+    typeof window !== 'undefined' && window.innerWidth >= 1024 ? 'split' : 'schets',
+  )
   const [dirty, setDirty] = useState(false)
   const [editingOpp, setEditingOpp] = useState(false)
 
@@ -150,10 +153,14 @@ export function OpportunityDetailPage() {
           </button>
         </div>
         {tab === 'order' ? (
-          <div className="flex gap-1">
+          <div className="flex gap-1 flex-wrap">
             <Chips
               value={view}
-              options={[{ value: 'schets', label: 'Schets' }, { value: 'form', label: 'Formulier' }]}
+              options={[
+                { value: 'split', label: 'Beide' },
+                { value: 'schets', label: 'Schets' },
+                { value: 'form', label: 'Formulier' },
+              ]}
               onChange={(v) => setView(v)}
             />
             <button
@@ -173,13 +180,27 @@ export function OpportunityDetailPage() {
 
       {/* Content */}
       {tab === 'order' ? (
-        <div className="flex-1 grid grid-cols-1 lg:grid-cols-[420px_1fr] min-h-0" style={{ gridTemplateRows: 'minmax(0, 1fr)' }}>
-          <aside className={`border-r border-soft-2 p-4 overflow-y-auto min-h-0 ${view === 'form' ? '' : 'hidden lg:block'}`}>
-            <OrderForm order={order} set={set} issues={issues} />
-          </aside>
-          <main className={`overflow-hidden min-h-0 ${view === 'schets' ? '' : 'hidden lg:block'}`}>
-            <SketchEditor order={order} onChange={updateOrder} />
-          </main>
+        <div
+          className="flex-1 min-h-0"
+          style={{
+            display: 'grid',
+            gridTemplateRows: 'minmax(0, 1fr)',
+            gridTemplateColumns:
+              view === 'split'
+                ? typeof window !== 'undefined' && window.innerWidth >= 1024 ? '420px 1fr' : '1fr'
+                : '1fr',
+          }}
+        >
+          {view === 'split' || view === 'form' ? (
+            <aside className="border-r border-soft-2 p-4 overflow-y-auto min-h-0">
+              <OrderForm order={order} set={set} issues={issues} />
+            </aside>
+          ) : null}
+          {view === 'split' || view === 'schets' ? (
+            <main className="overflow-hidden min-h-0">
+              <SketchEditor order={order} onChange={updateOrder} />
+            </main>
+          ) : null}
         </div>
       ) : tab === 'quote' ? (
         <div className="flex-1 overflow-y-auto">

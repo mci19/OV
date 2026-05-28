@@ -18,8 +18,22 @@ export type Variant = 'panel_door' | 'double_door' | 'fritsjurgens_3'
 
 export type Finishing = 'glasslist_10' | 'glasslist_15' | 'soudal_mastiek'
 
-export type HandleKind = 'l_grip' | 'l_vertical' | 'other'
-export type LockKind = 'cilinder_litto' | 'no_cilinder' | 'other'
+export type HandleKind =
+  | 'l_grip'
+  | 'l_vertical'
+  | 'horizontal_bar'
+  | 'round_knob'
+  | 'pull_bar'
+  | 'recessed_pull'
+  | 'other'
+
+export type LockKind =
+  | 'cilinder_litto'
+  | 'magnetic'
+  | 'electronic'
+  | 'keyhole_only'
+  | 'no_cilinder'
+  | 'other'
 export type ColorKind = 'ral_9005' | 'ral_9010' | 'other'
 
 // ─── sketch ─────────────────────────────────────────────────────

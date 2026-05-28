@@ -304,79 +304,140 @@ function LockAndHandle({ order, bladeX, bladeY, bladeW, bladeH, hingeOnLeft, cli
     : bladeX + bladeW - 50
   const handleYFromTop = bladeY + bladeH - order.handlePosition.heightFromBottom
   const stroke = clientView ? '#3A3A35' : '#0A0A0A'
+  const fillBg = clientView ? '#1F1F1B' : '#FFFFFF'
+  const dirSign = handleSide === 'left' ? 1 : -1
 
-  return (
-    <g>
-      {/* Slot-cilinder (40 mm boven greep, alleen als cilinder gekozen) */}
-      {order.lockKind !== 'no_cilinder' ? (
-        <g>
-          <circle
-            cx={handleX}
-            cy={handleYFromTop - 70}
-            r={10}
-            fill="#FFFFFF"
-            stroke={stroke}
-            strokeWidth={1.4}
-            vectorEffect="non-scaling-stroke"
-          />
-          {/* sleutelgat */}
-          <circle cx={handleX} cy={handleYFromTop - 72} r={2.6} fill={stroke} />
-          <rect x={handleX - 1} y={handleYFromTop - 71} width={2} height={6} fill={stroke} />
-        </g>
-      ) : null}
-
-      {/* Handle */}
-      {order.handleKind === 'l_vertical' && order.handleVerticalMm > 100 ? (
+  // Lock visuals — verschillend per type
+  function renderLock() {
+    if (order.lockKind === 'no_cilinder') return null
+    if (order.lockKind === 'magnetic') {
+      // Magneetslot: kleine staaf op de kant van het blad
+      return (
         <rect
-          x={handleX - 8}
-          y={handleYFromTop - order.handleVerticalMm / 2}
-          width={16}
-          height={order.handleVerticalMm}
-          fill={clientView ? '#1F1F1B' : '#FFFFFF'}
-          stroke={stroke}
-          strokeWidth={1.2}
+          x={handleX - 4} y={handleYFromTop - 90}
+          width={8} height={32}
+          fill="#FFFFFF" stroke={stroke} strokeWidth={1.2}
           vectorEffect="non-scaling-stroke"
-          rx={4}
         />
-      ) : (
+      )
+    }
+    if (order.lockKind === 'electronic') {
+      // Elektronisch: keypad-vierkant
+      return (
         <g>
-          <circle
-            cx={handleX}
-            cy={handleYFromTop}
-            r={18}
-            fill={clientView ? '#1F1F1B' : '#FFFFFF'}
-            stroke={stroke}
-            strokeWidth={1.4}
-            vectorEffect="non-scaling-stroke"
-          />
-          {/* L-stuk */}
-          <line
-            x1={handleX + (handleSide === 'left' ? 18 : -18)}
-            y1={handleYFromTop}
-            x2={handleX + (handleSide === 'left' ? 100 : -100)}
-            y2={handleYFromTop}
-            stroke={stroke}
-            strokeWidth={5}
-            strokeLinecap="round"
-            vectorEffect="non-scaling-stroke"
-          />
-          {/* L-grip: extra mini-stuk haaks erop voor visueel verschil */}
-          {order.handleKind === 'l_grip' && !clientView ? (
-            <line
-              x1={handleX + (handleSide === 'left' ? 100 : -100)}
-              y1={handleYFromTop}
-              x2={handleX + (handleSide === 'left' ? 100 : -100)}
-              y2={handleYFromTop + 14}
-              stroke={stroke}
-              strokeWidth={5}
-              strokeLinecap="round"
-              vectorEffect="non-scaling-stroke"
-            />
-          ) : null}
+          <rect x={handleX - 14} y={handleYFromTop - 95} width={28} height={32} rx={3}
+            fill="#FFFFFF" stroke={stroke} strokeWidth={1.2} vectorEffect="non-scaling-stroke" />
+          {[0,1,2].map((r) => [0,1,2].map((c) => (
+            <circle key={`${r}-${c}`} cx={handleX - 8 + c * 8} cy={handleYFromTop - 87 + r * 8} r={1.4} fill={stroke} />
+          )))}
         </g>
-      )}
-    </g>
-  )
+      )
+    }
+    if (order.lockKind === 'keyhole_only') {
+      // Alleen sleutelgat: enkele dot zonder cilinder-disc
+      return (
+        <g>
+          <circle cx={handleX} cy={handleYFromTop - 60} r={3.5} fill={stroke} />
+          <rect x={handleX - 1} y={handleYFromTop - 59} width={2} height={9} fill={stroke} />
+        </g>
+      )
+    }
+    // cilinder_litto + other: cilinder-disc
+    return (
+      <g>
+        <circle cx={handleX} cy={handleYFromTop - 70} r={10}
+          fill="#FFFFFF" stroke={stroke} strokeWidth={1.4}
+          vectorEffect="non-scaling-stroke" />
+        <circle cx={handleX} cy={handleYFromTop - 72} r={2.6} fill={stroke} />
+        <rect x={handleX - 1} y={handleYFromTop - 71} width={2} height={6} fill={stroke} />
+      </g>
+    )
+  }
+
+  // Handle visuals per type
+  function renderHandle() {
+    switch (order.handleKind) {
+      case 'l_vertical': {
+        const len = Math.max(120, order.handleVerticalMm || 700)
+        return (
+          <rect x={handleX - 8} y={handleYFromTop - len / 2}
+            width={16} height={len}
+            fill={fillBg} stroke={stroke} strokeWidth={1.2}
+            vectorEffect="non-scaling-stroke" rx={4} />
+        )
+      }
+      case 'pull_bar': {
+        const len = Math.max(200, order.handleVerticalMm || 800)
+        return (
+          <g>
+            <rect x={handleX - 6} y={handleYFromTop - len / 2}
+              width={12} height={len}
+              fill={fillBg} stroke={stroke} strokeWidth={1.2}
+              vectorEffect="non-scaling-stroke" rx={6} />
+            {/* mounts */}
+            <circle cx={handleX} cy={handleYFromTop - len / 2 + 30} r={4} fill={stroke} />
+            <circle cx={handleX} cy={handleYFromTop + len / 2 - 30} r={4} fill={stroke} />
+          </g>
+        )
+      }
+      case 'horizontal_bar':
+        return (
+          <g>
+            <rect x={handleX - 8} y={handleYFromTop - 6}
+              width={16} height={12}
+              fill={fillBg} stroke={stroke} strokeWidth={1.2} rx={3}
+              vectorEffect="non-scaling-stroke" />
+            <line x1={handleX + dirSign * 8} y1={handleYFromTop}
+              x2={handleX + dirSign * 140} y2={handleYFromTop}
+              stroke={stroke} strokeWidth={8} strokeLinecap="round"
+              vectorEffect="non-scaling-stroke" />
+          </g>
+        )
+      case 'round_knob':
+        return (
+          <g>
+            <circle cx={handleX} cy={handleYFromTop} r={26}
+              fill={fillBg} stroke={stroke} strokeWidth={1.5}
+              vectorEffect="non-scaling-stroke" />
+            <circle cx={handleX} cy={handleYFromTop} r={10} fill={stroke} opacity={0.6} />
+          </g>
+        )
+      case 'recessed_pull':
+        return (
+          <g>
+            <rect x={handleX - 12} y={handleYFromTop - 30}
+              width={24} height={60} rx={6}
+              fill="#E5E2D8" stroke={stroke} strokeWidth={1.2}
+              vectorEffect="non-scaling-stroke" />
+            <rect x={handleX - 6} y={handleYFromTop - 20}
+              width={12} height={40} rx={3}
+              fill="#FFFFFF" stroke={stroke} strokeWidth={0.8} />
+          </g>
+        )
+      case 'l_grip':
+      case 'other':
+      default:
+        return (
+          <g>
+            <circle cx={handleX} cy={handleYFromTop} r={18}
+              fill={fillBg} stroke={stroke} strokeWidth={1.4}
+              vectorEffect="non-scaling-stroke" />
+            <line x1={handleX + dirSign * 18} y1={handleYFromTop}
+              x2={handleX + dirSign * 100} y2={handleYFromTop}
+              stroke={stroke} strokeWidth={5} strokeLinecap="round"
+              vectorEffect="non-scaling-stroke" />
+            {order.handleKind === 'l_grip' && !clientView ? (
+              <line x1={handleX + dirSign * 100} y1={handleYFromTop}
+                x2={handleX + dirSign * 100} y2={handleYFromTop + 14}
+                stroke={stroke} strokeWidth={5} strokeLinecap="round"
+                vectorEffect="non-scaling-stroke" />
+            ) : null}
+          </g>
+        )
+    }
+  }
+
+  return <g>{renderLock()}{renderHandle()}</g>
 }
 
 // ─── Systeem-indicator: scharnieren / pivot / sliding ────

@@ -184,25 +184,30 @@ export function OrderForm({ order, set, issues }: Props) {
       </section>
 
       <section>
-        <h2 className="section-h">Greep</h2>
+        <h2 className="section-h">Greep / klinker</h2>
         <Chips
           label="Type"
           value={order.handleKind}
           options={[
             { value: 'l_grip', label: 'L-grip' },
-            { value: 'l_vertical', label: 'L-vertical' },
-            { value: 'other', label: 'Other' },
+            { value: 'l_vertical', label: 'L-verticaal' },
+            { value: 'horizontal_bar', label: 'Horizontale stang' },
+            { value: 'round_knob', label: 'Ronde knop' },
+            { value: 'pull_bar', label: 'Pull-bar' },
+            { value: 'recessed_pull', label: 'Verzonken greep' },
+            { value: 'other', label: 'Anders' },
           ]}
           onChange={(v) => set('handleKind', v)}
         />
-        {order.handleKind === 'l_vertical' ? (
+        {order.handleKind === 'l_vertical' || order.handleKind === 'pull_bar' ? (
           <div className="mt-3">
             <Field
-              label="Lengte L-vertical"
+              label={order.handleKind === 'pull_bar' ? 'Lengte pull-bar' : 'Lengte L-verticaal'}
               unit="mm"
               type="number"
               value={order.handleVerticalMm}
               onChange={(e) => set('handleVerticalMm', Number(e.target.value))}
+              hint="bv. 700 voor long handle"
             />
           </div>
         ) : null}
@@ -249,12 +254,15 @@ export function OrderForm({ order, set, issues }: Props) {
       <section>
         <h2 className="section-h">Slot</h2>
         <Chips
-          label="Lock case"
+          label="Type slot"
           value={order.lockKind}
           options={[
-            { value: 'cilinder_litto', label: 'Cilinder (Litto 30/30)' },
-            { value: 'no_cilinder', label: 'No cilinder' },
-            { value: 'other', label: 'Other' },
+            { value: 'cilinder_litto', label: 'Cilinder Litto 30/30' },
+            { value: 'magnetic',       label: 'Magneetslot' },
+            { value: 'electronic',     label: 'Elektronisch / smart' },
+            { value: 'keyhole_only',   label: 'Alleen sleutelgat' },
+            { value: 'no_cilinder',    label: 'Geen cilinder' },
+            { value: 'other',          label: 'Anders' },
           ]}
           onChange={(v) => set('lockKind', v)}
         />
@@ -264,6 +272,7 @@ export function OrderForm({ order, set, issues }: Props) {
               label="Slot — vrij veld"
               value={order.lockOther}
               onChange={(e) => set('lockOther', e.target.value)}
+              hint="bv. dubbele cilinder, BKS, MUL-T-LOCK..."
             />
           </div>
         ) : null}
