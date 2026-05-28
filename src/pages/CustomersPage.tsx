@@ -7,6 +7,7 @@ import { Dialog } from '../components/Dialog'
 import { EmptyState } from './HomePage'
 import { useCustomer, useCustomers, useDeleteCustomer, useOpportunities, useUpsertCustomer } from '../lib/queries'
 import type { Customer } from '../lib/db'
+import { errorMessage, useToast } from '../components/Toast'
 
 export function CustomersPage() {
   const [search, setSearch] = useState('')
@@ -85,14 +86,19 @@ export function CustomerDetailPage() {
   const { data: opps = [] } = useOpportunities(id)
   const [editing, setEditing] = useState(false)
   const del = useDeleteCustomer()
+  const toast = useToast()
 
   if (isLoading) return <PageContainer><div className="text-[--color-muted] font-mono text-sm">Laden…</div></PageContainer>
   if (!customer) return <PageContainer><EmptyState title="Klant niet gevonden" /></PageContainer>
 
   async function onDelete() {
     if (!customer || !confirm(`Klant "${customer.name}" verwijderen? Alle opportunities + orders worden ook verwijderd.`)) return
-    await del.mutateAsync(customer.id)
-    navigate('/customers')
+    try {
+      await del.mutateAsync(customer.id)
+      navigate('/customers')
+    } catch (err) {
+      toast.error(`Verwijderen mislukt: ${errorMessage(err)}`)
+    }
   }
 
   return (

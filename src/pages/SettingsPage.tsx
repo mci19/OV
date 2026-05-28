@@ -444,6 +444,14 @@ function ZagerijTab() {
     setDraft((d) => ({ ...d, [k]: v }))
   }
 
+  // Invalid = NaN of negatief. Save-knop disabled tot alles geldig is zodat
+  // we nooit "NaN mm" in een zaaglijst-PDF krijgen.
+  const invalidFields = (Object.keys(draft) as (keyof CutFormulas)[]).filter((k) => {
+    const v = draft[k]
+    return !Number.isFinite(v) || v < 0
+  })
+  const isValid = invalidFields.length === 0
+
   function resetDefaults() {
     if (!confirm('Alle formules terugzetten naar de oorspronkelijke MY DOORS productie-defaults?')) return
     setDraft(DEFAULT_CUT_FORMULAS)
@@ -451,6 +459,7 @@ function ZagerijTab() {
 
   async function onSubmit(e: FormEvent) {
     e.preventDefault()
+    if (!isValid) return
     setSavedHint(null)
     try {
       await update.mutateAsync({ cut_formulas: draft })
@@ -481,30 +490,43 @@ function ZagerijTab() {
             <p className="text-xs text-[--color-muted] mt-0.5">{g.description}</p>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            {g.fields.map((field) => (
-              <Field
-                key={field.key}
-                label={field.label}
-                unit={field.unit}
-                type="number"
-                step={0.1}
-                value={draft[field.key]}
-                onChange={(e) => setField(field.key, Number(e.target.value))}
-                hint={field.hint}
-              />
-            ))}
+            {g.fields.map((field) => {
+              const value = draft[field.key]
+              const invalid = !Number.isFinite(value) || value < 0
+              return (
+                <Field
+                  key={field.key}
+                  label={field.label}
+                  unit={field.unit}
+                  type="number"
+                  step={0.1}
+                  min={0}
+                  value={Number.isFinite(value) ? value : ''}
+                  onChange={(e) => {
+                    const raw = e.target.value
+                    setField(field.key, raw === '' ? NaN : Number(raw))
+                  }}
+                  hint={field.hint}
+                  error={invalid ? 'Vul een positief getal in' : undefined}
+                />
+              )
+            })}
           </div>
         </div>
       ))}
 
       <div className="flex items-center gap-3 sticky bottom-4 z-10 p-3 bg-paper/90 backdrop-blur border border-soft-2 rounded-lg">
-        <button type="submit" className="btn btn-primary" disabled={update.isPending}>
+        <button type="submit" className="btn btn-primary" disabled={update.isPending || !isValid}>
           <Save size={14} /> {update.isPending ? 'Opslaan…' : 'Bewaar formules'}
         </button>
         <button type="button" className="btn" onClick={resetDefaults}>
           <RotateCcw size={14} /> Reset naar defaults
         </button>
-        {savedHint ? (
+        {!isValid ? (
+          <span className="font-mono text-xs text-accent">
+            {invalidFields.length} veld(en) ongeldig — corrigeer eerst
+          </span>
+        ) : savedHint ? (
           <span
             className="font-mono text-xs"
             style={{ color: savedHint.startsWith('Fout') ? 'var(--color-accent)' : 'var(--color-success)' }}

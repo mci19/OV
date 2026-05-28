@@ -68,6 +68,7 @@ export function handleLabel(o: OrderData): string {
     case 'l_vertical':     return `L-verticaal ${o.handleVerticalMm} mm`
     case 'horizontal_bar': return 'Horizontale stang 200 mm'
     case 'other':          return o.handleOther.trim() || 'Greep — vrij'
+    default:               return o.handleOther?.trim() || 'Greep — onbekend type'
   }
 }
 

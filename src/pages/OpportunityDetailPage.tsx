@@ -8,12 +8,13 @@ import { SketchEditor } from '../components/sketch/SketchEditor'
 import { ActionBar } from '../components/ActionBar'
 import { useAppSettings, useOpportunity, useOrderForOpportunity, useQuotes, useSaveOrder, useUpsertOpportunity, useDeleteOpportunity, useLogActivity } from '../lib/queries'
 import { STAGE_LABELS, STAGE_ORDER, type OpportunityStage } from '../lib/db'
-import { DEFAULT_ORDER, type OrderData } from '../lib/types'
+import { DEFAULT_ORDER, sanitizeOrderData, type OrderData } from '../lib/types'
 import { validateOrder } from '../lib/calculations'
 import { EmptyState, formatEur } from './HomePage'
 import { OpportunityEditor } from './OpportunitiesPage'
 import { ActivityTimeline } from '../components/ActivityTimeline'
 import { CutListEditDialog } from '../components/CutListEditDialog'
+import { useToast, errorMessage } from '../components/Toast'
 
 type Tab = 'order' | 'quote' | 'activity'
 type View = 'split' | 'schets' | 'form'
@@ -39,10 +40,15 @@ export function OpportunityDetailPage() {
   const [editingOpp, setEditingOpp] = useState(false)
   const [editingCutList, setEditingCutList] = useState(false)
 
-  // bij eerste load: vul order vanuit DB OF uit opportunity-context + settings
+  const toast = useToast()
+
+  // bij eerste load: vul order vanuit DB OF uit opportunity-context + settings.
+  // Re-runs ALLEEN bij wissel van order/opportunity zodat dirty edits niet
+  // worden overschreven wanneer settings refresht.
   useEffect(() => {
     if (existingOrder?.data) {
-      setOrder({ ...DEFAULT_ORDER, ...existingOrder.data })
+      // sanitizeOrderData mapt legacy handleKinds + strip oude sketch-fields
+      setOrder(sanitizeOrderData(existingOrder.data))
       setDirty(false)
     } else if (opp) {
       setOrder({
@@ -55,12 +61,12 @@ export function OpportunityDetailPage() {
         },
         klantNaam: opp.customer_name ?? '',
         referentie: opp.title,
-        datum: opp.created_at.slice(0, 10),
+        datum: (opp.created_at ?? new Date().toISOString()).slice(0, 10),
       })
       setDirty(false)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [existingOrder?.id, opp?.id, settings?.default_door_width, settings?.default_door_height, settings?.default_handle_height])
+  }, [existingOrder?.id, opp?.id])
 
   // hingeSide → handle.side
   useEffect(() => {
@@ -84,25 +90,38 @@ export function OpportunityDetailPage() {
 
   async function persist() {
     if (!id) return
-    await saveOrder.mutateAsync({ id: existingOrder?.id, opportunity_id: id, data: order })
-    setDirty(false)
-    logActivity.mutate({
-      opportunity_id: id,
-      kind: 'order_saved',
-      message: `Bestelling opgeslagen: ${order.breedte}×${order.hoogte} mm`,
-    })
+    try {
+      await saveOrder.mutateAsync({ id: existingOrder?.id, opportunity_id: id, data: order })
+      setDirty(false)
+      toast.success('Bestelling opgeslagen')
+      logActivity.mutate({
+        opportunity_id: id,
+        kind: 'order_saved',
+        message: `Bestelling opgeslagen: ${order.breedte}×${order.hoogte} mm`,
+      })
+    } catch (err) {
+      toast.error(`Opslaan mislukt: ${errorMessage(err)}`)
+    }
   }
 
   async function changeStage(stage: OpportunityStage) {
     if (!opp) return
-    await updateOpp.mutateAsync({ id: opp.id, customer_id: opp.customer_id, title: opp.title, stage })
+    try {
+      await updateOpp.mutateAsync({ id: opp.id, customer_id: opp.customer_id, title: opp.title, stage })
+    } catch (err) {
+      toast.error(`Stage wijzigen mislukt: ${errorMessage(err)}`)
+    }
   }
 
   async function onDelete() {
     if (!opp) return
     if (!confirm(`Opportunity "${opp.title}" verwijderen?`)) return
-    await delOpp.mutateAsync(opp.id)
-    navigate('/opportunities')
+    try {
+      await delOpp.mutateAsync(opp.id)
+      navigate('/opportunities')
+    } catch (err) {
+      toast.error(`Verwijderen mislukt: ${errorMessage(err)}`)
+    }
   }
 
   if (isLoading) return <PageContainer><div className="text-[--color-muted] font-mono text-sm">Laden…</div></PageContainer>

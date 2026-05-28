@@ -360,7 +360,15 @@ export function useAppSettings() {
         // Tabel bestaat nog niet (migration 0003 niet gedraaid) → fallback
         return DEFAULT_APP_SETTINGS
       }
-      return (data as AppSettings | null) ?? DEFAULT_APP_SETTINGS
+      // Defensief mergen: oudere DB-rij kan kolommen missen (bv. cut_formulas
+      // vóór migratie 0004). Default-blob garandeert dat consumers nooit
+      // undefined zien.
+      const row = (data as Partial<AppSettings> | null) ?? {}
+      return {
+        ...DEFAULT_APP_SETTINGS,
+        ...row,
+        cut_formulas: { ...DEFAULT_APP_SETTINGS.cut_formulas, ...(row.cut_formulas ?? {}) },
+      } as AppSettings
     },
     staleTime: 5 * 60 * 1000,
   })
@@ -370,13 +378,21 @@ export function useUpdateAppSettings() {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: async (patch: Partial<AppSettings>) => {
+      // Upsert in plaats van update: bij verse Supabase-projecten zonder seed
+      // bestaat de single-row nog niet, en update zou stil 0 rijen treffen.
       const { data, error } = await supabase
         .from('app_settings')
-        .update(patch)
-        .eq('id', true)
+        .upsert({ id: true, ...patch }, { onConflict: 'id' })
         .select()
         .single()
-      if (error) throw error
+      if (error) {
+        // Pretty-print veelvoorkomende Postgres-errors zodat de UI niet
+        // "[object Object]" of een raw error-code toont.
+        const msg = error.code === '42703'
+          ? `Database-kolom ontbreekt (${error.message}). Draai de migraties in supabase/migrations/.`
+          : error.message || 'Onbekende database-fout'
+        throw new Error(msg)
+      }
       return data as AppSettings
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ['app_settings'] }),

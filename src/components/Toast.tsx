@@ -1,33 +1,69 @@
-import { createContext, useCallback, useContext, useState, type ReactNode } from 'react'
+import { createContext, useCallback, useContext, useRef, useState, type ReactNode } from 'react'
+
+type ToastKind = 'info' | 'error' | 'success'
+interface ToastMsg { id: number; text: string; kind: ToastKind }
 
 interface ToastApi {
-  show: (message: string, kind?: 'info' | 'success' | 'error') => void
+  show: (text: string, kind?: ToastKind, ms?: number) => void
+  error: (text: string) => void
+  success: (text: string) => void
 }
 
 const ToastCtx = createContext<ToastApi | null>(null)
 
 export function ToastProvider({ children }: { children: ReactNode }) {
-  const [msg, setMsg] = useState<{ text: string; kind: string; id: number } | null>(null)
-  const show = useCallback<ToastApi['show']>((text, kind = 'info') => {
-    setMsg({ text, kind, id: Date.now() })
-    window.setTimeout(() => setMsg((cur) => (cur && cur.id === Date.now() ? null : cur)), 2400)
+  const [toasts, setToasts] = useState<ToastMsg[]>([])
+  const idRef = useRef(1)
+
+  const show = useCallback((text: string, kind: ToastKind = 'info', ms = 3000) => {
+    const id = idRef.current++
+    setToasts((arr) => [...arr, { id, text, kind }])
+    window.setTimeout(() => {
+      setToasts((arr) => arr.filter((t) => t.id !== id))
+    }, ms)
   }, [])
 
-  // simpler dismiss after delay
-  if (msg) {
-    setTimeout(() => setMsg((cur) => (cur && cur.id === msg.id ? null : cur)), 2400)
-  }
+  const error = useCallback((t: string) => show(t, 'error', 5000), [show])
+  const success = useCallback((t: string) => show(t, 'success', 2500), [show])
 
   return (
-    <ToastCtx.Provider value={{ show }}>
+    <ToastCtx.Provider value={{ show, error, success }}>
       {children}
-      {msg ? <div className="toast no-print">{msg.text}</div> : null}
+      <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[200] flex flex-col gap-2 items-center pointer-events-none no-print">
+        {toasts.map((t) => (
+          <div
+            key={t.id}
+            className="toast"
+            style={{
+              position: 'static',
+              transform: 'none',
+              background: t.kind === 'error' ? 'var(--color-accent)' : t.kind === 'success' ? '#1F4F4D' : 'var(--color-ink)',
+            }}
+          >
+            {t.text}
+          </div>
+        ))}
+      </div>
     </ToastCtx.Provider>
   )
 }
 
 export function useToast(): ToastApi {
   const v = useContext(ToastCtx)
-  if (!v) return { show: (m) => console.log('[toast]', m) }
+  if (!v) return {
+    show: (m) => console.log('[toast]', m),
+    error: (m) => console.error('[toast]', m),
+    success: (m) => console.log('[toast]', m),
+  }
   return v
+}
+
+/** Lift een onbekende error naar een leesbare string. */
+export function errorMessage(err: unknown): string {
+  if (err instanceof Error) return err.message
+  if (typeof err === 'string') return err
+  if (err && typeof err === 'object' && 'message' in err && typeof (err as { message: unknown }).message === 'string') {
+    return (err as { message: string }).message
+  }
+  return 'Onbekende fout'
 }

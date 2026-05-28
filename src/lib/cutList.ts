@@ -144,7 +144,8 @@ export function generateCutList(order: OrderData, formulas: CutFormulas = DEFAUL
   }
 
   // ─── Extras ─────────────────────────────────────────────
-  // Greep — vorm bepaalt profiel en lengte
+  // Greep — vorm bepaalt profiel en lengte. Onbekende kinds (legacy data)
+  // worden behandeld als 'other' zodat de fabriek altijd een greep krijgt.
   if (order.handleKind === 'l_grip') {
     items.push({ nr: null, profiel: 'Kampas 30*30', lengte: f.greep_l_grip_lengte, aantal: 2, bewerking: `L-greep ${f.greep_l_grip_lengte} mm` })
   } else if (order.handleKind === 'horizontal_bar') {
@@ -152,8 +153,8 @@ export function generateCutList(order: OrderData, formulas: CutFormulas = DEFAUL
   } else if (order.handleKind === 'l_vertical') {
     const len = Math.max(1, Math.round(order.handleVerticalMm || f.greep_other_default_lengte))
     items.push({ nr: null, profiel: 'Kampas 30*30', lengte: len, aantal: 2, bewerking: `L-verticaal ${len} mm` })
-  } else if (order.handleKind === 'other') {
-    items.push({ nr: null, profiel: 'Kampas 30*30', lengte: f.greep_other_default_lengte, aantal: 2, bewerking: order.handleOther.trim() || 'greep' })
+  } else if (order.handleKind !== 'none') {
+    items.push({ nr: null, profiel: 'Kampas 30*30', lengte: f.greep_other_default_lengte, aantal: 2, bewerking: order.handleOther?.trim() || 'greep' })
   }
   items.push({ nr: null, profiel: 'Juosta-35*4', lengte: hoogte, aantal: 2 })
   items.push({ nr: null, profiel: 'Juosta-35*4', lengte: breedte - f.juosta_horiz_aftrek, aantal: 1 })

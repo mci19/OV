@@ -43,6 +43,9 @@ export function ActionBar({ order, hasErrors, onSavedConcept }: Props) {
       a.download = `${baseFilename}-${target}.pdf`
       a.click()
       URL.revokeObjectURL(url)
+      flash(`${target === 'fabrikant' ? 'Fabrikant' : 'Klant'}-PDF gedownload`)
+    } catch (err) {
+      flash(`PDF-generatie mislukt: ${err instanceof Error ? err.message : 'onbekende fout'}`)
     } finally {
       setBusy(null)
     }

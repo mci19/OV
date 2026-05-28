@@ -163,3 +163,39 @@ export interface ValidationIssue {
   message: string
   severity: 'error' | 'warning'
 }
+
+/**
+ * Migrate-on-read voor orders die nog data gebruiken uit een vorige versie
+ * van het type-schema (verwijderde HandleKinds, asHandle op design-lijnen).
+ * Wordt aangeroepen bij het laden van een bestelling uit Supabase zodat
+ * de rest van de app altijd geldige data ziet.
+ */
+const LEGACY_HANDLE_KINDS = new Set(['pull_bar', 'round_knob', 'recessed_pull'])
+const VALID_HANDLE_KINDS: HandleKind[] = ['none', 'l_grip', 'l_vertical', 'horizontal_bar', 'other']
+
+export function sanitizeOrderData(raw: Partial<OrderData>): OrderData {
+  const merged = { ...DEFAULT_ORDER, ...raw }
+
+  // HandleKind: onbekende of verwijderde waardes → 'other' + label-fallback
+  if (!VALID_HANDLE_KINDS.includes(merged.handleKind as HandleKind)) {
+    const legacy = String(merged.handleKind)
+    const label = LEGACY_HANDLE_KINDS.has(legacy)
+      ? legacy.replace('_', ' ')
+      : 'Greep'
+    merged.handleKind = 'other'
+    merged.handleOther = merged.handleOther?.trim() || label
+  }
+
+  // Sketch: strip de oude asHandle/handleLengthMm velden uit verticalLines
+  if (merged.sketch?.verticalLines) {
+    merged.sketch = {
+      ...merged.sketch,
+      verticalLines: merged.sketch.verticalLines.map((v) => {
+        const { id, x } = v
+        return { id, x }
+      }),
+    }
+  }
+
+  return merged
+}

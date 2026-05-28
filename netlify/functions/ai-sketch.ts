@@ -207,11 +207,16 @@ export const handler: Handler = async (event: HandlerEvent) => {
     return json(500, { error: 'AI niet geconfigureerd op de server (ANTHROPIC_API_KEY ontbreekt)' })
   }
 
-  // Soft auth: vereis een Bearer header. Voorkomt anonieme hits.
-  // Volledige Supabase JWT-verificatie is mogelijk maar overkill voor v1.
+  // Hard auth: vereis een geldig Supabase JWT zodat alleen ingelogde
+  // gebruikers (en geen anonieme bots) Anthropic-credits kunnen verbruiken.
   const auth = event.headers.authorization || event.headers.Authorization
   if (!auth || !auth.toLowerCase().startsWith('bearer ')) {
     return json(401, { error: 'Authorization header ontbreekt' })
+  }
+  const token = auth.slice(7).trim()
+  const authOk = await verifySupabaseJwt(token)
+  if (!authOk) {
+    return json(401, { error: 'Ongeldige of verlopen sessie' })
   }
 
   let body: unknown
@@ -227,7 +232,7 @@ export const handler: Handler = async (event: HandlerEvent) => {
 
   try {
     const response = await client.messages.create({
-      model: 'claude-opus-4-7',
+      model: 'claude-sonnet-4-6',
       max_tokens: 1024,
       // Cache het systeemprompt — het is identiek voor elke request.
       system: [{ type: 'text', text: SYSTEM_PROMPT, cache_control: { type: 'ephemeral' } }],
@@ -285,6 +290,35 @@ export const handler: Handler = async (event: HandlerEvent) => {
 
 function clamp(v: number, lo: number, hi: number): number {
   return Math.max(lo, Math.min(hi, v))
+}
+
+/**
+ * Verifieer een Supabase JWT door /auth/v1/user te raadplegen. Geen JWT-
+ * library nodig — Supabase doet zelf de cryptografische validatie en
+ * retourneert 401 voor verlopen of vervalste tokens. Cached zou kunnen
+ * via een KV-store maar voor deze low-volume function is een directe
+ * fetch per call snel genoeg.
+ */
+async function verifySupabaseJwt(token: string): Promise<boolean> {
+  const url = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL
+  const anonKey = process.env.SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY
+  if (!url || !anonKey) {
+    // Server is mis-geconfigureerd → weiger requests in plaats van stilletjes door te laten
+    console.error('verifySupabaseJwt: SUPABASE_URL of SUPABASE_ANON_KEY ontbreekt op de server')
+    return false
+  }
+  try {
+    const res = await fetch(`${url}/auth/v1/user`, {
+      headers: {
+        apikey: anonKey,
+        Authorization: `Bearer ${token}`,
+      },
+    })
+    return res.ok
+  } catch (err) {
+    console.error('verifySupabaseJwt fetch failed:', err)
+    return false
+  }
 }
 
 function corsHeaders() {

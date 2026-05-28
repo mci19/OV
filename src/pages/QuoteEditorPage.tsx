@@ -9,6 +9,7 @@ import { useAppSettings, useOpportunity, useOrderForOpportunity, useProducts, us
 import { Dialog } from '../components/Dialog'
 import type { LineItem, QuoteStatus } from '../lib/db'
 import { QUOTE_STATUS_LABELS } from '../lib/db'
+import { errorMessage, useToast } from '../components/Toast'
 
 const DEFAULT_LINEITEMS: LineItem[] = [
   { id: 'li-1', description: 'Stalen deur op maat', quantity: 1, unit_cents: 0 },
@@ -27,6 +28,7 @@ export function QuoteEditorPage() {
   const upsert = useUpsertQuote()
   const del = useDeleteQuote()
   const logActivity = useLogActivity()
+  const toast = useToast()
 
   const [reference, setReference] = useState('')
   const [validUntil, setValidUntil] = useState('')
@@ -84,23 +86,28 @@ export function QuoteEditorPage() {
 
   async function save() {
     if (!oppId) return
-    const saved = await upsert.mutateAsync({
-      id: existing?.id,
-      opportunity_id: oppId,
-      order_id: existingOrder?.id ?? null,
-      reference,
-      line_items: items,
-      vat_rate: vatRate,
-      valid_until: validUntil || null,
-      status,
-    })
-    if (quoteId === 'new') {
-      logActivity.mutate({
+    try {
+      const saved = await upsert.mutateAsync({
+        id: existing?.id,
         opportunity_id: oppId,
-        kind: 'quote_created',
-        message: `Offerte ${saved.reference} aangemaakt`,
+        order_id: existingOrder?.id ?? null,
+        reference,
+        line_items: items,
+        vat_rate: vatRate,
+        valid_until: validUntil || null,
+        status,
       })
-      navigate(`/opportunities/${oppId}/quote/${saved.id}`, { replace: true })
+      toast.success('Offerte opgeslagen')
+      if (quoteId === 'new') {
+        logActivity.mutate({
+          opportunity_id: oppId,
+          kind: 'quote_created',
+          message: `Offerte ${saved.reference} aangemaakt`,
+        })
+        navigate(`/opportunities/${oppId}/quote/${saved.id}`, { replace: true })
+      }
+    } catch (err) {
+      toast.error(`Opslaan mislukt: ${errorMessage(err)}`)
     }
   }
 
@@ -129,6 +136,8 @@ export function QuoteEditorPage() {
       a.download = `Offerte-${reference}.pdf`
       a.click()
       URL.revokeObjectURL(url)
+    } catch (err) {
+      toast.error(`PDF-generatie mislukt: ${errorMessage(err)}`)
     } finally {
       setPdfBusy(false)
     }
@@ -137,8 +146,12 @@ export function QuoteEditorPage() {
   async function onDelete() {
     if (!existing) return
     if (!confirm('Offerte verwijderen?')) return
-    await del.mutateAsync(existing.id)
-    navigate(`/opportunities/${oppId}`)
+    try {
+      await del.mutateAsync(existing.id)
+      navigate(`/opportunities/${oppId}`)
+    } catch (err) {
+      toast.error(`Verwijderen mislukt: ${errorMessage(err)}`)
+    }
   }
 
   if (!opp) return <PageContainer><EmptyState title="Opportunity niet gevonden" /></PageContainer>
