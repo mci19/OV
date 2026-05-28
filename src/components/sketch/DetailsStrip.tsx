@@ -1,17 +1,67 @@
-import type { ReactNode } from 'react'
+import { useEffect, useState, type ReactNode } from 'react'
+import { ChevronLeft, ChevronRight, Maximize2, X } from 'lucide-react'
 import type { OrderData } from '../../lib/types'
 
 interface Props {
   order: OrderData
 }
 
+type DetailKey = 'top' | 'handle' | 'hinge' | 'glass' | 'profile'
+
+interface DetailDef {
+  key: DetailKey
+  title: string
+  subtitle: (o: OrderData) => string
+  description: string
+  render: (o: OrderData) => ReactNode
+}
+
+const DETAILS: DetailDef[] = [
+  {
+    key: 'top',
+    title: 'Bovenaanzicht',
+    subtitle: topSystemLabel,
+    description: 'De deur van bovenaf met scharnier-positie, pivot-as of sliding-rail en de open-zwaai (dashed boog).',
+    render: (o) => <TopView order={o} />,
+  },
+  {
+    key: 'handle',
+    title: 'Klinker / Greep',
+    subtitle: handleSubtitle,
+    description: 'Close-up van de greep aan de deurkant: type greep, ergonomische hoogte, eventueel slot-cilinder erboven.',
+    render: (o) => <HandleDetail order={o} />,
+  },
+  {
+    key: 'hinge',
+    title: 'Scharnier',
+    subtitle: systemSubtitle,
+    description: 'Scharnier-segmenten op de pin-as tussen kozijn en deur (of pivot-as / sliding-rail bij die systemen).',
+    render: (o) => <HingeDetail order={o} />,
+  },
+  {
+    key: 'glass',
+    title: 'Glaslijst doorsnede',
+    subtitle: finishingSubtitle,
+    description: 'Horizontale snede door het glaspaneel: kozijn-profiel + glaslijst aan beide kanten klemt het glas.',
+    render: (o) => <GlassListSection order={o} />,
+  },
+  {
+    key: 'profile',
+    title: 'Profiel 40×20×2',
+    subtitle: () => '40×20×2 staal',
+    description: 'Doorsnede van het stalen kokerprofiel waaruit het frame is opgebouwd. Wand-dikte 2 mm.',
+    render: (o) => <FrameProfile order={o} />,
+  },
+]
+
 /**
  * Strip met technische detail-aanzichten onder de hoofd-tekening.
- * Top view (bovenaanzicht), greep (klinker), scharnier, glaslijst-
- * doorsnede en profiel-doorsnede. Elke detail is een nested SVG met
- * eigen viewBox, dus elk component op zijn eigen schaal.
+ * Klik op een tegel om die in een grote modal te openen, met
+ * arrow-keys door alle 5 te bladeren.
  */
 export function DetailsStrip({ order }: Props) {
+  const [selected, setSelected] = useState<DetailKey | null>(null)
+
   return (
     <div className="border-t border-soft-2 bg-paper/40 backdrop-blur no-print">
       <div className="px-4 pt-3 pb-1 flex items-center justify-between">
@@ -19,39 +69,162 @@ export function DetailsStrip({ order }: Props) {
           Detail-aanzichten
         </div>
         <div className="font-mono text-[10px] text-[--color-muted] hidden sm:block">
-          schematisch · niet op-schaal
+          klik voor groot · schematisch · niet op-schaal
         </div>
       </div>
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-2 px-3 pb-3">
-        <DetailCard title="Bovenaanzicht" subtitle={topSystemLabel(order)}>
-          <TopView order={order} />
-        </DetailCard>
-        <DetailCard title="Klinker / Greep" subtitle={handleSubtitle(order)}>
-          <HandleDetail order={order} />
-        </DetailCard>
-        <DetailCard title="Scharnier" subtitle={systemSubtitle(order)}>
-          <HingeDetail order={order} />
-        </DetailCard>
-        <DetailCard title="Glaslijst" subtitle={finishingSubtitle(order)}>
-          <GlassListSection order={order} />
-        </DetailCard>
-        <DetailCard title="Profiel" subtitle="40×20×2 staal">
-          <FrameProfile order={order} />
-        </DetailCard>
+        {DETAILS.map((d) => (
+          <DetailCard
+            key={d.key}
+            title={d.title}
+            subtitle={d.subtitle(order)}
+            onClick={() => setSelected(d.key)}
+          >
+            {d.render(order)}
+          </DetailCard>
+        ))}
       </div>
+      {selected ? (
+        <DetailModal
+          order={order}
+          selected={selected}
+          onClose={() => setSelected(null)}
+          onChange={setSelected}
+        />
+      ) : null}
     </div>
   )
 }
 
-function DetailCard({ title, subtitle, children }: { title: string; subtitle?: string; children: ReactNode }) {
+function DetailCard({
+  title,
+  subtitle,
+  children,
+  onClick,
+}: { title: string; subtitle?: string; children: ReactNode; onClick: () => void }) {
   return (
-    <div className="bg-white border border-soft-2 rounded-md overflow-hidden flex flex-col">
+    <button
+      type="button"
+      className="bg-white border border-soft-2 rounded-md overflow-hidden flex flex-col text-left hover:border-ink hover:shadow-md transition group"
+      onClick={onClick}
+      title={`Open ${title} groot`}
+    >
       <div className="px-2.5 py-1.5 border-b border-soft-2 flex items-center justify-between gap-2 min-h-[34px]">
         <div className="font-mono text-[11px] font-bold text-[--color-brand] truncate">{title}</div>
-        {subtitle ? <div className="font-mono text-[10px] text-[--color-muted] truncate">{subtitle}</div> : null}
+        <div className="flex items-center gap-1.5">
+          {subtitle ? <div className="font-mono text-[10px] text-[--color-muted] truncate">{subtitle}</div> : null}
+          <Maximize2 size={11} className="text-[--color-muted] opacity-0 group-hover:opacity-100 transition shrink-0" />
+        </div>
       </div>
-      <div className="flex-1 min-h-[120px] grid place-items-center p-1">
+      <div className="flex-1 grid place-items-center p-1" style={{ height: 130 }}>
         {children}
+      </div>
+    </button>
+  )
+}
+
+function DetailModal({
+  order,
+  selected,
+  onClose,
+  onChange,
+}: { order: OrderData; selected: DetailKey; onClose: () => void; onChange: (k: DetailKey) => void }) {
+  const idx = DETAILS.findIndex((d) => d.key === selected)
+  const current = DETAILS[idx]
+  const prev = DETAILS[(idx - 1 + DETAILS.length) % DETAILS.length]
+  const next = DETAILS[(idx + 1) % DETAILS.length]
+
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      if (e.key === 'Escape') onClose()
+      else if (e.key === 'ArrowLeft') onChange(prev.key)
+      else if (e.key === 'ArrowRight') onChange(next.key)
+    }
+    window.addEventListener('keydown', onKey)
+    document.body.style.overflow = 'hidden'
+    return () => {
+      window.removeEventListener('keydown', onKey)
+      document.body.style.overflow = ''
+    }
+  }, [onClose, onChange, prev.key, next.key])
+
+  return (
+    <div
+      className="fixed inset-0 z-50 bg-black/55 backdrop-blur-sm flex items-center justify-center p-4 no-print"
+      onClick={onClose}
+    >
+      <div
+        className="bg-white border border-ink/10 rounded-lg w-full max-w-4xl max-h-[90dvh] flex flex-col shadow-2xl"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Header */}
+        <div className="flex items-start justify-between gap-3 px-5 py-3 border-b border-soft-2">
+          <div className="min-w-0">
+            <div className="font-mono text-[10px] uppercase tracking-[0.18em] text-[--color-muted]">
+              Detail {idx + 1} / {DETAILS.length}
+            </div>
+            <h2 className="font-bold text-lg leading-tight" style={{ color: 'var(--color-brand)' }}>
+              {current.title}
+            </h2>
+            <div className="font-mono text-xs text-[--color-muted] mt-0.5 truncate">
+              {current.subtitle(order)}
+            </div>
+          </div>
+          <button
+            type="button"
+            className="btn btn-ghost btn-icon"
+            onClick={onClose}
+            aria-label="Sluit"
+          >
+            <X size={20} />
+          </button>
+        </div>
+
+        {/* Body — large SVG */}
+        <div className="flex-1 min-h-0 grid place-items-center bg-paper/40 p-6 relative">
+          <button
+            type="button"
+            className="absolute left-2 top-1/2 -translate-y-1/2 w-11 h-11 rounded-full bg-white border border-soft-2 hover:border-ink shadow-sm grid place-items-center"
+            onClick={() => onChange(prev.key)}
+            aria-label="Vorige"
+            title={`← ${prev.title}`}
+          >
+            <ChevronLeft size={20} />
+          </button>
+          <div className="w-full h-full max-h-[60vh] flex items-center justify-center px-12">
+            {current.render(order)}
+          </div>
+          <button
+            type="button"
+            className="absolute right-2 top-1/2 -translate-y-1/2 w-11 h-11 rounded-full bg-white border border-soft-2 hover:border-ink shadow-sm grid place-items-center"
+            onClick={() => onChange(next.key)}
+            aria-label="Volgende"
+            title={`${next.title} →`}
+          >
+            <ChevronRight size={20} />
+          </button>
+        </div>
+
+        {/* Footer — description + dot navigation */}
+        <div className="border-t border-soft-2 px-5 py-3 flex items-center justify-between gap-4">
+          <p className="text-sm text-[--color-muted] flex-1">{current.description}</p>
+          <div className="flex gap-1.5 shrink-0">
+            {DETAILS.map((d) => (
+              <button
+                key={d.key}
+                type="button"
+                className="w-2 h-2 rounded-full transition-all"
+                style={{
+                  background: d.key === current.key ? 'var(--color-brand)' : 'var(--color-soft-2)',
+                  transform: d.key === current.key ? 'scale(1.3)' : 'scale(1)',
+                }}
+                onClick={() => onChange(d.key)}
+                aria-label={d.title}
+                title={d.title}
+              />
+            ))}
+          </div>
+        </div>
       </div>
     </div>
   )
@@ -67,6 +240,10 @@ function topSystemLabel(o: OrderData): string {
 function handleSubtitle(o: OrderData): string {
   if (o.handleKind === 'l_grip') return 'L-grip'
   if (o.handleKind === 'l_vertical') return `L-vert ${o.handleVerticalMm} mm`
+  if (o.handleKind === 'pull_bar') return `Pull-bar ${o.handleVerticalMm} mm`
+  if (o.handleKind === 'horizontal_bar') return 'Horizontale stang'
+  if (o.handleKind === 'round_knob') return 'Ronde knop'
+  if (o.handleKind === 'recessed_pull') return 'Verzonken'
   return o.handleOther.trim() || 'Other'
 }
 function systemSubtitle(o: OrderData): string {
@@ -97,7 +274,7 @@ function TopView({ order }: { order: OrderData }) {
   const stroke = '#3A3A35'
 
   return (
-    <svg viewBox={`0 0 ${W} ${H}`} width="100%" preserveAspectRatio="xMidYMid meet" style={{ maxHeight: 160 }}>
+    <svg viewBox={`0 0 ${W} ${H}`} width="100%" preserveAspectRatio="xMidYMid meet" style={{ width: "100%", height: "100%", maxHeight: "100%", display: "block" }}>
       {/* Sliding-rail boven */}
       {order.system === 'sliding' ? (
         <g>
@@ -232,7 +409,7 @@ function HandleDetail({ order }: { order: OrderData }) {
   const handleX = handleSide === 'left' ? doorX : doorX + doorW
 
   return (
-    <svg viewBox={`0 0 ${W} ${H}`} width="100%" preserveAspectRatio="xMidYMid meet" style={{ maxHeight: 180 }}>
+    <svg viewBox={`0 0 ${W} ${H}`} width="100%" preserveAspectRatio="xMidYMid meet" style={{ width: "100%", height: "100%", maxHeight: "100%", display: "block" }}>
       {/* Deurblad zij-aanzicht */}
       <rect x={doorX} y={doorY} width={doorW} height={doorH} fill="#5A5A55" stroke={stroke} strokeWidth={0.8} />
       <text x={doorX + doorW / 2} y={doorY - 2} fontSize={7} fill="#6B6B62" textAnchor="middle">deur</text>
@@ -334,7 +511,7 @@ function HingeDetail({ order }: { order: OrderData }) {
   if (order.system === 'pivotica') {
     // Pivot-as: cross-section met as die door deur loopt
     return (
-      <svg viewBox={`0 0 ${W} ${H}`} width="100%" preserveAspectRatio="xMidYMid meet" style={{ maxHeight: 180 }}>
+      <svg viewBox={`0 0 ${W} ${H}`} width="100%" preserveAspectRatio="xMidYMid meet" style={{ width: "100%", height: "100%", maxHeight: "100%", display: "block" }}>
         <text x={W / 2} y={14} fontSize={9} fill="#1F4F4D" textAnchor="middle" fontFamily="ui-monospace, monospace" fontWeight={600}>Pivot-as (top)</text>
         {/* Plafond + vloer */}
         <line x1={20} y1={30} x2={W - 20} y2={30} stroke="#888884" strokeWidth={0.6} />
@@ -358,7 +535,7 @@ function HingeDetail({ order }: { order: OrderData }) {
 
   if (order.system === 'sliding') {
     return (
-      <svg viewBox={`0 0 ${W} ${H}`} width="100%" preserveAspectRatio="xMidYMid meet" style={{ maxHeight: 180 }}>
+      <svg viewBox={`0 0 ${W} ${H}`} width="100%" preserveAspectRatio="xMidYMid meet" style={{ width: "100%", height: "100%", maxHeight: "100%", display: "block" }}>
         <text x={W / 2} y={14} fontSize={9} fill="#1F4F4D" textAnchor="middle" fontFamily="ui-monospace, monospace" fontWeight={600}>Sliding-rail</text>
         {/* Rail */}
         <rect x={16} y={42} width={W - 32} height={10} fill="#EFEDE5" stroke={stroke} strokeWidth={0.8} />
@@ -385,7 +562,7 @@ function HingeDetail({ order }: { order: OrderData }) {
 
   // Hinges (default)
   return (
-    <svg viewBox={`0 0 ${W} ${H}`} width="100%" preserveAspectRatio="xMidYMid meet" style={{ maxHeight: 180 }}>
+    <svg viewBox={`0 0 ${W} ${H}`} width="100%" preserveAspectRatio="xMidYMid meet" style={{ width: "100%", height: "100%", maxHeight: "100%", display: "block" }}>
       <text x={W / 2} y={14} fontSize={9} fill="#1F4F4D" textAnchor="middle" fontFamily="ui-monospace, monospace" fontWeight={600}>Scharnier (vooraanzicht)</text>
       {/* Frame plaat */}
       <rect x={36} y={32} width={28} height={94} fill="#E5E2D8" stroke="#3A3A35" strokeWidth={0.8} />
@@ -420,7 +597,7 @@ function GlassListSection({ order }: { order: OrderData }) {
   const listColor = '#5A5A55'
 
   return (
-    <svg viewBox={`0 0 ${W} ${H}`} width="100%" preserveAspectRatio="xMidYMid meet" style={{ maxHeight: 180 }}>
+    <svg viewBox={`0 0 ${W} ${H}`} width="100%" preserveAspectRatio="xMidYMid meet" style={{ width: "100%", height: "100%", maxHeight: "100%", display: "block" }}>
       <text x={W / 2} y={14} fontSize={9} fill="#1F4F4D" textAnchor="middle" fontFamily="ui-monospace, monospace" fontWeight={600}>Glaslijst doorsnede</text>
       <text x={W / 2} y={26} fontSize={7} fill="#6B6B62" textAnchor="middle">horizontale snede door glaspaneel</text>
 
@@ -479,7 +656,7 @@ function FrameProfile({ order }: { order: OrderData }) {
   const stroke = '#3A3A35'
 
   return (
-    <svg viewBox={`0 0 ${W} ${H}`} width="100%" preserveAspectRatio="xMidYMid meet" style={{ maxHeight: 180 }}>
+    <svg viewBox={`0 0 ${W} ${H}`} width="100%" preserveAspectRatio="xMidYMid meet" style={{ width: "100%", height: "100%", maxHeight: "100%", display: "block" }}>
       <text x={W / 2} y={14} fontSize={9} fill="#1F4F4D" textAnchor="middle" fontFamily="ui-monospace, monospace" fontWeight={600}>Profiel 40×20×2</text>
       <text x={W / 2} y={26} fontSize={7} fill="#6B6B62" textAnchor="middle">staal kokerprofiel</text>
 
