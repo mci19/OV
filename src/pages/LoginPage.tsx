@@ -36,15 +36,28 @@ export function LoginPage() {
   }
 
   return (
-    <div className="min-h-[100dvh] grid place-items-center bg-paper p-4">
-      <div className="w-full max-w-sm">
+    <div className="min-h-[100dvh] grid place-items-center p-4">
+      <div className="w-full max-w-md">
         <div className="mb-10 text-center">
-          <div className="font-mono text-2xl font-bold tracking-widest">MY DOORS</div>
-          <div className="font-mono text-[11px] uppercase tracking-wider text-[--color-muted] mt-1">CRM</div>
+          <div className="inline-flex items-center justify-center mb-4">
+            <div className="w-14 h-14 rounded-xl grid place-items-center" style={{ background: 'linear-gradient(135deg, var(--color-brand) 0%, #2A6664 100%)', boxShadow: 'var(--shadow-lg)' }}>
+              <svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="#FAF8F3" strokeWidth="2">
+                <rect x="5" y="2" width="14" height="20" rx="1"/>
+                <rect x="7.5" y="4" width="9" height="16" rx="0.5" opacity="0.5"/>
+                <line x1="12" y1="4" x2="12" y2="20" opacity="0.5"/>
+                <line x1="7.5" y1="14" x2="16.5" y2="14" opacity="0.5"/>
+                <circle cx="16" cy="12" r="0.8" fill="#E85D04" stroke="none"/>
+              </svg>
+            </div>
+          </div>
+          <div className="brand-mark text-3xl">MY DOORS</div>
+          <div className="font-mono text-[11px] uppercase tracking-[0.25em] text-[--color-muted] mt-2">CRM · STALEN BINNENDEUREN</div>
         </div>
 
+        <div className="card p-7">
+
         {!supabaseConfigured ? (
-          <div className="mb-4 p-3 border border-accent bg-paper text-accent font-mono text-xs">
+          <div className="mb-4 p-3 border border-accent bg-[--color-accent-soft] text-accent text-xs rounded-md">
             Supabase niet geconfigureerd. Zet <code>VITE_SUPABASE_URL</code> en <code>VITE_SUPABASE_ANON_KEY</code>.
           </div>
         ) : null}
@@ -88,7 +101,7 @@ export function LoginPage() {
           </button>
         </form>
 
-        <div className="mt-6 text-center">
+        <div className="mt-5 text-center">
           <button
             type="button"
             className="btn btn-ghost btn-sm"
@@ -96,6 +109,7 @@ export function LoginPage() {
           >
             {mode === 'signin' ? 'Nieuw account aanmaken' : 'Heb al een account — inloggen'}
           </button>
+        </div>
         </div>
       </div>
     </div>

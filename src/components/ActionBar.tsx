@@ -82,7 +82,7 @@ export function ActionBar({ order, hasErrors, onSavedConcept }: Props) {
   const offline = typeof navigator !== 'undefined' && !navigator.onLine
 
   return (
-    <div className="no-print bg-paper border-t border-black/15 px-4 py-3 flex flex-wrap items-center gap-2">
+    <div className="no-print bg-paper/90 backdrop-blur border-t border-soft-2 px-4 py-3 flex flex-wrap items-center gap-2">
       <div className="flex-1 min-w-[180px]">
         {hasErrors ? (
           <span className="font-mono text-xs text-accent">
@@ -115,17 +115,14 @@ export function ActionBar({ order, hasErrors, onSavedConcept }: Props) {
       </button>
       <button
         type="button"
-        className="chip"
-        data-active
+        className="btn btn-accent"
         onClick={() => sharePdf('fabrikant')}
         disabled={!!busy || hasErrors}
       >
         {busy === 'share-fabrikant' ? '…' : 'Verstuur naar fabrikant'}
       </button>
       {toast ? (
-        <div className="fixed bottom-20 left-1/2 -translate-x-1/2 bg-ink text-paper px-4 py-2 font-mono text-xs z-50">
-          {toast}
-        </div>
+        <div className="toast">{toast}</div>
       ) : null}
     </div>
   )

@@ -25,28 +25,32 @@ export function HomePage() {
       />
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-8">
-        <Stat label="Open opportunities" value={String(open.length)} />
-        <Stat label="Open waarde" value={formatEur(openValue)} />
-        <Stat label="Gewonnen waarde" value={formatEur(wonValue)} />
-        <Stat label="Klanten" value={String((cust.data ?? []).length)} />
+        <Stat label="Open opportunities" value={String(open.length)} tone="brand" />
+        <Stat label="Open waarde" value={formatEur(openValue)} tone="accent" />
+        <Stat label="Gewonnen waarde" value={formatEur(wonValue)} tone="success" />
+        <Stat label="Klanten" value={String((cust.data ?? []).length)} tone="info" />
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
-        <Link to="/opportunities" className="card card-interactive flex items-center justify-between">
+        <Link to="/opportunities" className="card card-interactive card-brand flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <Briefcase size={20} />
+            <div className="w-10 h-10 rounded-md grid place-items-center" style={{ background: 'var(--color-brand-tint)', color: 'var(--color-brand)' }}>
+              <Briefcase size={20} />
+            </div>
             <div>
-              <div className="font-mono font-bold text-sm">Opportunities</div>
+              <div className="font-bold text-sm">Opportunities</div>
               <div className="text-xs text-[--color-muted]">Pipeline beheren</div>
             </div>
           </div>
           <ChevronRight size={18} className="text-[--color-muted]" />
         </Link>
-        <Link to="/customers" className="card card-interactive flex items-center justify-between">
+        <Link to="/customers" className="card card-interactive card-accent flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <Users size={20} />
+            <div className="w-10 h-10 rounded-md grid place-items-center" style={{ background: 'var(--color-accent-tint)', color: 'var(--color-accent)' }}>
+              <Users size={20} />
+            </div>
             <div>
-              <div className="font-mono font-bold text-sm">Klanten</div>
+              <div className="font-bold text-sm">Klanten</div>
               <div className="text-xs text-[--color-muted]">Klantenbestand</div>
             </div>
           </div>
@@ -85,19 +89,21 @@ export function HomePage() {
   )
 }
 
-function Stat({ label, value }: { label: string; value: string }) {
+type StatTone = 'brand' | 'accent' | 'success' | 'info'
+
+function Stat({ label, value, tone = 'brand' }: { label: string; value: string; tone?: StatTone }) {
   return (
-    <div className="card">
-      <div className="text-[10px] uppercase tracking-wider text-[--color-muted] font-mono">{label}</div>
-      <div className="mt-1 text-2xl font-bold tabular-nums">{value}</div>
+    <div className="stat" data-tone={tone}>
+      <div className="stat-label">{label}</div>
+      <div className="stat-value">{value}</div>
     </div>
   )
 }
 
 export function EmptyState({ title, subtitle, cta }: { title: string; subtitle?: string; cta?: React.ReactNode }) {
   return (
-    <div className="border border-dashed border-soft-2 p-10 text-center my-4">
-      <div className="font-mono font-bold mb-1">{title}</div>
+    <div className="border border-dashed border-soft-2 p-10 text-center my-4 rounded-lg bg-white/40">
+      <div className="font-bold mb-1">{title}</div>
       {subtitle ? <div className="text-sm text-[--color-muted] mb-4">{subtitle}</div> : null}
       {cta}
     </div>

@@ -32,20 +32,20 @@ export function Layout() {
         </aside>
 
         {/* Mobile top bar */}
-        <div className="lg:hidden border-b border-soft-2 bg-paper sticky top-0 z-20 flex items-center justify-between px-3 py-2">
+        <div className="lg:hidden border-b border-soft-2 bg-paper/80 backdrop-blur sticky top-0 z-20 flex items-center justify-between px-3 py-2">
           <button className="btn btn-ghost btn-icon" onClick={() => setDrawer(true)} aria-label="Menu">
             <Menu size={20} />
           </button>
-          <div className="font-mono text-sm font-bold tracking-widest">MY DOORS</div>
+          <div className="brand-mark text-sm">MY DOORS</div>
           <div className="w-10" />
         </div>
 
         {/* Mobile drawer */}
         {drawer ? (
           <div className="lg:hidden fixed inset-0 z-30 bg-black/30" onClick={() => setDrawer(false)}>
-            <aside className="absolute left-0 top-0 bottom-0 w-72 bg-paper border-r border-ink flex flex-col" onClick={(e) => e.stopPropagation()}>
+            <aside className="absolute left-0 top-0 bottom-0 w-72 bg-paper border-r border-soft-2 flex flex-col" onClick={(e) => e.stopPropagation()}>
               <div className="flex items-center justify-between p-3 border-b border-soft-2">
-                <div className="font-mono text-sm font-bold tracking-widest">MY DOORS</div>
+                <div className="brand-mark text-sm">MY DOORS</div>
                 <button className="btn btn-ghost btn-icon" onClick={() => setDrawer(false)} aria-label="Sluit">
                   <X size={20} />
                 </button>
@@ -67,8 +67,8 @@ function SidebarContent({ onLogout, userEmail, onNavigate }: { onLogout: () => v
   return (
     <>
       <div className="p-5 hidden lg:block">
-        <div className="font-mono text-base font-bold tracking-widest leading-tight">MY DOORS</div>
-        <div className="font-mono text-[10px] uppercase tracking-wider text-[--color-muted] mt-1">CRM</div>
+        <div className="brand-mark text-lg leading-tight">MY DOORS</div>
+        <div className="font-mono text-[10px] uppercase tracking-[0.2em] text-[--color-muted] mt-1">CRM · v4</div>
       </div>
       <nav className="flex-1 flex flex-col py-2">
         {NAV.map((n) => {
@@ -113,8 +113,8 @@ export function PageHeader({ title, subtitle, actions }: { title: string; subtit
   return (
     <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-3 mb-6">
       <div>
-        <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">{title}</h1>
-        {subtitle ? <p className="text-sm text-[--color-muted] mt-1">{subtitle}</p> : null}
+        <h1 className="page-title">{title}</h1>
+        {subtitle ? <p className="page-subtitle">{subtitle}</p> : null}
       </div>
       {actions ? <div className="flex gap-2 flex-wrap">{actions}</div> : null}
     </div>
