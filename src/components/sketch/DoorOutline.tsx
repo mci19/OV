@@ -148,13 +148,14 @@ function SingleLeaf({ order, frame, glass, bladeX, bladeY, geo, clientView, hing
         x={glassX} y={glassY} w={geo.glassWidth} h={geo.glassHeight}
         order={order} glass={glass} clientView={clientView}
       />
-      {/* Lock-indicator + greep visualisatie */}
+      {/* Lock-indicator + greep visualisatie. Skip greep als een design-lijn is gemarkeerd als greep. */}
       <LockAndHandle
         order={order}
         bladeX={bladeX} bladeY={bladeY}
         bladeW={geo.bladeWidth} bladeH={geo.bladeHeight}
         hingeOnLeft={hingeOnLeft ?? true}
         clientView={clientView}
+        skipHandle={order.sketch.verticalLines.some((v) => v.asHandle)}
       />
     </g>
   )
@@ -224,6 +225,7 @@ function DoubleLeaves({ order, frame, glass, bladeX, bladeY, geo, clientView }: 
         bladeW={leafW} bladeH={geo.bladeHeight}
         hingeOnLeft={false}
         clientView={clientView}
+        skipHandle={order.sketch.verticalLines.some((v) => v.asHandle)}
       />
     </g>
   )
@@ -295,9 +297,12 @@ interface LockHandleProps {
   bladeH: number
   hingeOnLeft: boolean
   clientView: boolean
+  /** Als true: alleen het slot tekenen, geen losse greep (omdat een
+   *  design-lijn als greep fungeert) */
+  skipHandle?: boolean
 }
 
-function LockAndHandle({ order, bladeX, bladeY, bladeW, bladeH, hingeOnLeft, clientView }: LockHandleProps) {
+function LockAndHandle({ order, bladeX, bladeY, bladeW, bladeH, hingeOnLeft, clientView, skipHandle }: LockHandleProps) {
   const handleSide: 'left' | 'right' = hingeOnLeft ? 'right' : 'left'
   const handleX = handleSide === 'left'
     ? bladeX + 50
@@ -437,7 +442,7 @@ function LockAndHandle({ order, bladeX, bladeY, bladeW, bladeH, hingeOnLeft, cli
     }
   }
 
-  return <g>{renderLock()}{renderHandle()}</g>
+  return <g>{renderLock()}{skipHandle || order.handleKind === 'none' ? null : renderHandle()}</g>
 }
 
 // ─── Systeem-indicator: scharnieren / pivot / sliding ────

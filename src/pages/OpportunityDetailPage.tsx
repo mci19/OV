@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
-import { ChevronLeft, Save, Trash2, Plus, FileText, Pencil } from 'lucide-react'
+import { ChevronLeft, Save, Trash2, Plus, FileText, Pencil, Scissors } from 'lucide-react'
 import { PageContainer } from '../components/Layout'
 import { Chips } from '../components/Field'
 import { OrderForm } from '../components/OrderForm'
@@ -13,6 +13,7 @@ import { validateOrder } from '../lib/calculations'
 import { EmptyState, formatEur } from './HomePage'
 import { OpportunityEditor } from './OpportunitiesPage'
 import { ActivityTimeline } from '../components/ActivityTimeline'
+import { CutListEditDialog } from '../components/CutListEditDialog'
 
 type Tab = 'order' | 'quote' | 'activity'
 type View = 'split' | 'schets' | 'form'
@@ -36,6 +37,7 @@ export function OpportunityDetailPage() {
   )
   const [dirty, setDirty] = useState(false)
   const [editingOpp, setEditingOpp] = useState(false)
+  const [editingCutList, setEditingCutList] = useState(false)
 
   // bij eerste load: vul order vanuit DB OF uit opportunity-context + settings
   useEffect(() => {
@@ -164,6 +166,14 @@ export function OpportunityDetailPage() {
               onChange={(v) => setView(v)}
             />
             <button
+              className="btn"
+              onClick={() => setEditingCutList(true)}
+              title="Bewerk de zaaglijst die in de fabrikant-PDF terechtkomt"
+            >
+              <Scissors size={14} /> Zaaglijst
+              {order.cutListOverride ? <span className="ml-1 text-[--color-accent]">●</span> : null}
+            </button>
+            <button
               className="btn btn-primary"
               onClick={persist}
               disabled={!dirty || saveOrder.isPending}
@@ -221,6 +231,24 @@ export function OpportunityDetailPage() {
 
       {editingOpp ? (
         <OpportunityEditor existing={opp} onClose={() => setEditingOpp(false)} />
+      ) : null}
+
+      {editingCutList ? (
+        <CutListEditDialog
+          order={order}
+          onSave={(items, note) => {
+            updateOrder({
+              ...order,
+              cutListOverride: { items, note: note || undefined, updatedAt: new Date().toISOString() },
+            })
+            setEditingCutList(false)
+          }}
+          onClear={() => {
+            updateOrder({ ...order, cutListOverride: undefined })
+            setEditingCutList(false)
+          }}
+          onClose={() => setEditingCutList(false)}
+        />
       ) : null}
     </div>
   )

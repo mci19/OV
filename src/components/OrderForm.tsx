@@ -189,6 +189,7 @@ export function OrderForm({ order, set, issues }: Props) {
           label="Type"
           value={order.handleKind}
           options={[
+            { value: 'none', label: 'Geen greep' },
             { value: 'l_grip', label: 'L-grip' },
             { value: 'l_vertical', label: 'L-verticaal' },
             { value: 'horizontal_bar', label: 'Horizontale stang' },

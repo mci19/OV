@@ -6,6 +6,7 @@ import { sketchFromFreehand, sketchFromText } from '../../lib/ai'
 import { deleteSketchTemplate, instantiateSketch, listSketchTemplates, saveSketchTemplate, type SketchTemplate } from '../../lib/sketchTemplates'
 import { DoorOutline } from './DoorOutline'
 import { DraggableLine } from './DraggableLine'
+import { DraggableHandle } from './DraggableHandle'
 import { DimensionLabels } from './DimensionLabels'
 import { FreehandLayer } from './FreehandLayer'
 import { TemplateGallery } from './TemplateGallery'
@@ -32,6 +33,7 @@ export function SketchEditor({ order, onChange }: Props) {
   })
   const [savingTemplate, setSavingTemplate] = useState(false)
   const [browsingTemplates, setBrowsingTemplates] = useState(false)
+  const [handleExact, setHandleExact] = useState(false)
 
   useEffect(() => {
     try { localStorage.setItem(DETAILS_KEY, showDetails ? '1' : '0') } catch { /* */ }
@@ -248,12 +250,13 @@ export function SketchEditor({ order, onChange }: Props) {
                 className="chip cursor-pointer"
                 value={snapMode}
                 onChange={(e) => setSnapMode(e.target.value as SnapMode)}
-                aria-label="Snap"
+                aria-label="Snap-grid voor design-lijnen"
+                title="Snap-grid: lijn-positie klikt vast op veelvouden tijdens slepen. Magneet-snap naar midden/1/3/2/3 werkt altijd binnen 12 mm."
               >
-                <option value="off">Snap uit</option>
-                <option value="10">Snap 10 mm</option>
-                <option value="50">Snap 50 mm</option>
-                <option value="100">Snap 100 mm</option>
+                <option value="off">Snap uit · vrije positie</option>
+                <option value="10">Snap rooster 10 mm</option>
+                <option value="50">Snap rooster 50 mm</option>
+                <option value="100">Snap rooster 100 mm</option>
               </select>
             </>
           ) : null}
@@ -425,6 +428,8 @@ export function SketchEditor({ order, onChange }: Props) {
                 }
                 toUserX={toUserX}
                 toUserY={toUserY}
+                asHandle={v.asHandle}
+                handleLengthMm={v.handleLengthMm}
               />
             ))}
 
@@ -451,6 +456,24 @@ export function SketchEditor({ order, onChange }: Props) {
 
             {/* maatvoering — niet in klant-zicht */}
             {!clientView ? <DimensionLabels order={order} /> : null}
+
+            {/* Draggable greep — alleen interactief in tekening-mode, niet
+                in klant-zicht en niet als de greep in een design-lijn zit */}
+            {!clientView && order.handleKind !== 'none'
+              && !order.sketch.verticalLines.some((v) => v.asHandle) ? (
+              <DraggableHandle
+                heightFromBottom={order.handlePosition.heightFromBottom}
+                doorWidth={breedte}
+                doorHeight={hoogte}
+                side={order.handlePosition.side}
+                onChange={(h) => onChange({
+                  ...order,
+                  handlePosition: { ...order.handlePosition, heightFromBottom: h },
+                })}
+                onRequestExact={() => setHandleExact(true)}
+                toUserY={toUserY}
+              />
+            ) : null}
           </svg>
         </div>
       )}
@@ -462,24 +485,38 @@ export function SketchEditor({ order, onChange }: Props) {
         </div>
       ) : null}
 
-      {exactInput ? (
-        <ExactDialog
-          orientation={exactInput.orientation}
-          value={exactInput.value}
-          max={exactInput.orientation === 'vertical' ? breedte : hoogte}
-          onCancel={() => setExactInput(null)}
-          onConfirm={(v) => {
-            if (exactInput.orientation === 'vertical') setVertical(exactInput.id, v)
-            else setHorizontal(exactInput.id, v)
-            setExactInput(null)
-          }}
-          onDelete={() => {
-            if (exactInput.orientation === 'vertical') removeVertical(exactInput.id)
-            else removeHorizontal(exactInput.id)
-            setExactInput(null)
-          }}
-        />
-      ) : null}
+      {exactInput ? (() => {
+        const v = exactInput.orientation === 'vertical'
+          ? sketch.verticalLines.find((vl) => vl.id === exactInput.id)
+          : undefined
+        return (
+          <ExactDialog
+            orientation={exactInput.orientation}
+            value={exactInput.value}
+            max={exactInput.orientation === 'vertical' ? breedte : hoogte}
+            asHandle={v?.asHandle}
+            handleLengthMm={v?.handleLengthMm}
+            onCancel={() => setExactInput(null)}
+            onConfirm={(nv) => {
+              if (exactInput.orientation === 'vertical') setVertical(exactInput.id, nv)
+              else setHorizontal(exactInput.id, nv)
+              setExactInput(null)
+            }}
+            onSetHandle={(asHandle, handleLengthMm) => {
+              updateSketch({
+                verticalLines: sketch.verticalLines.map((vl) =>
+                  vl.id === exactInput.id ? { ...vl, asHandle: asHandle || undefined, handleLengthMm } : vl,
+                ),
+              })
+            }}
+            onDelete={() => {
+              if (exactInput.orientation === 'vertical') removeVertical(exactInput.id)
+              else removeHorizontal(exactInput.id)
+              setExactInput(null)
+            }}
+          />
+        )
+      })() : null}
 
       {savingTemplate ? (
         <SaveTemplateDialog
@@ -499,6 +536,56 @@ export function SketchEditor({ order, onChange }: Props) {
           }}
         />
       ) : null}
+
+      {handleExact ? (
+        <HandleExactDialog
+          order={order}
+          onClose={() => setHandleExact(false)}
+          onSave={(h, side) => {
+            onChange({ ...order, handlePosition: { side, heightFromBottom: h } })
+            setHandleExact(false)
+          }}
+        />
+      ) : null}
+    </div>
+  )
+}
+
+function HandleExactDialog({
+  order, onClose, onSave,
+}: { order: OrderData; onClose: () => void; onSave: (h: number, side: 'left' | 'right') => void }) {
+  const [h, setH] = useState(order.handlePosition.heightFromBottom)
+  const [side, setSide] = useState<'left' | 'right'>(order.handlePosition.side)
+  return (
+    <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4 no-print" onClick={onClose}>
+      <div className="bg-white border border-black p-6 w-full max-w-md rounded-lg" onClick={(e) => e.stopPropagation()}>
+        <h3 className="font-mono font-bold uppercase tracking-wider text-sm mb-3">Greep-positie exact</h3>
+        <label className="block field-label">Hoogte vanaf onder</label>
+        <input
+          type="number"
+          autoFocus
+          min={50}
+          max={order.hoogte - 50}
+          step={1}
+          value={h}
+          onChange={(e) => setH(Math.max(50, Math.min(order.hoogte - 50, Number(e.target.value))))}
+          className="field-input text-2xl"
+        />
+        <div className="font-mono text-xs text-[--color-muted] mt-2">50 – {order.hoogte - 50} mm · stap 1 mm</div>
+
+        <div className="mt-4">
+          <span className="field-label">Zijde</span>
+          <div className="flex gap-2 mt-1">
+            <button type="button" className="chip" data-active={side === 'left'} onClick={() => setSide('left')}>Links</button>
+            <button type="button" className="chip" data-active={side === 'right'} onClick={() => setSide('right')}>Rechts</button>
+          </div>
+        </div>
+
+        <div className="mt-5 flex justify-end gap-2">
+          <button type="button" className="chip" onClick={onClose}>Annuleer</button>
+          <button type="button" className="chip" data-active onClick={() => onSave(h, side)}>Bevestig</button>
+        </div>
+      </div>
     </div>
   )
 }
@@ -586,16 +673,26 @@ interface ExactDialogProps {
   orientation: 'vertical' | 'horizontal'
   value: number
   max: number
+  asHandle?: boolean
+  handleLengthMm?: number
   onCancel: () => void
   onConfirm: (v: number) => void
+  onSetHandle?: (asHandle: boolean, handleLengthMm?: number) => void
   onDelete: () => void
 }
 
-function ExactDialog({ orientation, value, max, onCancel, onConfirm, onDelete }: ExactDialogProps) {
+function ExactDialog({
+  orientation, value, max, asHandle, handleLengthMm,
+  onCancel, onConfirm, onSetHandle, onDelete,
+}: ExactDialogProps) {
   const label = orientation === 'vertical' ? 'Verticale lijn vanaf links' : 'Horizontale lijn vanaf onder'
+  const canBeHandle = orientation === 'vertical'
+  const [handleEnabled, setHandleEnabled] = useState(asHandle ?? false)
+  const [handleLen, setHandleLen] = useState<number | undefined>(handleLengthMm)
+
   return (
     <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4 no-print">
-      <div className="bg-white border border-black p-6 w-full max-w-md">
+      <div className="bg-white border border-black p-6 w-full max-w-md rounded-lg">
         <h3 className="font-mono font-bold uppercase tracking-wider text-sm mb-3">Lijn exact instellen</h3>
         <label className="block field-label">{label}</label>
         <input
@@ -608,6 +705,36 @@ function ExactDialog({ orientation, value, max, onCancel, onConfirm, onDelete }:
           id="exact-input"
         />
         <div className="font-mono text-xs text-zinc-500 mt-2">0 – {max} mm</div>
+
+        {canBeHandle ? (
+          <div className="mt-4 p-3 rounded border border-soft-2 bg-paper/40">
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={handleEnabled}
+                onChange={(e) => setHandleEnabled(e.target.checked)}
+              />
+              <span className="font-mono text-sm font-bold">Gebruik deze lijn als greep</span>
+            </label>
+            <p className="font-mono text-[11px] text-[--color-muted] mt-1">
+              De lijn wordt Kampas 30×30 (greep-profiel) i.p.v. dunne glaslijst 15×15.
+              De standaard losse greep verdwijnt en zit dan in deze bar.
+            </p>
+            {handleEnabled ? (
+              <div className="mt-3">
+                <label className="block field-label">Bar-lengte (optioneel)</label>
+                <input
+                  type="number"
+                  className="field-input"
+                  placeholder="leeg = volle deurhoogte"
+                  value={handleLen ?? ''}
+                  onChange={(e) => setHandleLen(e.target.value ? Number(e.target.value) : undefined)}
+                />
+              </div>
+            ) : null}
+          </div>
+        ) : null}
+
         <div className="mt-5 flex gap-2 justify-between">
           <button type="button" className="chip" onClick={onDelete}>
             Verwijder lijn
@@ -622,6 +749,7 @@ function ExactDialog({ orientation, value, max, onCancel, onConfirm, onDelete }:
               data-active
               onClick={() => {
                 const inp = document.getElementById('exact-input') as HTMLInputElement | null
+                if (canBeHandle && onSetHandle) onSetHandle(handleEnabled, handleEnabled ? handleLen : undefined)
                 if (inp) onConfirm(Math.max(0, Math.min(max, Number(inp.value))))
               }}
             >

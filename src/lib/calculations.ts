@@ -63,6 +63,9 @@ export function finishingLabel(o: OrderData): string {
 
 export function handleLabel(o: OrderData): string {
   switch (o.handleKind) {
+    case 'none':          return o.sketch.verticalLines.some((v) => v.asHandle)
+                                  ? 'Greep zit in design-lijn (Kampas)'
+                                  : 'Geen greep'
     case 'l_grip':        return 'L-greep'
     case 'l_vertical':    return `L-verticaal ${o.handleVerticalMm} mm`
     case 'horizontal_bar': return 'Horizontale stang'

@@ -16,6 +16,10 @@ interface Props {
   onRequestExact?: () => void
   toUserX: (clientX: number) => number
   toUserY: (clientY: number) => number
+  /** Render als greep-bar (Kampas 30×30) i.p.v. dunne lijn */
+  asHandle?: boolean
+  /** Optionele lengte van de greep-bar in mm */
+  handleLengthMm?: number
 }
 
 const HIT_THICKNESS = 60 // mm — hit area
@@ -34,6 +38,8 @@ export function DraggableLine({
   onRequestExact,
   toUserX,
   toUserY,
+  asHandle = false,
+  handleLengthMm,
 }: Props) {
   const [dragging, setDragging] = useState(false)
   const [snapLabel, setSnapLabel] = useState<string | null>(null)
@@ -107,19 +113,47 @@ export function DraggableLine({
   const lineStroke = dragging ? '#FF5C00' : '#0A0A0A'
   const lineWidth = dragging ? 3 : 2
 
+  // Voor "lijn = greep": render als Kampas 30×30 bar i.p.v. dunne lijn.
+  // Bar is 30 mm dik; lengte is handleLengthMm (default = volle deur)
+  // verticaal gecentreerd.
+  const barLen = asHandle && isVert ? Math.min(doorHeight - 200, handleLengthMm ?? doorHeight - 200) : 0
+  const barY1 = isVert ? (doorHeight - barLen) / 2 : 0
+  const barY2 = isVert ? barY1 + barLen : 0
+
   return (
     <g style={{ touchAction: 'none' }}>
-      {/* zichtbare lijn */}
-      <line
-        x1={x1}
-        y1={y1}
-        x2={x2}
-        y2={y2}
-        stroke={lineStroke}
-        strokeWidth={lineWidth}
-        vectorEffect="non-scaling-stroke"
-        pointerEvents="none"
-      />
+      {asHandle && isVert ? (
+        <>
+          {/* Greep-bar — gevuld donker rechthoek (Kampas 30×30 profiel) */}
+          <rect
+            x={value - 15}
+            y={barY1}
+            width={30}
+            height={barLen}
+            rx={6}
+            fill={dragging ? '#FF5C00' : '#1A1A1A'}
+            stroke="#0A0A0A"
+            strokeWidth={1}
+            vectorEffect="non-scaling-stroke"
+            pointerEvents="none"
+          />
+          {/* Mount-puntjes boven en onder zoals een pull-bar */}
+          <circle cx={value} cy={barY1 + 20} r={3.5} fill="#FFFFFF" pointerEvents="none" />
+          <circle cx={value} cy={barY2 - 20} r={3.5} fill="#FFFFFF" pointerEvents="none" />
+        </>
+      ) : (
+        /* zichtbare dunne lijn */
+        <line
+          x1={x1}
+          y1={y1}
+          x2={x2}
+          y2={y2}
+          stroke={lineStroke}
+          strokeWidth={lineWidth}
+          vectorEffect="non-scaling-stroke"
+          pointerEvents="none"
+        />
+      )}
       {/* hit-zone (transparant, brede strook) */}
       <line
         x1={x1}

@@ -19,6 +19,7 @@ export type Variant = 'panel_door' | 'double_door' | 'fritsjurgens_3'
 export type Finishing = 'glasslist_10' | 'glasslist_15' | 'soudal_mastiek'
 
 export type HandleKind =
+  | 'none'
   | 'l_grip'
   | 'l_vertical'
   | 'horizontal_bar'
@@ -43,6 +44,13 @@ export type SketchMode = 'snel' | 'lijnen' | 'vrij'
 export interface VerticalLine {
   id: string
   x: number // mm vanaf links
+  /** Als true: deze lijn fungeert tegelijk als greep (Kampas 30×30 in
+   *  plaats van glaslijst 15×15). De standaard losse greep wordt dan
+   *  weggelaten. */
+  asHandle?: boolean
+  /** Optioneel: lengte van de greep-bar in mm. Default = volle glas-
+   *  kader-hoogte. Korter dan kader → bar zit gecentreerd verticaal. */
+  handleLengthMm?: number
 }
 export interface HorizontalLine {
   id: string
@@ -109,6 +117,9 @@ export interface OrderData {
   plaatsingInbegrepen: boolean
   // schets
   sketch: SketchData
+  // optionele handmatige zaaglijst-override (geldt boven de berekende
+  // versie als hij gezet is)
+  cutListOverride?: import('./cutListTypes').CutListOverride
 }
 
 export const DEFAULT_ORDER: OrderData = {

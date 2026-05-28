@@ -69,16 +69,19 @@ export function generateCutList(order: OrderData): CutListResult {
   const poederlakKaderBottomY = (hoogte - glassKaderVertPoederlak) / 2 + 24
   // 24 mm = visuele bovenoffset glas; voor de cuts gebruiken we kader-coords
 
-  const verticalsKaderP = sketch.verticalLines
-    .map((v) => v.x - poederlakKaderLeftX)
-    .filter((v) => v > 5 && v < glassKaderHorizPoederlak - 5)
-    .sort((a, b) => a - b)
+  interface VertK { x: number; asHandle: boolean; handleLengthMm?: number }
+  const verticalsK: VertK[] = sketch.verticalLines
+    .map((v) => ({ x: v.x - poederlakKaderLeftX, asHandle: !!v.asHandle, handleLengthMm: v.handleLengthMm }))
+    .filter((v) => v.x > 5 && v.x < glassKaderHorizPoederlak - 5)
+    .sort((a, b) => a.x - b.x)
+  const verticalsKaderP = verticalsK.map((v) => v.x)  // for backwards compat in geometry export
   const horizontalsKaderP = sketch.horizontalLines
     .map((h) => h.y - poederlakKaderBottomY)
     .filter((y) => y > 5 && y < glassKaderVertPoederlak - 5)
     .sort((a, b) => a - b)
 
-  const N = verticalsKaderP.length  // aantal verticalen
+  const verticalsKampas = verticalsK.filter((v) => v.asHandle)
+  const Nglas = verticalsK.filter((v) => !v.asHandle).length  // 15×15-design-lijnen
   const M = horizontalsKaderP.length // aantal horizontalen
 
   // ─── Buitenframe (kozijn) ───────────────────────────────
@@ -95,9 +98,9 @@ export function generateCutList(order: OrderData): CutListResult {
 
   // ─── Dwarslat-segmenten gelaste ─────────────────────────
   // M dwarslatten worden door N verticalen in (N+1) segmenten gesplitst.
-  // Elk uniek segment komt M× voor (één per dwarslat).
+  // asHandle verticals zijn 30mm dik i.p.v. 15mm.
   if (M > 0) {
-    const segmentsG = computeSegments(verticalsKaderP, glassKaderHorizGelaste, 'gelaste')
+    const segmentsG = computeSegments(verticalsK, glassKaderHorizGelaste, 'gelaste')
     for (const seg of segmentsG) {
       if (seg >= 30) {
         items.push({ nr: nr++, profiel: '15*15*1.5', lengte: seg, aantal: M })
@@ -106,12 +109,13 @@ export function generateCutList(order: OrderData): CutListResult {
   }
 
   // ─── Design verticaal gelaste (doorlopend) ──────────────
-  if (N > 0) {
+  // Alleen 15×15-glaslijsten — Kampas-bars (asHandle) komen apart bij extras
+  if (Nglas > 0) {
     items.push({
       nr: nr++,
       profiel: '15*15*1.5',
       lengte: glassKaderVertGelaste - 30,
-      aantal: N,
+      aantal: Nglas,
     })
   }
 
@@ -121,7 +125,7 @@ export function generateCutList(order: OrderData): CutListResult {
 
   // ─── Dwarslat-segmenten poederlak ───────────────────────
   if (M > 0) {
-    const segmentsP = computeSegments(verticalsKaderP, glassKaderHorizPoederlak, 'poederlak')
+    const segmentsP = computeSegments(verticalsK, glassKaderHorizPoederlak, 'poederlak')
     for (const seg of segmentsP) {
       if (seg >= 30) {
         items.push({ nr: nr++, profiel: '15*15*1.5', lengte: seg, aantal: M })
@@ -130,17 +134,28 @@ export function generateCutList(order: OrderData): CutListResult {
   }
 
   // ─── Design verticaal poederlak (doorlopend) ────────────
-  if (N > 0) {
+  if (Nglas > 0) {
     items.push({
       nr: nr++,
       profiel: '15*15*1.5',
       lengte: glassKaderVertGelaste - 32,
-      aantal: N,
+      aantal: Nglas,
     })
   }
 
-  // ─── Extras: Greep + Juosta-afdekstrips ─────────────────
-  items.push({ nr: null, profiel: 'Kampas 30*30', lengte: 700, aantal: 2, bewerking: 'L-greep' })
+  // ─── Extras ─────────────────────────────────────────────
+  // Standard greep (Kampas 700mm × 2 stuks) — alleen als handleKind ≠ 'none'
+  if (order.handleKind !== 'none') {
+    items.push({ nr: null, profiel: 'Kampas 30*30', lengte: 700, aantal: 2, bewerking: 'L-greep' })
+  }
+  // Greep-bars uit design-lijnen (asHandle)
+  for (const vK of verticalsKampas) {
+    const lengte = vK.handleLengthMm ?? glassKaderVertGelaste
+    items.push({
+      nr: null, profiel: 'Kampas 30*30', lengte: Math.round(lengte), aantal: 1,
+      bewerking: 'greep-bar uit design-lijn',
+    })
+  }
   items.push({ nr: null, profiel: 'Juosta-35*4', lengte: hoogte, aantal: 2 })
   items.push({ nr: null, profiel: 'Juosta-35*4', lengte: breedte - 70, aantal: 1 })
 
@@ -171,24 +186,25 @@ export function generateCutList(order: OrderData): CutListResult {
  * Voor poederlak: links_seg = v[0], rechts_seg = horiz_poederlak - v[N-1] - 15
  * Midden segmenten zijn gelijk voor beide finishes: v[i+1] - v[i] - 15
  */
-function computeSegments(verticalsKaderP: number[], horizLen: number, kind: 'gelaste' | 'poederlak'): number[] {
-  const N = verticalsKaderP.length
-  if (N === 0) {
-    // Geen verticalen → één doorlopend segment = volle glaslijst minus 30
-    // (idem aan de glaslijst-breedte zelf, maar met dwarslat-marge)
-    return [horizLen - 30]
-  }
-  const out: number[] = []
+function computeSegments(
+  verticals: { x: number; asHandle: boolean }[],
+  horizLen: number,
+  kind: 'gelaste' | 'poederlak',
+): number[] {
+  const N = verticals.length
+  if (N === 0) return [horizLen - 30]
   const adj = kind === 'gelaste' ? 1 : 0
-  // Linker segment
-  out.push(Math.round(verticalsKaderP[0] + adj))
-  // Middelsegmenten
+  const out: number[] = []
+  // Linker segment (kop van glaskader tot eerste verticaal)
+  out.push(Math.round(verticals[0].x + adj))
+  // Middelsegmenten — gap is de breedte van de vorige verticaal (15 of 30)
   for (let i = 1; i < N; i++) {
-    out.push(Math.round(verticalsKaderP[i] - verticalsKaderP[i - 1] - 15))
+    const widthPrev = verticals[i - 1].asHandle ? 30 : 15
+    out.push(Math.round(verticals[i].x - verticals[i - 1].x - widthPrev))
   }
-  // Rechter segment
-  // Bij gelaste: extra -1 voor de rechter adjustment (totaal -16)
-  out.push(Math.round(horizLen - verticalsKaderP[N - 1] - 15 - adj))
+  // Rechter segment — gap is de breedte van de laatste verticaal
+  const widthLast = verticals[N - 1].asHandle ? 30 : 15
+  out.push(Math.round(horizLen - verticals[N - 1].x - widthLast - adj))
   return out
 }
 

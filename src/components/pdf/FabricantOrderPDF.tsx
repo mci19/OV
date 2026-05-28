@@ -38,7 +38,12 @@ interface Props {
 
 export function FabricantOrderPDF({ order }: Props) {
   const nr = orderNumber(order)
-  const cutList = generateCutList(order)
+  const computed = generateCutList(order)
+  // Manuele override geldt boven de berekende lijst (header/RAL blijven gelijk)
+  const cutList = order.cutListOverride
+    ? { ...computed, items: order.cutListOverride.items }
+    : computed
+  const overrideNote = order.cutListOverride?.note
   return (
     <Document title={`MY DOORS — ${nr}`} author="MY DOORS" subject="Fabrikant bestelling">
       <Page size="A4" style={styles.page}>
@@ -143,6 +148,14 @@ export function FabricantOrderPDF({ order }: Props) {
         <View style={{ marginTop: 6 }}>
           <CutListPdfBlock items={cutList.items} headerLine={cutList.headerLine} ralLine={cutList.ralLine} />
         </View>
+
+        {order.cutListOverride ? (
+          <View style={{ marginTop: 12, padding: 6, borderTop: '0.5 solid #999' }}>
+            <Text style={{ fontSize: 8, fontStyle: 'italic', color: '#666' }}>
+              ⚠ Handmatig aangepaste zaaglijst{overrideNote ? ` — ${overrideNote}` : ''}
+            </Text>
+          </View>
+        ) : null}
 
         <Text style={styles.footer} fixed>
           <Text>MY DOORS · {nr}</Text>
