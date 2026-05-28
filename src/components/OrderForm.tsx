@@ -190,20 +190,17 @@ export function OrderForm({ order, set, issues }: Props) {
           value={order.handleKind}
           options={[
             { value: 'none', label: 'Geen greep' },
-            { value: 'l_grip', label: 'L-grip' },
+            { value: 'l_grip', label: 'L-grip 200 mm' },
             { value: 'l_vertical', label: 'L-verticaal' },
-            { value: 'horizontal_bar', label: 'Horizontale stang' },
-            { value: 'round_knob', label: 'Ronde knop' },
-            { value: 'pull_bar', label: 'Pull-bar' },
-            { value: 'recessed_pull', label: 'Verzonken greep' },
+            { value: 'horizontal_bar', label: 'Horizontale stang 200 mm' },
             { value: 'other', label: 'Anders' },
           ]}
           onChange={(v) => set('handleKind', v)}
         />
-        {order.handleKind === 'l_vertical' || order.handleKind === 'pull_bar' ? (
+        {order.handleKind === 'l_vertical' ? (
           <div className="mt-3">
             <Field
-              label={order.handleKind === 'pull_bar' ? 'Lengte pull-bar' : 'Lengte L-verticaal'}
+              label="Lengte L-verticaal"
               unit="mm"
               type="number"
               value={order.handleVerticalMm}

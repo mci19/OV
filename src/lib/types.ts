@@ -20,12 +20,9 @@ export type Finishing = 'glasslist_10' | 'glasslist_15' | 'soudal_mastiek'
 
 export type HandleKind =
   | 'none'
-  | 'l_grip'
-  | 'l_vertical'
-  | 'horizontal_bar'
-  | 'round_knob'
-  | 'pull_bar'
-  | 'recessed_pull'
+  | 'l_grip'         // altijd 200 mm L-vorm
+  | 'l_vertical'    // handmatige lengte via handleVerticalMm
+  | 'horizontal_bar' // altijd 200 mm horizontaal
   | 'other'
 
 export type LockKind =
@@ -44,13 +41,6 @@ export type SketchMode = 'snel' | 'lijnen' | 'vrij'
 export interface VerticalLine {
   id: string
   x: number // mm vanaf links
-  /** Als true: deze lijn fungeert tegelijk als greep (Kampas 30×30 in
-   *  plaats van glaslijst 15×15). De standaard losse greep wordt dan
-   *  weggelaten. */
-  asHandle?: boolean
-  /** Optioneel: lengte van de greep-bar in mm. Default = volle glas-
-   *  kader-hoogte. Korter dan kader → bar zit gecentreerd verticaal. */
-  handleLengthMm?: number
 }
 export interface HorizontalLine {
   id: string

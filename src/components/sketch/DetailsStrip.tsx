@@ -238,12 +238,10 @@ function topSystemLabel(o: OrderData): string {
   return o.hingeKind === 'double' ? 'Dubbel' : 'Enkel'
 }
 function handleSubtitle(o: OrderData): string {
-  if (o.handleKind === 'l_grip') return 'L-grip'
+  if (o.handleKind === 'none') return 'Geen greep'
+  if (o.handleKind === 'l_grip') return 'L-grip 200 mm'
   if (o.handleKind === 'l_vertical') return `L-vert ${o.handleVerticalMm} mm`
-  if (o.handleKind === 'pull_bar') return `Pull-bar ${o.handleVerticalMm} mm`
-  if (o.handleKind === 'horizontal_bar') return 'Horizontale stang'
-  if (o.handleKind === 'round_knob') return 'Ronde knop'
-  if (o.handleKind === 'recessed_pull') return 'Verzonken'
+  if (o.handleKind === 'horizontal_bar') return 'Horizontale 200 mm'
   return o.handleOther.trim() || 'Other'
 }
 function systemSubtitle(o: OrderData): string {
@@ -434,8 +432,8 @@ function HandleDetail({ order }: { order: OrderData }) {
         </g>
       ) : null}
 
-      {/* Greep — verschillende vormen */}
-      {order.handleKind === 'l_vertical' && order.handleVerticalMm > 100 ? (
+      {/* Greep — vorm uit handleKind */}
+      {order.handleKind === 'none' ? null : order.handleKind === 'l_vertical' && order.handleVerticalMm > 100 ? (
         <g>
           <rect
             x={handleSide === 'left' ? handleX - 22 : handleX + 4}
@@ -453,32 +451,31 @@ function HandleDetail({ order }: { order: OrderData }) {
         </g>
       ) : (
         <g>
-          {/* horizontaal uitstekende klinker */}
+          {/* horizontaal uitstekende klinker — 200 mm voor l_grip & horizontal_bar */}
           <line
             x1={handleX}
             y1={handleY}
-            x2={handleSide === 'left' ? handleX - 38 : handleX + 38}
+            x2={handleSide === 'left' ? handleX - 50 : handleX + 50}
             y2={handleY}
             stroke={stroke}
             strokeWidth={3}
             strokeLinecap="round"
           />
-          {/* Rozet (rosette) op de deur */}
           <circle cx={handleX} cy={handleY} r={6} fill="#FFFFFF" stroke={stroke} strokeWidth={1} />
           {/* L-grip extra haak naar onder */}
           {order.handleKind === 'l_grip' ? (
             <line
-              x1={handleSide === 'left' ? handleX - 38 : handleX + 38}
+              x1={handleSide === 'left' ? handleX - 50 : handleX + 50}
               y1={handleY}
-              x2={handleSide === 'left' ? handleX - 38 : handleX + 38}
+              x2={handleSide === 'left' ? handleX - 50 : handleX + 50}
               y2={handleY + 14}
               stroke={stroke}
               strokeWidth={3}
               strokeLinecap="round"
             />
           ) : null}
-          <text x={handleSide === 'left' ? handleX - 22 : handleX + 22} y={handleY + 28} fontSize={7} fill="#6B6B62" textAnchor="middle">
-            {order.handleKind === 'l_grip' ? 'L-grip' : (order.handleOther.trim() || 'klinker')}
+          <text x={handleSide === 'left' ? handleX - 28 : handleX + 28} y={handleY + 28} fontSize={7} fill="#6B6B62" textAnchor="middle">
+            {order.handleKind === 'l_grip' ? 'L-grip 200' : order.handleKind === 'horizontal_bar' ? 'Stang 200' : (order.handleOther.trim() || 'klinker')}
           </text>
         </g>
       )}

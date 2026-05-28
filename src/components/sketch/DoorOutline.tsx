@@ -148,14 +148,13 @@ function SingleLeaf({ order, frame, glass, bladeX, bladeY, geo, clientView, hing
         x={glassX} y={glassY} w={geo.glassWidth} h={geo.glassHeight}
         order={order} glass={glass} clientView={clientView}
       />
-      {/* Lock-indicator + greep visualisatie. Skip greep als een design-lijn is gemarkeerd als greep. */}
+      {/* Lock-indicator + greep visualisatie */}
       <LockAndHandle
         order={order}
         bladeX={bladeX} bladeY={bladeY}
         bladeW={geo.bladeWidth} bladeH={geo.bladeHeight}
         hingeOnLeft={hingeOnLeft ?? true}
         clientView={clientView}
-        skipHandle={order.sketch.verticalLines.some((v) => v.asHandle)}
       />
     </g>
   )
@@ -225,7 +224,6 @@ function DoubleLeaves({ order, frame, glass, bladeX, bladeY, geo, clientView }: 
         bladeW={leafW} bladeH={geo.bladeHeight}
         hingeOnLeft={false}
         clientView={clientView}
-        skipHandle={order.sketch.verticalLines.some((v) => v.asHandle)}
       />
     </g>
   )
@@ -297,12 +295,9 @@ interface LockHandleProps {
   bladeH: number
   hingeOnLeft: boolean
   clientView: boolean
-  /** Als true: alleen het slot tekenen, geen losse greep (omdat een
-   *  design-lijn als greep fungeert) */
-  skipHandle?: boolean
 }
 
-function LockAndHandle({ order, bladeX, bladeY, bladeW, bladeH, hingeOnLeft, clientView, skipHandle }: LockHandleProps) {
+function LockAndHandle({ order, bladeX, bladeY, bladeW, bladeH, hingeOnLeft, clientView }: LockHandleProps) {
   const handleSide: 'left' | 'right' = hingeOnLeft ? 'right' : 'left'
   const handleX = handleSide === 'left'
     ? bladeX + 50
@@ -371,21 +366,8 @@ function LockAndHandle({ order, bladeX, bladeY, bladeW, bladeH, hingeOnLeft, cli
             vectorEffect="non-scaling-stroke" rx={4} />
         )
       }
-      case 'pull_bar': {
-        const len = Math.max(200, order.handleVerticalMm || 800)
-        return (
-          <g>
-            <rect x={handleX - 6} y={handleYFromTop - len / 2}
-              width={12} height={len}
-              fill={fillBg} stroke={stroke} strokeWidth={1.2}
-              vectorEffect="non-scaling-stroke" rx={6} />
-            {/* mounts */}
-            <circle cx={handleX} cy={handleYFromTop - len / 2 + 30} r={4} fill={stroke} />
-            <circle cx={handleX} cy={handleYFromTop + len / 2 - 30} r={4} fill={stroke} />
-          </g>
-        )
-      }
       case 'horizontal_bar':
+        // 200 mm horizontale stang, getekend vanaf 200 mm van de rand
         return (
           <g>
             <rect x={handleX - 8} y={handleYFromTop - 6}
@@ -393,33 +375,30 @@ function LockAndHandle({ order, bladeX, bladeY, bladeW, bladeH, hingeOnLeft, cli
               fill={fillBg} stroke={stroke} strokeWidth={1.2} rx={3}
               vectorEffect="non-scaling-stroke" />
             <line x1={handleX + dirSign * 8} y1={handleYFromTop}
-              x2={handleX + dirSign * 140} y2={handleYFromTop}
+              x2={handleX + dirSign * 200} y2={handleYFromTop}
               stroke={stroke} strokeWidth={8} strokeLinecap="round"
               vectorEffect="non-scaling-stroke" />
           </g>
         )
-      case 'round_knob':
-        return (
-          <g>
-            <circle cx={handleX} cy={handleYFromTop} r={26}
-              fill={fillBg} stroke={stroke} strokeWidth={1.5}
-              vectorEffect="non-scaling-stroke" />
-            <circle cx={handleX} cy={handleYFromTop} r={10} fill={stroke} opacity={0.6} />
-          </g>
-        )
-      case 'recessed_pull':
-        return (
-          <g>
-            <rect x={handleX - 12} y={handleYFromTop - 30}
-              width={24} height={60} rx={6}
-              fill="#E5E2D8" stroke={stroke} strokeWidth={1.2}
-              vectorEffect="non-scaling-stroke" />
-            <rect x={handleX - 6} y={handleYFromTop - 20}
-              width={12} height={40} rx={3}
-              fill="#FFFFFF" stroke={stroke} strokeWidth={0.8} />
-          </g>
-        )
       case 'l_grip':
+        // 200 mm L-vorm: horizontaal segment + neerwaartse haak
+        return (
+          <g>
+            <circle cx={handleX} cy={handleYFromTop} r={18}
+              fill={fillBg} stroke={stroke} strokeWidth={1.4}
+              vectorEffect="non-scaling-stroke" />
+            <line x1={handleX + dirSign * 18} y1={handleYFromTop}
+              x2={handleX + dirSign * 200} y2={handleYFromTop}
+              stroke={stroke} strokeWidth={5} strokeLinecap="round"
+              vectorEffect="non-scaling-stroke" />
+            {!clientView ? (
+              <line x1={handleX + dirSign * 200} y1={handleYFromTop}
+                x2={handleX + dirSign * 200} y2={handleYFromTop + 30}
+                stroke={stroke} strokeWidth={5} strokeLinecap="round"
+                vectorEffect="non-scaling-stroke" />
+            ) : null}
+          </g>
+        )
       case 'other':
       default:
         return (
@@ -431,18 +410,12 @@ function LockAndHandle({ order, bladeX, bladeY, bladeW, bladeH, hingeOnLeft, cli
               x2={handleX + dirSign * 100} y2={handleYFromTop}
               stroke={stroke} strokeWidth={5} strokeLinecap="round"
               vectorEffect="non-scaling-stroke" />
-            {order.handleKind === 'l_grip' && !clientView ? (
-              <line x1={handleX + dirSign * 100} y1={handleYFromTop}
-                x2={handleX + dirSign * 100} y2={handleYFromTop + 14}
-                stroke={stroke} strokeWidth={5} strokeLinecap="round"
-                vectorEffect="non-scaling-stroke" />
-            ) : null}
           </g>
         )
     }
   }
 
-  return <g>{renderLock()}{skipHandle || order.handleKind === 'none' ? null : renderHandle()}</g>
+  return <g>{renderLock()}{order.handleKind === 'none' ? null : renderHandle()}</g>
 }
 
 // ─── Systeem-indicator: scharnieren / pivot / sliding ────

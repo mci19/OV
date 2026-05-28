@@ -69,19 +69,17 @@ export function generateCutList(order: OrderData): CutListResult {
   const poederlakKaderBottomY = (hoogte - glassKaderVertPoederlak) / 2 + 24
   // 24 mm = visuele bovenoffset glas; voor de cuts gebruiken we kader-coords
 
-  interface VertK { x: number; asHandle: boolean; handleLengthMm?: number }
-  const verticalsK: VertK[] = sketch.verticalLines
-    .map((v) => ({ x: v.x - poederlakKaderLeftX, asHandle: !!v.asHandle, handleLengthMm: v.handleLengthMm }))
+  const verticalsK: { x: number }[] = sketch.verticalLines
+    .map((v) => ({ x: v.x - poederlakKaderLeftX }))
     .filter((v) => v.x > 5 && v.x < glassKaderHorizPoederlak - 5)
     .sort((a, b) => a.x - b.x)
-  const verticalsKaderP = verticalsK.map((v) => v.x)  // for backwards compat in geometry export
+  const verticalsKaderP = verticalsK.map((v) => v.x)
   const horizontalsKaderP = sketch.horizontalLines
     .map((h) => h.y - poederlakKaderBottomY)
     .filter((y) => y > 5 && y < glassKaderVertPoederlak - 5)
     .sort((a, b) => a - b)
 
-  const verticalsKampas = verticalsK.filter((v) => v.asHandle)
-  const Nglas = verticalsK.filter((v) => !v.asHandle).length  // 15×15-design-lijnen
+  const Nglas = verticalsK.length  // 15×15-design-lijnen
   const M = horizontalsKaderP.length // aantal horizontalen
 
   // ─── Buitenframe (kozijn) ───────────────────────────────
@@ -144,17 +142,16 @@ export function generateCutList(order: OrderData): CutListResult {
   }
 
   // ─── Extras ─────────────────────────────────────────────
-  // Standard greep (Kampas 700mm × 2 stuks) — alleen als handleKind ≠ 'none'
-  if (order.handleKind !== 'none') {
-    items.push({ nr: null, profiel: 'Kampas 30*30', lengte: 700, aantal: 2, bewerking: 'L-greep' })
-  }
-  // Greep-bars uit design-lijnen (asHandle)
-  for (const vK of verticalsKampas) {
-    const lengte = vK.handleLengthMm ?? glassKaderVertGelaste
-    items.push({
-      nr: null, profiel: 'Kampas 30*30', lengte: Math.round(lengte), aantal: 1,
-      bewerking: 'greep-bar uit design-lijn',
-    })
+  // Greep — vorm bepaalt profiel en lengte
+  if (order.handleKind === 'l_grip') {
+    items.push({ nr: null, profiel: 'Kampas 30*30', lengte: 200, aantal: 2, bewerking: 'L-greep 200 mm' })
+  } else if (order.handleKind === 'horizontal_bar') {
+    items.push({ nr: null, profiel: 'Kampas 30*30', lengte: 200, aantal: 2, bewerking: 'horizontale stang 200 mm' })
+  } else if (order.handleKind === 'l_vertical') {
+    const len = Math.max(1, Math.round(order.handleVerticalMm || 700))
+    items.push({ nr: null, profiel: 'Kampas 30*30', lengte: len, aantal: 2, bewerking: `L-verticaal ${len} mm` })
+  } else if (order.handleKind === 'other') {
+    items.push({ nr: null, profiel: 'Kampas 30*30', lengte: 700, aantal: 2, bewerking: order.handleOther.trim() || 'greep' })
   }
   items.push({ nr: null, profiel: 'Juosta-35*4', lengte: hoogte, aantal: 2 })
   items.push({ nr: null, profiel: 'Juosta-35*4', lengte: breedte - 70, aantal: 1 })
@@ -187,7 +184,7 @@ export function generateCutList(order: OrderData): CutListResult {
  * Midden segmenten zijn gelijk voor beide finishes: v[i+1] - v[i] - 15
  */
 function computeSegments(
-  verticals: { x: number; asHandle: boolean }[],
+  verticals: { x: number }[],
   horizLen: number,
   kind: 'gelaste' | 'poederlak',
 ): number[] {
@@ -197,14 +194,12 @@ function computeSegments(
   const out: number[] = []
   // Linker segment (kop van glaskader tot eerste verticaal)
   out.push(Math.round(verticals[0].x + adj))
-  // Middelsegmenten — gap is de breedte van de vorige verticaal (15 of 30)
+  // Middelsegmenten — verticaal is 15 mm dik
   for (let i = 1; i < N; i++) {
-    const widthPrev = verticals[i - 1].asHandle ? 30 : 15
-    out.push(Math.round(verticals[i].x - verticals[i - 1].x - widthPrev))
+    out.push(Math.round(verticals[i].x - verticals[i - 1].x - 15))
   }
-  // Rechter segment — gap is de breedte van de laatste verticaal
-  const widthLast = verticals[N - 1].asHandle ? 30 : 15
-  out.push(Math.round(horizLen - verticals[N - 1].x - widthLast - adj))
+  // Rechter segment
+  out.push(Math.round(horizLen - verticals[N - 1].x - 15 - adj))
   return out
 }
 

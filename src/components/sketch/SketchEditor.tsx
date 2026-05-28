@@ -428,8 +428,6 @@ export function SketchEditor({ order, onChange }: Props) {
                 }
                 toUserX={toUserX}
                 toUserY={toUserY}
-                asHandle={v.asHandle}
-                handleLengthMm={v.handleLengthMm}
               />
             ))}
 
@@ -457,10 +455,8 @@ export function SketchEditor({ order, onChange }: Props) {
             {/* maatvoering — niet in klant-zicht */}
             {!clientView ? <DimensionLabels order={order} /> : null}
 
-            {/* Draggable greep — alleen interactief in tekening-mode, niet
-                in klant-zicht en niet als de greep in een design-lijn zit */}
-            {!clientView && order.handleKind !== 'none'
-              && !order.sketch.verticalLines.some((v) => v.asHandle) ? (
+            {/* Draggable greep — alleen interactief in tekening-mode */}
+            {!clientView && order.handleKind !== 'none' ? (
               <DraggableHandle
                 heightFromBottom={order.handlePosition.heightFromBottom}
                 doorWidth={breedte}
@@ -485,38 +481,24 @@ export function SketchEditor({ order, onChange }: Props) {
         </div>
       ) : null}
 
-      {exactInput ? (() => {
-        const v = exactInput.orientation === 'vertical'
-          ? sketch.verticalLines.find((vl) => vl.id === exactInput.id)
-          : undefined
-        return (
-          <ExactDialog
-            orientation={exactInput.orientation}
-            value={exactInput.value}
-            max={exactInput.orientation === 'vertical' ? breedte : hoogte}
-            asHandle={v?.asHandle}
-            handleLengthMm={v?.handleLengthMm}
-            onCancel={() => setExactInput(null)}
-            onConfirm={(nv) => {
-              if (exactInput.orientation === 'vertical') setVertical(exactInput.id, nv)
-              else setHorizontal(exactInput.id, nv)
-              setExactInput(null)
-            }}
-            onSetHandle={(asHandle, handleLengthMm) => {
-              updateSketch({
-                verticalLines: sketch.verticalLines.map((vl) =>
-                  vl.id === exactInput.id ? { ...vl, asHandle: asHandle || undefined, handleLengthMm } : vl,
-                ),
-              })
-            }}
-            onDelete={() => {
-              if (exactInput.orientation === 'vertical') removeVertical(exactInput.id)
-              else removeHorizontal(exactInput.id)
-              setExactInput(null)
-            }}
-          />
-        )
-      })() : null}
+      {exactInput ? (
+        <ExactDialog
+          orientation={exactInput.orientation}
+          value={exactInput.value}
+          max={exactInput.orientation === 'vertical' ? breedte : hoogte}
+          onCancel={() => setExactInput(null)}
+          onConfirm={(nv) => {
+            if (exactInput.orientation === 'vertical') setVertical(exactInput.id, nv)
+            else setHorizontal(exactInput.id, nv)
+            setExactInput(null)
+          }}
+          onDelete={() => {
+            if (exactInput.orientation === 'vertical') removeVertical(exactInput.id)
+            else removeHorizontal(exactInput.id)
+            setExactInput(null)
+          }}
+        />
+      ) : null}
 
       {savingTemplate ? (
         <SaveTemplateDialog
@@ -673,22 +655,16 @@ interface ExactDialogProps {
   orientation: 'vertical' | 'horizontal'
   value: number
   max: number
-  asHandle?: boolean
-  handleLengthMm?: number
   onCancel: () => void
   onConfirm: (v: number) => void
-  onSetHandle?: (asHandle: boolean, handleLengthMm?: number) => void
   onDelete: () => void
 }
 
 function ExactDialog({
-  orientation, value, max, asHandle, handleLengthMm,
-  onCancel, onConfirm, onSetHandle, onDelete,
+  orientation, value, max,
+  onCancel, onConfirm, onDelete,
 }: ExactDialogProps) {
   const label = orientation === 'vertical' ? 'Verticale lijn vanaf links' : 'Horizontale lijn vanaf onder'
-  const canBeHandle = orientation === 'vertical'
-  const [handleEnabled, setHandleEnabled] = useState(asHandle ?? false)
-  const [handleLen, setHandleLen] = useState<number | undefined>(handleLengthMm)
 
   return (
     <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4 no-print">
@@ -706,35 +682,6 @@ function ExactDialog({
         />
         <div className="font-mono text-xs text-zinc-500 mt-2">0 – {max} mm</div>
 
-        {canBeHandle ? (
-          <div className="mt-4 p-3 rounded border border-soft-2 bg-paper/40">
-            <label className="flex items-center gap-2 cursor-pointer">
-              <input
-                type="checkbox"
-                checked={handleEnabled}
-                onChange={(e) => setHandleEnabled(e.target.checked)}
-              />
-              <span className="font-mono text-sm font-bold">Gebruik deze lijn als greep</span>
-            </label>
-            <p className="font-mono text-[11px] text-[--color-muted] mt-1">
-              De lijn wordt Kampas 30×30 (greep-profiel) i.p.v. dunne glaslijst 15×15.
-              De standaard losse greep verdwijnt en zit dan in deze bar.
-            </p>
-            {handleEnabled ? (
-              <div className="mt-3">
-                <label className="block field-label">Bar-lengte (optioneel)</label>
-                <input
-                  type="number"
-                  className="field-input"
-                  placeholder="leeg = volle deurhoogte"
-                  value={handleLen ?? ''}
-                  onChange={(e) => setHandleLen(e.target.value ? Number(e.target.value) : undefined)}
-                />
-              </div>
-            ) : null}
-          </div>
-        ) : null}
-
         <div className="mt-5 flex gap-2 justify-between">
           <button type="button" className="chip" onClick={onDelete}>
             Verwijder lijn
@@ -749,7 +696,6 @@ function ExactDialog({
               data-active
               onClick={() => {
                 const inp = document.getElementById('exact-input') as HTMLInputElement | null
-                if (canBeHandle && onSetHandle) onSetHandle(handleEnabled, handleEnabled ? handleLen : undefined)
                 if (inp) onConfirm(Math.max(0, Math.min(max, Number(inp.value))))
               }}
             >
