@@ -1,4 +1,4 @@
-import { useMemo, useState, type FormEvent } from 'react'
+import { useEffect, useMemo, useState, type FormEvent } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { Plus, Search, LayoutGrid, List } from 'lucide-react'
 import { PageContainer, PageHeader } from '../components/Layout'
@@ -15,7 +15,7 @@ type ViewMode = 'list' | 'kanban'
 const VIEW_KEY = 'mydoors:oppview:v1'
 
 export function OpportunitiesPage() {
-  const [params] = useSearchParams()
+  const [params, setParams] = useSearchParams()
   const [search, setSearch] = useState('')
   const [stageFilter, setStageFilter] = useState<'all' | OpportunityStage>(
     (params.get('stage') as OpportunityStage) || 'all',
@@ -25,6 +25,18 @@ export function OpportunitiesPage() {
   })
   const [editing, setEditing] = useState<{ customer_id?: string } | null>(null)
   const { data: opps = [], isLoading, error } = useOpportunities()
+
+  // Auto-open editor when navigated to with ?new=1 (typisch vanaf klant-detail)
+  useEffect(() => {
+    if (params.get('new') === '1') {
+      setEditing({ customer_id: params.get('customer_id') ?? undefined })
+      const next = new URLSearchParams(params)
+      next.delete('new')
+      next.delete('customer_id')
+      setParams(next, { replace: true })
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   function setViewMode(m: ViewMode) {
     setView(m)

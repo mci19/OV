@@ -122,7 +122,7 @@ export function CustomerDetailPage() {
         <section>
           <div className="flex items-center justify-between mb-3">
             <h3 className="section-h !mb-0 !pb-0 !border-0">Opportunities</h3>
-            <Link to={`/opportunities/new?customer_id=${customer.id}`} className="btn btn-sm">
+            <Link to={`/opportunities?new=1&customer_id=${customer.id}`} className="btn btn-sm">
               <Plus size={14} /> Nieuw
             </Link>
           </div>

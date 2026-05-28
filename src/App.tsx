@@ -23,6 +23,7 @@ export default function App() {
           <Route path="customers" element={<L><CustomersPage /></L>} />
           <Route path="customers/:id" element={<L><CustomerDetailPage /></L>} />
           <Route path="opportunities" element={<L><OpportunitiesPage /></L>} />
+          <Route path="opportunities/new" element={<Navigate to="/opportunities?new=1" replace />} />
           <Route path="opportunities/:id" element={<L><OpportunityDetailPage /></L>} />
           <Route path="opportunities/:id/quote/:quoteId" element={<L><QuoteEditorPage /></L>} />
           <Route path="products" element={<L><ProductsPage /></L>} />
