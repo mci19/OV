@@ -5,7 +5,7 @@ import { PageContainer, PageHeader } from '../components/Layout'
 import { Field, FieldRow, SelectField } from '../components/Field'
 import { EmptyState } from './HomePage'
 import { formatEur } from '../lib/format'
-import { useOpportunity, useOrderForOpportunity, useProducts, useQuote, useUpsertQuote, useDeleteQuote, useLogActivity } from '../lib/queries'
+import { useAppSettings, useOpportunity, useOrderForOpportunity, useProducts, useQuote, useUpsertQuote, useDeleteQuote, useLogActivity } from '../lib/queries'
 import { Dialog } from '../components/Dialog'
 import type { LineItem, QuoteStatus } from '../lib/db'
 import { QUOTE_STATUS_LABELS } from '../lib/db'
@@ -23,6 +23,7 @@ export function QuoteEditorPage() {
   const { data: opp } = useOpportunity(oppId)
   const { data: existingOrder } = useOrderForOpportunity(oppId)
   const { data: existing, isLoading } = useQuote(quoteId === 'new' ? undefined : quoteId)
+  const { data: settings } = useAppSettings()
   const upsert = useUpsertQuote()
   const del = useDeleteQuote()
   const logActivity = useLogActivity()
@@ -44,12 +45,15 @@ export function QuoteEditorPage() {
       setItems(existing.line_items)
     } else if (quoteId === 'new' && opp) {
       const date = new Date()
-      const ref = `Q-${date.getFullYear()}${String(date.getMonth() + 1).padStart(2, '0')}${String(date.getDate()).padStart(2, '0')}-${Math.floor(Math.random() * 900 + 100)}`
+      const prefix = settings?.quote_reference_prefix?.trim() || 'Q'
+      const ref = `${prefix}-${date.getFullYear()}${String(date.getMonth() + 1).padStart(2, '0')}${String(date.getDate()).padStart(2, '0')}-${Math.floor(Math.random() * 900 + 100)}`
       setReference(ref)
-      const valid = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
+      const validityDays = settings?.quote_validity_days ?? 30
+      const valid = new Date(Date.now() + validityDays * 24 * 60 * 60 * 1000)
       setValidUntil(valid.toISOString().slice(0, 10))
+      setVatRate(Number(settings?.quote_vat_rate ?? 21))
     }
-  }, [existing, opp, quoteId])
+  }, [existing, opp, quoteId, settings])
 
   const totals = useMemo(() => {
     const subtotal = items.reduce((s, i) => s + i.quantity * i.unit_cents, 0)
@@ -116,6 +120,7 @@ export function QuoteEditorPage() {
           validUntil={validUntil}
           items={items}
           vatRate={vatRate}
+          settings={settings}
         />,
       ).toBlob()
       const url = URL.createObjectURL(blob)

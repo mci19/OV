@@ -6,7 +6,7 @@ import { Chips } from '../components/Field'
 import { OrderForm } from '../components/OrderForm'
 import { SketchEditor } from '../components/sketch/SketchEditor'
 import { ActionBar } from '../components/ActionBar'
-import { useOpportunity, useOrderForOpportunity, useQuotes, useSaveOrder, useUpsertOpportunity, useDeleteOpportunity, useLogActivity } from '../lib/queries'
+import { useAppSettings, useOpportunity, useOrderForOpportunity, useQuotes, useSaveOrder, useUpsertOpportunity, useDeleteOpportunity, useLogActivity } from '../lib/queries'
 import { STAGE_LABELS, STAGE_ORDER, type OpportunityStage } from '../lib/db'
 import { DEFAULT_ORDER, type OrderData } from '../lib/types'
 import { validateOrder } from '../lib/calculations'
@@ -22,6 +22,7 @@ export function OpportunityDetailPage() {
   const { data: opp, isLoading } = useOpportunity(id)
   const { data: existingOrder } = useOrderForOpportunity(id)
   const { data: quotes = [] } = useQuotes(id)
+  const { data: settings } = useAppSettings()
   const saveOrder = useSaveOrder()
   const updateOpp = useUpsertOpportunity()
   const delOpp = useDeleteOpportunity()
@@ -33,7 +34,7 @@ export function OpportunityDetailPage() {
   const [dirty, setDirty] = useState(false)
   const [editingOpp, setEditingOpp] = useState(false)
 
-  // bij eerste load: vul order vanuit DB OF uit opportunity-context
+  // bij eerste load: vul order vanuit DB OF uit opportunity-context + settings
   useEffect(() => {
     if (existingOrder?.data) {
       setOrder({ ...DEFAULT_ORDER, ...existingOrder.data })
@@ -41,6 +42,12 @@ export function OpportunityDetailPage() {
     } else if (opp) {
       setOrder({
         ...DEFAULT_ORDER,
+        breedte: settings?.default_door_width ?? DEFAULT_ORDER.breedte,
+        hoogte: settings?.default_door_height ?? DEFAULT_ORDER.hoogte,
+        handlePosition: {
+          ...DEFAULT_ORDER.handlePosition,
+          heightFromBottom: settings?.default_handle_height ?? DEFAULT_ORDER.handlePosition.heightFromBottom,
+        },
         klantNaam: opp.customer_name ?? '',
         referentie: opp.title,
         datum: opp.created_at.slice(0, 10),
@@ -48,7 +55,7 @@ export function OpportunityDetailPage() {
       setDirty(false)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [existingOrder?.id, opp?.id])
+  }, [existingOrder?.id, opp?.id, settings?.default_door_width, settings?.default_door_height, settings?.default_handle_height])
 
   // hingeSide → handle.side
   useEffect(() => {

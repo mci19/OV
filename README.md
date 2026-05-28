@@ -17,6 +17,7 @@ interactieve deur-schets en offerte-generatie. Auth + cloud-data via Supabase.
 | **Kanban-pipeline** | Drag-and-drop opportunities tussen stages (touch + mouse via @dnd-kit) |
 | **Productcatalogus** | CRUD over standaard-regels; picker in offerte-editor |
 | **Activity timeline** | Stage-wijzigingen auto-gelogd via Postgres trigger; notities + order/quote-events |
+| **Instellingen** | Bedrijfsgegevens + offerte-defaults (BTW, geldigheid, prefix) + configureerbare optie-lijsten (verkopers, RAL) |
 | **AI tekst → schets** | Beschrijf in NL ("2 dwarslatten onder + verticaal midden") → Claude maakt exacte grid-lijnen |
 | **AI freehand → lijnen** | Vrije schets opschonen tot structured lines via Claude tool-use |
 | **Mobile** | Responsive met drawer-nav |
@@ -41,6 +42,7 @@ Zie `supabase/README.md` voor stap-voor-stap. Kort:
 - Maak een nieuw project op supabase.com (EU-Ireland)
 - SQL Editor → plak `supabase/migrations/0001_init.sql` → Run
 - SQL Editor → plak `supabase/migrations/0002_products_activities.sql` → Run (catalogus + activity log)
+- SQL Editor → plak `supabase/migrations/0003_settings.sql` → Run (app-settings + optie-lijsten)
 - Authentication → Providers → Email aan, "Confirm email" UIT
 - Authentication → Users → "Add user" (maak eerste verkoper-account)
 

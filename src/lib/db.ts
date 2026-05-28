@@ -138,3 +138,71 @@ export interface Activity {
   actor_id: string | null
   created_at: string
 }
+
+// ─── App settings (0003 migration) ──────────────────────────
+
+export interface AppSettings {
+  id: true
+  // Bedrijf
+  company_name: string
+  company_address_line1: string | null
+  company_address_postal: string | null
+  company_address_city: string | null
+  company_email: string | null
+  company_phone: string | null
+  company_website: string | null
+  company_btw: string | null
+  company_iban: string | null
+  // Offerte
+  quote_vat_rate: number
+  quote_validity_days: number
+  quote_footer_note: string | null
+  quote_reference_prefix: string
+  // Order
+  order_number_prefix: string
+  default_door_width: number
+  default_door_height: number
+  default_handle_height: number
+  default_vat_rate: number
+  updated_at: string
+}
+
+export const DEFAULT_APP_SETTINGS: AppSettings = {
+  id: true,
+  company_name: 'MY DOORS',
+  company_address_line1: null,
+  company_address_postal: null,
+  company_address_city: null,
+  company_email: null,
+  company_phone: null,
+  company_website: null,
+  company_btw: null,
+  company_iban: null,
+  quote_vat_rate: 21,
+  quote_validity_days: 30,
+  quote_footer_note: null,
+  quote_reference_prefix: 'Q',
+  order_number_prefix: '',
+  default_door_width: 900,
+  default_door_height: 2300,
+  default_handle_height: 1050,
+  default_vat_rate: 21,
+  updated_at: new Date().toISOString(),
+}
+
+export interface OptionItem {
+  value: string
+  label: string
+  sort_order: number
+  active: boolean
+  meta?: Record<string, unknown>
+}
+
+export interface OptionList {
+  id: string
+  list_key: string
+  description: string | null
+  items: OptionItem[]
+  created_at: string
+  updated_at: string
+}

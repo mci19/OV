@@ -11,6 +11,7 @@ const OpportunitiesPage = lazy(() => import('./pages/OpportunitiesPage').then((m
 const OpportunityDetailPage = lazy(() => import('./pages/OpportunityDetailPage').then((m) => ({ default: m.OpportunityDetailPage })))
 const QuoteEditorPage = lazy(() => import('./pages/QuoteEditorPage').then((m) => ({ default: m.QuoteEditorPage })))
 const ProductsPage = lazy(() => import('./pages/ProductsPage').then((m) => ({ default: m.ProductsPage })))
+const SettingsPage = lazy(() => import('./pages/SettingsPage').then((m) => ({ default: m.SettingsPage })))
 
 export default function App() {
   return (
@@ -25,6 +26,7 @@ export default function App() {
           <Route path="opportunities/:id" element={<L><OpportunityDetailPage /></L>} />
           <Route path="opportunities/:id/quote/:quoteId" element={<L><QuoteEditorPage /></L>} />
           <Route path="products" element={<L><ProductsPage /></L>} />
+          <Route path="settings" element={<L><SettingsPage /></L>} />
         </Route>
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />

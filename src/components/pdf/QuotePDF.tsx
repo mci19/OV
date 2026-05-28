@@ -1,5 +1,5 @@
 import { Document, Page, Text, View, StyleSheet } from '@react-pdf/renderer'
-import type { LineItem, OpportunityWithCustomer } from '../../lib/db'
+import type { AppSettings, LineItem, OpportunityWithCustomer } from '../../lib/db'
 import type { OrderData } from '../../lib/types'
 import { SketchPdfBlock } from './SketchPdfBlock'
 
@@ -44,9 +44,13 @@ interface Props {
   validUntil?: string
   items: LineItem[]
   vatRate: number
+  settings?: Partial<AppSettings>
 }
 
-export function QuotePDF({ opportunity, orderData, reference, validUntil, items, vatRate }: Props) {
+export function QuotePDF({ opportunity, orderData, reference, validUntil, items, vatRate, settings }: Props) {
+  const companyName = settings?.company_name?.trim() || 'MY DOORS'
+  const addrLine = [settings?.company_address_line1, settings?.company_address_postal, settings?.company_address_city].filter(Boolean).join(', ')
+  const contactLine = [settings?.company_phone, settings?.company_email].filter(Boolean).join(' · ')
   const subtotal = items.reduce((s, i) => s + i.quantity * i.unit_cents, 0)
   const vat = Math.round((subtotal * vatRate) / 100)
   const total = subtotal + vat
@@ -56,8 +60,10 @@ export function QuotePDF({ opportunity, orderData, reference, validUntil, items,
       <Page size="A4" style={styles.page}>
         <View style={styles.header}>
           <View>
-            <Text style={styles.h1}>MY DOORS</Text>
-            <Text style={styles.hSub}>Stalen binnendeuren · mydoors.be</Text>
+            <Text style={styles.h1}>{companyName}</Text>
+            {addrLine ? <Text style={styles.hSub}>{addrLine}</Text> : null}
+            {contactLine ? <Text style={styles.hSub}>{contactLine}</Text> : null}
+            {settings?.company_btw ? <Text style={styles.hSub}>BTW: {settings.company_btw}</Text> : null}
           </View>
           <View style={styles.rightHead}>
             <Text style={{ fontSize: 11, fontWeight: 'bold', letterSpacing: 1.5 }}>OFFERTE</Text>
@@ -131,13 +137,21 @@ export function QuotePDF({ opportunity, orderData, reference, validUntil, items,
           </View>
         </View>
 
+        {settings?.quote_footer_note ? (
+          <View style={{ marginTop: 12 }}>
+            <Text style={{ fontSize: 8, color: '#5b5b53', lineHeight: 1.4 }}>
+              {settings.quote_footer_note}
+            </Text>
+          </View>
+        ) : null}
+
         <View style={styles.signRow}>
           <Text style={styles.signCol}>Akkoord klant</Text>
-          <Text style={styles.signCol}>MY DOORS</Text>
+          <Text style={styles.signCol}>{companyName}</Text>
         </View>
 
         <Text style={styles.footer} fixed>
-          <Text>MY DOORS · {reference}</Text>
+          <Text>{companyName} · {reference}</Text>
           <Text>p. 1</Text>
         </Text>
       </Page>

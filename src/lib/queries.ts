@@ -2,15 +2,19 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { supabase } from './supabase'
 import type {
   Activity,
+  AppSettings,
   Customer,
   LineItem,
   Opportunity,
   OpportunityStage,
   OpportunityWithCustomer,
+  OptionItem,
+  OptionList,
   Order,
   Product,
   Quote,
 } from './db'
+import { DEFAULT_APP_SETTINGS } from './db'
 import type { OrderData } from './types'
 
 // ─── Customers ────────────────────────────────────────────────
@@ -342,5 +346,91 @@ export function useUpdateStage() {
       ctx?.previous.forEach(([key, data]) => qc.setQueryData(key, data))
     },
     onSettled: () => qc.invalidateQueries({ queryKey: ['opportunities'] }),
+  })
+}
+
+// ─── App settings ────────────────────────────────────────────
+
+export function useAppSettings() {
+  return useQuery({
+    queryKey: ['app_settings'],
+    queryFn: async () => {
+      const { data, error } = await supabase.from('app_settings').select('*').maybeSingle()
+      if (error) {
+        // Tabel bestaat nog niet (migration 0003 niet gedraaid) → fallback
+        return DEFAULT_APP_SETTINGS
+      }
+      return (data as AppSettings | null) ?? DEFAULT_APP_SETTINGS
+    },
+    staleTime: 5 * 60 * 1000,
+  })
+}
+
+export function useUpdateAppSettings() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (patch: Partial<AppSettings>) => {
+      const { data, error } = await supabase
+        .from('app_settings')
+        .update(patch)
+        .eq('id', true)
+        .select()
+        .single()
+      if (error) throw error
+      return data as AppSettings
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['app_settings'] }),
+  })
+}
+
+// ─── Option lists ────────────────────────────────────────────
+
+export function useOptionList(listKey: string) {
+  return useQuery({
+    queryKey: ['option_list', listKey],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('option_lists')
+        .select('*')
+        .eq('list_key', listKey)
+        .maybeSingle()
+      if (error) return null
+      return data as OptionList | null
+    },
+    staleTime: 5 * 60 * 1000,
+  })
+}
+
+export function useAllOptionLists() {
+  return useQuery({
+    queryKey: ['option_lists'],
+    queryFn: async () => {
+      const { data, error } = await supabase.from('option_lists').select('*').order('list_key')
+      if (error) return []
+      return (data ?? []) as OptionList[]
+    },
+    staleTime: 5 * 60 * 1000,
+  })
+}
+
+export function useUpdateOptionList() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (input: { list_key: string; items: OptionItem[]; description?: string }) => {
+      const { data, error } = await supabase
+        .from('option_lists')
+        .upsert(
+          { list_key: input.list_key, items: input.items, description: input.description ?? null },
+          { onConflict: 'list_key' },
+        )
+        .select()
+        .single()
+      if (error) throw error
+      return data as OptionList
+    },
+    onSuccess: (data) => {
+      qc.invalidateQueries({ queryKey: ['option_list', data.list_key] })
+      qc.invalidateQueries({ queryKey: ['option_lists'] })
+    },
   })
 }
