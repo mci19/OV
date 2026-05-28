@@ -1,6 +1,6 @@
-import { useState, type ReactNode } from 'react'
+import { useEffect, useState, type ReactNode } from 'react'
 import { NavLink, Outlet, useNavigate } from 'react-router-dom'
-import { Home, Users, Briefcase, Package, Settings, LogOut, Menu, X } from 'lucide-react'
+import { Home, Users, Briefcase, Package, Settings, LogOut, Menu, X, PanelLeftClose, PanelLeftOpen } from 'lucide-react'
 import { useAuth } from '../lib/auth'
 import { supabaseConfigured } from '../lib/supabase'
 
@@ -12,10 +12,19 @@ const NAV = [
   { to: '/settings', icon: Settings, label: 'Instellingen' },
 ]
 
+const COLLAPSE_KEY = 'mydoors:sidebar:collapsed'
+
 export function Layout() {
   const { user, signOut } = useAuth()
   const navigate = useNavigate()
   const [drawer, setDrawer] = useState(false)
+  const [collapsed, setCollapsed] = useState(() => {
+    try { return localStorage.getItem(COLLAPSE_KEY) === '1' } catch { return false }
+  })
+
+  useEffect(() => {
+    try { localStorage.setItem(COLLAPSE_KEY, collapsed ? '1' : '0') } catch { /* */ }
+  }, [collapsed])
 
   async function onLogout() {
     await signOut()
@@ -26,10 +35,22 @@ export function Layout() {
     <div className="h-[100dvh] flex flex-col bg-paper overflow-hidden">
       {!supabaseConfigured ? <SetupBanner /> : null}
 
-      <div className="flex-1 grid lg:grid-cols-[220px_1fr] min-h-0" style={{ gridTemplateRows: 'minmax(0, 1fr)' }}>
+      <div
+        className="flex-1 grid lg:grid-cols-[var(--sidebar-w)_1fr] min-h-0 transition-[grid-template-columns] duration-200 ease-out"
+        style={{
+          gridTemplateRows: 'minmax(0, 1fr)',
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          ['--sidebar-w' as any]: collapsed ? '76px' : '220px',
+        }}
+      >
         {/* Desktop sidebar */}
-        <aside className="hidden lg:flex flex-col border-r border-soft-2 bg-paper">
-          <SidebarContent onLogout={onLogout} userEmail={user?.email ?? ''} />
+        <aside className="hidden lg:flex flex-col border-r border-soft-2 bg-paper relative">
+          <SidebarContent
+            onLogout={onLogout}
+            userEmail={user?.email ?? ''}
+            collapsed={collapsed}
+            onToggle={() => setCollapsed((c) => !c)}
+          />
         </aside>
 
         {/* Mobile top bar */}
@@ -51,7 +72,12 @@ export function Layout() {
                   <X size={20} />
                 </button>
               </div>
-              <SidebarContent onLogout={onLogout} userEmail={user?.email ?? ''} onNavigate={() => setDrawer(false)} />
+              <SidebarContent
+                onLogout={onLogout}
+                userEmail={user?.email ?? ''}
+                collapsed={false}
+                onNavigate={() => setDrawer(false)}
+              />
             </aside>
           </div>
         ) : null}
@@ -64,14 +90,56 @@ export function Layout() {
   )
 }
 
-function SidebarContent({ onLogout, userEmail, onNavigate }: { onLogout: () => void; userEmail: string; onNavigate?: () => void }) {
+interface SidebarProps {
+  onLogout: () => void
+  userEmail: string
+  collapsed: boolean
+  onToggle?: () => void
+  onNavigate?: () => void
+}
+
+function SidebarContent({ onLogout, userEmail, collapsed, onToggle, onNavigate }: SidebarProps) {
   return (
     <>
-      <div className="p-5 hidden lg:block">
-        <div className="brand-mark text-lg leading-tight">MY DOORS</div>
-        <div className="font-mono text-[10px] uppercase tracking-[0.2em] text-[--color-muted] mt-1">CRM · v4</div>
+      {/* Brand + collapse-knop */}
+      <div className={`hidden lg:flex items-center ${collapsed ? 'justify-center' : 'justify-between'} px-3 pt-4 pb-2`}>
+        {collapsed ? (
+          <div
+            className="w-12 h-12 rounded-lg grid place-items-center"
+            style={{ background: 'linear-gradient(135deg, var(--color-brand) 0%, #2A6664 100%)', boxShadow: 'var(--shadow-sm)' }}
+            title="MY DOORS"
+          >
+            <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="#FAF8F3" strokeWidth="2">
+              <rect x="5" y="2" width="14" height="20" rx="1" />
+              <rect x="7.5" y="4" width="9" height="16" rx="0.5" opacity="0.5" />
+              <line x1="12" y1="4" x2="12" y2="20" opacity="0.5" />
+              <line x1="7.5" y1="14" x2="16.5" y2="14" opacity="0.5" />
+              <circle cx="16" cy="12" r="0.8" fill="#E85D04" stroke="none" />
+            </svg>
+          </div>
+        ) : (
+          <div className="pl-2">
+            <div className="brand-mark text-lg leading-tight">MY DOORS</div>
+            <div className="font-mono text-[10px] uppercase tracking-[0.2em] text-[--color-muted] mt-1">CRM · v4</div>
+          </div>
+        )}
       </div>
-      <nav className="flex-1 flex flex-col py-2">
+
+      {/* Toggle-knop (alleen desktop) */}
+      {onToggle ? (
+        <button
+          type="button"
+          className="hidden lg:flex absolute -right-3 top-7 w-6 h-6 items-center justify-center rounded-full bg-white border border-soft-2 hover:border-ink shadow-sm z-10"
+          onClick={onToggle}
+          aria-label={collapsed ? 'Zijbalk openen' : 'Zijbalk inklappen'}
+          title={collapsed ? 'Open zijbalk' : 'Klap zijbalk in'}
+        >
+          {collapsed ? <PanelLeftOpen size={13} /> : <PanelLeftClose size={13} />}
+        </button>
+      ) : null}
+
+      {/* Nav-items */}
+      <nav className={`flex-1 flex flex-col ${collapsed ? 'py-3 gap-1' : 'py-2'}`}>
         {NAV.map((n) => {
           const Icon = n.icon
           return (
@@ -79,24 +147,46 @@ function SidebarContent({ onLogout, userEmail, onNavigate }: { onLogout: () => v
               key={n.to}
               to={n.to}
               end={n.end}
-              className="nav-link"
+              className={collapsed ? 'nav-icon-button' : 'nav-link'}
               onClick={onNavigate}
+              title={collapsed ? n.label : undefined}
             >
               {({ isActive }) => (
-                <span className="flex items-center gap-3" data-active={isActive || undefined}>
-                  <Icon size={18} />
-                  <span style={{ fontWeight: isActive ? 600 : 400 }}>{n.label}</span>
-                </span>
+                collapsed ? (
+                  <span className="flex items-center justify-center" data-active={isActive || undefined}>
+                    <Icon size={22} strokeWidth={isActive ? 2.2 : 1.7} />
+                  </span>
+                ) : (
+                  <span className="flex items-center gap-3" data-active={isActive || undefined}>
+                    <Icon size={18} />
+                    <span style={{ fontWeight: isActive ? 600 : 400 }}>{n.label}</span>
+                  </span>
+                )
               )}
             </NavLink>
           )
         })}
       </nav>
-      <div className="border-t border-soft-2 p-3">
-        <div className="font-mono text-[11px] text-[--color-muted] truncate mb-2">{userEmail}</div>
-        <button className="btn btn-ghost w-full justify-start" onClick={onLogout}>
-          <LogOut size={16} /> Uitloggen
-        </button>
+
+      {/* User + logout */}
+      <div className={`border-t border-soft-2 ${collapsed ? 'p-2' : 'p-3'}`}>
+        {!collapsed ? (
+          <>
+            <div className="font-mono text-[11px] text-[--color-muted] truncate mb-2">{userEmail}</div>
+            <button className="btn btn-ghost w-full justify-start" onClick={onLogout}>
+              <LogOut size={16} /> Uitloggen
+            </button>
+          </>
+        ) : (
+          <button
+            className="nav-icon-button mx-auto"
+            onClick={onLogout}
+            title="Uitloggen"
+            aria-label="Uitloggen"
+          >
+            <LogOut size={20} />
+          </button>
+        )}
       </div>
     </>
   )

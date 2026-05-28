@@ -307,6 +307,46 @@ textarea.field-input { font-family: var(--font-sans); resize: vertical; min-heig
   border-radius: 0 2px 2px 0;
 }
 
+/* ─── Nav-icon button (sidebar collapsed) ───────────────── */
+.nav-icon-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 52px;
+  height: 52px;
+  margin: 2px auto;
+  border-radius: var(--radius);
+  color: var(--color-ink-2);
+  text-decoration: none;
+  position: relative;
+  transition: all 160ms ease;
+  background: transparent;
+  border: 1px solid transparent;
+  cursor: pointer;
+}
+.nav-icon-button:hover {
+  background: var(--color-brand-soft);
+  color: var(--color-brand);
+  border-color: var(--color-brand-tint);
+}
+.nav-icon-button[aria-current="page"] {
+  background: linear-gradient(135deg, var(--color-brand-tint) 0%, #FFFFFF 100%);
+  color: var(--color-brand);
+  border-color: var(--color-brand-tint);
+  box-shadow: var(--shadow-sm);
+}
+.nav-icon-button[aria-current="page"]::after {
+  content: '';
+  position: absolute;
+  left: -8px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 4px;
+  height: 28px;
+  background: var(--color-accent);
+  border-radius: 0 3px 3px 0;
+}
+
 /* ─── Toast ──────────────────────────────────────────────── */
 .toast {
   position: fixed;

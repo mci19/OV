@@ -6,9 +6,9 @@ import { sketchFromFreehand, sketchFromText } from '../../lib/ai'
 import { DoorOutline } from './DoorOutline'
 import { DraggableLine } from './DraggableLine'
 import { DimensionLabels } from './DimensionLabels'
-import { HandleIndicator } from './HandleIndicator'
 import { FreehandLayer } from './FreehandLayer'
 import { TemplateGallery } from './TemplateGallery'
+import { TopViewInset } from './TopViewInset'
 import type { SnapMode } from './SnapHelper'
 
 interface Props {
@@ -205,7 +205,9 @@ export function SketchEditor({ order, onChange }: Props) {
     ].join('|')
   }, [order, sketch.verticalLines.length, sketch.horizontalLines.length, sketch.freehand.length])
 
-  const viewBox = `${-MARGIN} ${-MARGIN} ${breedte + 2 * MARGIN} ${hoogte + 2 * MARGIN}`
+  // Extra ruimte onderaan voor de top-view inset (alleen in technische mode)
+  const bottomExtra = clientView ? 0 : 240
+  const viewBox = `${-MARGIN} ${-MARGIN} ${breedte + 2 * MARGIN} ${hoogte + 2 * MARGIN + bottomExtra}`
 
   return (
     <div className="flex flex-col h-full">
@@ -412,10 +414,19 @@ export function SketchEditor({ order, onChange }: Props) {
               />
             ))}
 
-            <HandleIndicator order={order} clientView={clientView} />
-
             {/* maatvoering — niet in klant-zicht */}
             {!clientView ? <DimensionLabels order={order} /> : null}
+
+            {/* Top-view detail-inset onderaan, alleen in tekening-modus */}
+            {!clientView ? (
+              <TopViewInset
+                order={order}
+                x={Math.max(-MARGIN + 20, breedte / 2 - 350)}
+                y={hoogte + 170}
+                width={700}
+                height={220}
+              />
+            ) : null}
           </svg>
         </div>
       )}
