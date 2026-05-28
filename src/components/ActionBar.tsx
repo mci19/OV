@@ -2,6 +2,7 @@ import { useState } from 'react'
 import type { OrderData } from '../lib/types'
 import { orderNumber, slug } from '../lib/orderNumber'
 import { saveConcept } from '../lib/storage'
+import { useAppSettings } from '../lib/queries'
 
 interface Props {
   order: OrderData
@@ -12,6 +13,7 @@ interface Props {
 export function ActionBar({ order, hasErrors, onSavedConcept }: Props) {
   const [busy, setBusy] = useState<string | null>(null)
   const [toast, setToast] = useState<string | null>(null)
+  const { data: settings } = useAppSettings()
   const baseFilename = `MYDOORS-${slug(order)}-${orderNumber(order)}`
 
   function flash(msg: string) {
@@ -25,7 +27,9 @@ export function ActionBar({ order, hasErrors, onSavedConcept }: Props) {
       import('./pdf/FabricantOrderPDF'),
       import('./pdf/ClientConfirmPDF'),
     ])
-    const doc = target === 'fabrikant' ? <FabricantOrderPDF order={order} /> : <ClientConfirmPDF order={order} />
+    const doc = target === 'fabrikant'
+      ? <FabricantOrderPDF order={order} cutFormulas={settings?.cut_formulas} />
+      : <ClientConfirmPDF order={order} />
     return pdf(doc).toBlob()
   }
 

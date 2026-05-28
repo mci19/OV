@@ -164,7 +164,55 @@ export interface AppSettings {
   default_door_height: number
   default_handle_height: number
   default_vat_rate: number
+  // Zagerij — magic numbers achter de cut-list berekening, instelbaar
+  // zodat productie de formules kan tunen zonder code-release
+  cut_formulas: CutFormulas
   updated_at: string
+}
+
+/**
+ * Alle "magic numbers" uit cutList.ts in één blob. Default-waarden
+ * komen exact overeen met de hardcoded constanten zodat 11 referentie-
+ * tests groen blijven. Wijzigingen via Settings → Zagerij.
+ */
+export interface CutFormulas {
+  // Buitenframe (kozijn)
+  kozijn_horiz_aftrek: number              // breedte − 40
+  // Deurbladkader (binnen kozijn)
+  blade_vert_aftrek: number                // hoogte − 30
+  blade_horiz_aftrek: number               // breedte − 88
+  // Glaslijst-kader gelaste-zijde
+  glaslijst_vert_aftrek: number            // bladeVert − 40
+  glaslijst_horiz_aftrek: number           // bladeHoriz − 30
+  // Poederlak-zijde: globaal "andere zijde 2 mm korter" = 1 mm per uiteinde
+  poederlak_marge_per_zijde: number        // 1
+  // Design verticaal (doorlopend over volle kader-hoogte)
+  design_vert_gelaste_aftrek: number       // glasKaderVertGelaste − 30
+  design_vert_poederlak_aftrek: number     // glasKaderVertGelaste − 32
+  // Verticaal-profiel breedte (gebruikt voor midden-segment aftrek)
+  verticaal_breedte: number                // 15
+  // Juosta-afdekstrip
+  juosta_horiz_aftrek: number              // breedte − 70
+  // Standaard greep-lengtes (Kampas 30×30) per handleKind
+  greep_l_grip_lengte: number              // 200 mm
+  greep_horizontal_bar_lengte: number      // 200 mm
+  greep_other_default_lengte: number       // 700 mm
+}
+
+export const DEFAULT_CUT_FORMULAS: CutFormulas = {
+  kozijn_horiz_aftrek: 40,
+  blade_vert_aftrek: 30,
+  blade_horiz_aftrek: 88,
+  glaslijst_vert_aftrek: 40,
+  glaslijst_horiz_aftrek: 30,
+  poederlak_marge_per_zijde: 1,
+  design_vert_gelaste_aftrek: 30,
+  design_vert_poederlak_aftrek: 32,
+  verticaal_breedte: 15,
+  juosta_horiz_aftrek: 70,
+  greep_l_grip_lengte: 200,
+  greep_horizontal_bar_lengte: 200,
+  greep_other_default_lengte: 700,
 }
 
 export const DEFAULT_APP_SETTINGS: AppSettings = {
@@ -187,6 +235,7 @@ export const DEFAULT_APP_SETTINGS: AppSettings = {
   default_door_height: 2300,
   default_handle_height: 1050,
   default_vat_rate: 21,
+  cut_formulas: DEFAULT_CUT_FORMULAS,
   updated_at: new Date().toISOString(),
 }
 

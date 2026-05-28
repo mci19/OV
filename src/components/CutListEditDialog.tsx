@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react'
 import { Plus, RotateCcw, Save, Trash2, X } from 'lucide-react'
 import type { OrderData } from '../lib/types'
 import { generateCutList, type CutListItem } from '../lib/cutList'
+import { useAppSettings } from '../lib/queries'
 
 interface Props {
   order: OrderData
@@ -18,7 +19,8 @@ interface Props {
  */
 export function CutListEditDialog({ order, onSave, onClear, onClose }: Props) {
   // Startwaarde = override als die er is, anders de berekende versie
-  const computed = useMemo(() => generateCutList(order), [order])
+  const { data: settings } = useAppSettings()
+  const computed = useMemo(() => generateCutList(order, settings?.cut_formulas), [order, settings?.cut_formulas])
   const initial = order.cutListOverride?.items ?? computed.items
   const [items, setItems] = useState<CutListItem[]>(initial.map((i) => ({ ...i })))
   const [note, setNote] = useState<string>(order.cutListOverride?.note ?? '')

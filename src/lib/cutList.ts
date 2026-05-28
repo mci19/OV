@@ -1,4 +1,5 @@
 import type { OrderData } from './types'
+import { DEFAULT_CUT_FORMULAS, type CutFormulas } from './db'
 
 export interface CutListItem {
   nr: number | null // null voor extras (kampas/juosta)
@@ -50,19 +51,22 @@ export interface CutListResult {
  *  - Greep Kampas 30×30: standaard L=700 mm, 2 stuks
  *  - Juosta-35×4 (afdekstrip): 2× hoogte, 1× breedte-70
  */
-export function generateCutList(order: OrderData): CutListResult {
+export function generateCutList(order: OrderData, formulas: CutFormulas = DEFAULT_CUT_FORMULAS): CutListResult {
   const items: CutListItem[] = []
   let nr = 1
 
   const { breedte, hoogte, sketch } = order
+  const f = formulas
+  // "andere zijde 2 mm korter" = 1 mm per uiteinde × 2 uiteinden
+  const poederlakTotalMarge = f.poederlak_marge_per_zijde * 2
 
   // ─── Geometrie ──────────────────────────────────────────
-  const bladeVert = hoogte - 30
-  const bladeHoriz = breedte - 88
-  const glassKaderVertGelaste = bladeVert - 40
-  const glassKaderHorizGelaste = bladeHoriz - 30
-  const glassKaderVertPoederlak = bladeVert - 42
-  const glassKaderHorizPoederlak = bladeHoriz - 32
+  const bladeVert = hoogte - f.blade_vert_aftrek
+  const bladeHoriz = breedte - f.blade_horiz_aftrek
+  const glassKaderVertGelaste = bladeVert - f.glaslijst_vert_aftrek
+  const glassKaderHorizGelaste = bladeHoriz - f.glaslijst_horiz_aftrek
+  const glassKaderVertPoederlak = glassKaderVertGelaste - poederlakTotalMarge
+  const glassKaderHorizPoederlak = glassKaderHorizGelaste - poederlakTotalMarge
 
   // Converteer v4 sketch-posities (vanaf kozijn-links) naar kader-coords
   const poederlakKaderLeftX = (breedte - glassKaderHorizPoederlak) / 2
@@ -84,7 +88,7 @@ export function generateCutList(order: OrderData): CutListResult {
 
   // ─── Buitenframe (kozijn) ───────────────────────────────
   items.push({ nr: nr++, profiel: '20*40*2', lengte: hoogte, aantal: 2 })
-  items.push({ nr: nr++, profiel: '20*40*2', lengte: breedte - 40, aantal: 1 })
+  items.push({ nr: nr++, profiel: '20*40*2', lengte: breedte - f.kozijn_horiz_aftrek, aantal: 1 })
 
   // ─── Deurbladkader ──────────────────────────────────────
   items.push({ nr: nr++, profiel: '20*40*2', lengte: bladeVert, aantal: 2 })
@@ -96,9 +100,8 @@ export function generateCutList(order: OrderData): CutListResult {
 
   // ─── Dwarslat-segmenten gelaste ─────────────────────────
   // M dwarslatten worden door N verticalen in (N+1) segmenten gesplitst.
-  // asHandle verticals zijn 30mm dik i.p.v. 15mm.
   if (M > 0) {
-    const segmentsG = computeSegments(verticalsK, glassKaderHorizGelaste, 'gelaste')
+    const segmentsG = computeSegments(verticalsK, glassKaderHorizGelaste, 'gelaste', f)
     for (const seg of segmentsG) {
       if (seg >= 30) {
         items.push({ nr: nr++, profiel: '15*15*1.5', lengte: seg, aantal: M })
@@ -107,12 +110,11 @@ export function generateCutList(order: OrderData): CutListResult {
   }
 
   // ─── Design verticaal gelaste (doorlopend) ──────────────
-  // Alleen 15×15-glaslijsten — Kampas-bars (asHandle) komen apart bij extras
   if (Nglas > 0) {
     items.push({
       nr: nr++,
       profiel: '15*15*1.5',
-      lengte: glassKaderVertGelaste - 30,
+      lengte: glassKaderVertGelaste - f.design_vert_gelaste_aftrek,
       aantal: Nglas,
     })
   }
@@ -123,7 +125,7 @@ export function generateCutList(order: OrderData): CutListResult {
 
   // ─── Dwarslat-segmenten poederlak ───────────────────────
   if (M > 0) {
-    const segmentsP = computeSegments(verticalsK, glassKaderHorizPoederlak, 'poederlak')
+    const segmentsP = computeSegments(verticalsK, glassKaderHorizPoederlak, 'poederlak', f)
     for (const seg of segmentsP) {
       if (seg >= 30) {
         items.push({ nr: nr++, profiel: '15*15*1.5', lengte: seg, aantal: M })
@@ -136,7 +138,7 @@ export function generateCutList(order: OrderData): CutListResult {
     items.push({
       nr: nr++,
       profiel: '15*15*1.5',
-      lengte: glassKaderVertGelaste - 32,
+      lengte: glassKaderVertGelaste - f.design_vert_poederlak_aftrek,
       aantal: Nglas,
     })
   }
@@ -144,17 +146,17 @@ export function generateCutList(order: OrderData): CutListResult {
   // ─── Extras ─────────────────────────────────────────────
   // Greep — vorm bepaalt profiel en lengte
   if (order.handleKind === 'l_grip') {
-    items.push({ nr: null, profiel: 'Kampas 30*30', lengte: 200, aantal: 2, bewerking: 'L-greep 200 mm' })
+    items.push({ nr: null, profiel: 'Kampas 30*30', lengte: f.greep_l_grip_lengte, aantal: 2, bewerking: `L-greep ${f.greep_l_grip_lengte} mm` })
   } else if (order.handleKind === 'horizontal_bar') {
-    items.push({ nr: null, profiel: 'Kampas 30*30', lengte: 200, aantal: 2, bewerking: 'horizontale stang 200 mm' })
+    items.push({ nr: null, profiel: 'Kampas 30*30', lengte: f.greep_horizontal_bar_lengte, aantal: 2, bewerking: `horizontale stang ${f.greep_horizontal_bar_lengte} mm` })
   } else if (order.handleKind === 'l_vertical') {
-    const len = Math.max(1, Math.round(order.handleVerticalMm || 700))
+    const len = Math.max(1, Math.round(order.handleVerticalMm || f.greep_other_default_lengte))
     items.push({ nr: null, profiel: 'Kampas 30*30', lengte: len, aantal: 2, bewerking: `L-verticaal ${len} mm` })
   } else if (order.handleKind === 'other') {
-    items.push({ nr: null, profiel: 'Kampas 30*30', lengte: 700, aantal: 2, bewerking: order.handleOther.trim() || 'greep' })
+    items.push({ nr: null, profiel: 'Kampas 30*30', lengte: f.greep_other_default_lengte, aantal: 2, bewerking: order.handleOther.trim() || 'greep' })
   }
   items.push({ nr: null, profiel: 'Juosta-35*4', lengte: hoogte, aantal: 2 })
-  items.push({ nr: null, profiel: 'Juosta-35*4', lengte: breedte - 70, aantal: 1 })
+  items.push({ nr: null, profiel: 'Juosta-35*4', lengte: breedte - f.juosta_horiz_aftrek, aantal: 1 })
 
   const ralLine = ralLabel(order)
   const headerLine = `${breedte}-${hoogte}`
@@ -187,19 +189,22 @@ function computeSegments(
   verticals: { x: number }[],
   horizLen: number,
   kind: 'gelaste' | 'poederlak',
+  formulas: CutFormulas,
 ): number[] {
   const N = verticals.length
-  if (N === 0) return [horizLen - 30]
-  const adj = kind === 'gelaste' ? 1 : 0
+  const w = formulas.verticaal_breedte
+  if (N === 0) return [horizLen - 2 * w]
+  // gelaste-zijde is per uiteinde poederlak_marge_per_zijde mm langer
+  const adj = kind === 'gelaste' ? formulas.poederlak_marge_per_zijde : 0
   const out: number[] = []
   // Linker segment (kop van glaskader tot eerste verticaal)
   out.push(Math.round(verticals[0].x + adj))
-  // Middelsegmenten — verticaal is 15 mm dik
+  // Middelsegmenten — verticaal-profiel breedte
   for (let i = 1; i < N; i++) {
-    out.push(Math.round(verticals[i].x - verticals[i - 1].x - 15))
+    out.push(Math.round(verticals[i].x - verticals[i - 1].x - w))
   }
   // Rechter segment
-  out.push(Math.round(horizLen - verticals[N - 1].x - 15 - adj))
+  out.push(Math.round(horizLen - verticals[N - 1].x - w - adj))
   return out
 }
 

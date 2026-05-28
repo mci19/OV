@@ -1,5 +1,6 @@
 import { Document, Page, Text, View, StyleSheet } from '@react-pdf/renderer'
 import type { OrderData } from '../../lib/types'
+import type { CutFormulas } from '../../lib/db'
 import {
   finishingLabel,
   glassLabel,
@@ -34,11 +35,12 @@ const styles = StyleSheet.create({
 
 interface Props {
   order: OrderData
+  cutFormulas?: CutFormulas
 }
 
-export function FabricantOrderPDF({ order }: Props) {
+export function FabricantOrderPDF({ order, cutFormulas }: Props) {
   const nr = orderNumber(order)
-  const computed = generateCutList(order)
+  const computed = generateCutList(order, cutFormulas)
   // Manuele override geldt boven de berekende lijst (header/RAL blijven gelijk)
   const cutList = order.cutListOverride
     ? { ...computed, items: order.cutListOverride.items }

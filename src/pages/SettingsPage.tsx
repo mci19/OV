@@ -1,16 +1,17 @@
 import { useEffect, useState, type FormEvent } from 'react'
-import { Building2, FileText, ListChecks, Save, Plus, Trash2, ArrowUp, ArrowDown } from 'lucide-react'
+import { Building2, FileText, ListChecks, Save, Plus, Trash2, ArrowUp, ArrowDown, Scissors, RotateCcw } from 'lucide-react'
 import { PageContainer, PageHeader } from '../components/Layout'
 import { Field, FieldRow, TextAreaField } from '../components/Field'
 import { useAllOptionLists, useAppSettings, useUpdateAppSettings, useUpdateOptionList } from '../lib/queries'
-import { DEFAULT_APP_SETTINGS, type AppSettings, type OptionItem, type OptionList } from '../lib/db'
+import { DEFAULT_APP_SETTINGS, DEFAULT_CUT_FORMULAS, type AppSettings, type CutFormulas, type OptionItem, type OptionList } from '../lib/db'
 
-type Tab = 'bedrijf' | 'offerte' | 'order' | 'opties'
+type Tab = 'bedrijf' | 'offerte' | 'order' | 'zagerij' | 'opties'
 
 const TABS: { id: Tab; label: string; icon: typeof Building2 }[] = [
   { id: 'bedrijf', label: 'Bedrijf', icon: Building2 },
   { id: 'offerte', label: 'Offerte', icon: FileText },
   { id: 'order',   label: 'Order-defaults', icon: FileText },
+  { id: 'zagerij', label: 'Zagerij-formules', icon: Scissors },
   { id: 'opties',  label: 'Optie-lijsten', icon: ListChecks },
 ]
 
@@ -46,6 +47,8 @@ export function SettingsPage() {
 
       {tab === 'bedrijf' || tab === 'offerte' || tab === 'order' ? (
         <AppSettingsTab tab={tab} />
+      ) : tab === 'zagerij' ? (
+        <ZagerijTab />
       ) : (
         <OptionListsTab />
       )}
@@ -62,7 +65,7 @@ function AppSettingsTab({ tab }: { tab: 'bedrijf' | 'offerte' | 'order' }) {
   const [savedHint, setSavedHint] = useState<string | null>(null)
 
   useEffect(() => {
-    if (server) setDraft(server)
+    if (server) setDraft({ ...DEFAULT_APP_SETTINGS, ...server, cut_formulas: { ...DEFAULT_CUT_FORMULAS, ...(server.cut_formulas ?? {}) } })
   }, [server])
 
   function set<K extends keyof AppSettings>(k: K, v: AppSettings[K]) {
@@ -352,4 +355,164 @@ function listLabel(key: string): string {
     case 'ral_extras': return 'Extra RAL-kleuren'
     default: return key
   }
+}
+
+// ─── Zagerij-formules tab ────────────────────────────────────
+
+interface FormulaField {
+  key: keyof CutFormulas
+  label: string
+  unit: string
+  hint?: string
+}
+
+const FORMULA_GROUPS: { title: string; description: string; fields: FormulaField[] }[] = [
+  {
+    title: 'Kozijn (buitenframe)',
+    description: 'Het hoekijzer rond de hele deuropening.',
+    fields: [
+      { key: 'kozijn_horiz_aftrek', label: 'Horizontale aftrek', unit: 'mm', hint: 'breedte − X (default 40 = 1× profielbreedte)' },
+    ],
+  },
+  {
+    title: 'Deurbladkader',
+    description: 'Het binnenkader dat het glas+verdeling draagt, met speling rondom.',
+    fields: [
+      { key: 'blade_vert_aftrek', label: 'Verticale aftrek', unit: 'mm', hint: 'hoogte − X (default 30)' },
+      { key: 'blade_horiz_aftrek', label: 'Horizontale aftrek', unit: 'mm', hint: 'breedte − X (default 88 = 2×40 profiel + 2×4 speling)' },
+    ],
+  },
+  {
+    title: 'Glaslijst-kader gelaste-zijde',
+    description: 'Het 15×15-kader dat het glas vastklemt aan de gelaste (achter)zijde.',
+    fields: [
+      { key: 'glaslijst_vert_aftrek', label: 'Verticale aftrek', unit: 'mm', hint: 'bladeVert − X (default 40)' },
+      { key: 'glaslijst_horiz_aftrek', label: 'Horizontale aftrek', unit: 'mm', hint: 'bladeHoriz − X (default 30)' },
+    ],
+  },
+  {
+    title: 'Poederlak-zijde',
+    description: 'De zichtkant. "Andere zijde altijd 2 mm korter (lijst-zagerij)".',
+    fields: [
+      { key: 'poederlak_marge_per_zijde', label: 'Marge per uiteinde', unit: 'mm', hint: 'Default 1 mm × 2 zijden = 2 mm korter dan gelaste' },
+    ],
+  },
+  {
+    title: 'Design verticaal (doorlopend)',
+    description: 'Verticale glaslijst die over de volle kader-hoogte loopt.',
+    fields: [
+      { key: 'design_vert_gelaste_aftrek', label: 'Gelaste aftrek', unit: 'mm', hint: 'glassKaderVertGelaste − X (default 30)' },
+      { key: 'design_vert_poederlak_aftrek', label: 'Poederlak aftrek', unit: 'mm', hint: 'glassKaderVertGelaste − X (default 32)' },
+    ],
+  },
+  {
+    title: 'Dwarslat-segmenten',
+    description: 'Hoe een dwarslat wordt opgesplitst door verticalen.',
+    fields: [
+      { key: 'verticaal_breedte', label: 'Breedte verticaal-profiel', unit: 'mm', hint: 'Default 15 = midden-segment aftrek per verticaal' },
+    ],
+  },
+  {
+    title: 'Juosta (afdekstrip)',
+    description: 'Aluminium afdeklijst rondom het kozijn.',
+    fields: [
+      { key: 'juosta_horiz_aftrek', label: 'Horizontale aftrek', unit: 'mm', hint: 'breedte − X (default 70)' },
+    ],
+  },
+  {
+    title: 'Greep-lengtes (Kampas 30×30)',
+    description: 'Standaard lengtes per greep-type. L-verticaal gebruikt de manueel-ingevoerde lengte per order.',
+    fields: [
+      { key: 'greep_l_grip_lengte', label: 'L-grip', unit: 'mm', hint: 'Default 200' },
+      { key: 'greep_horizontal_bar_lengte', label: 'Horizontale stang', unit: 'mm', hint: 'Default 200' },
+      { key: 'greep_other_default_lengte', label: 'Other (fallback)', unit: 'mm', hint: 'Default 700 — gebruikt als geen lengte gegeven' },
+    ],
+  },
+]
+
+function ZagerijTab() {
+  const { data: server, isLoading } = useAppSettings()
+  const update = useUpdateAppSettings()
+  const [draft, setDraft] = useState<CutFormulas>(DEFAULT_CUT_FORMULAS)
+  const [savedHint, setSavedHint] = useState<string | null>(null)
+
+  useEffect(() => {
+    if (server) setDraft({ ...DEFAULT_CUT_FORMULAS, ...(server.cut_formulas ?? {}) })
+  }, [server])
+
+  function setField(k: keyof CutFormulas, v: number) {
+    setDraft((d) => ({ ...d, [k]: v }))
+  }
+
+  function resetDefaults() {
+    if (!confirm('Alle formules terugzetten naar de oorspronkelijke MY DOORS productie-defaults?')) return
+    setDraft(DEFAULT_CUT_FORMULAS)
+  }
+
+  async function onSubmit(e: FormEvent) {
+    e.preventDefault()
+    setSavedHint(null)
+    try {
+      await update.mutateAsync({ cut_formulas: draft })
+      setSavedHint('Formules opgeslagen. Volgende zaaglijst gebruikt de nieuwe waardes.')
+      setTimeout(() => setSavedHint(null), 3000)
+    } catch (err) {
+      setSavedHint(`Fout: ${err instanceof Error ? err.message : String(err)}`)
+    }
+  }
+
+  if (isLoading) return <div className="text-[--color-muted] font-mono text-sm">Laden…</div>
+
+  return (
+    <form onSubmit={onSubmit} className="space-y-6 max-w-3xl">
+      <div className="card bg-paper/60">
+        <h2 className="section-h">Zagerij-formules</h2>
+        <p className="text-sm text-[--color-muted] mb-3">
+          De automatische zaaglijst gebruikt deze constanten. Wijzigingen werken vanaf de eerstvolgende
+          PDF-export of openen van de zaaglijst-editor. Per order kan de lijst nog steeds handmatig
+          worden overschreven via de Zaaglijst-knop.
+        </p>
+      </div>
+
+      {FORMULA_GROUPS.map((g) => (
+        <div key={g.title} className="card space-y-3">
+          <div>
+            <h3 className="font-bold text-sm" style={{ color: 'var(--color-brand)' }}>{g.title}</h3>
+            <p className="text-xs text-[--color-muted] mt-0.5">{g.description}</p>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            {g.fields.map((field) => (
+              <Field
+                key={field.key}
+                label={field.label}
+                unit={field.unit}
+                type="number"
+                step={0.1}
+                value={draft[field.key]}
+                onChange={(e) => setField(field.key, Number(e.target.value))}
+                hint={field.hint}
+              />
+            ))}
+          </div>
+        </div>
+      ))}
+
+      <div className="flex items-center gap-3 sticky bottom-4 z-10 p-3 bg-paper/90 backdrop-blur border border-soft-2 rounded-lg">
+        <button type="submit" className="btn btn-primary" disabled={update.isPending}>
+          <Save size={14} /> {update.isPending ? 'Opslaan…' : 'Bewaar formules'}
+        </button>
+        <button type="button" className="btn" onClick={resetDefaults}>
+          <RotateCcw size={14} /> Reset naar defaults
+        </button>
+        {savedHint ? (
+          <span
+            className="font-mono text-xs"
+            style={{ color: savedHint.startsWith('Fout') ? 'var(--color-accent)' : 'var(--color-success)' }}
+          >
+            {savedHint}
+          </span>
+        ) : null}
+      </div>
+    </form>
+  )
 }
