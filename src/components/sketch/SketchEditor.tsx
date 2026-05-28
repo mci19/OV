@@ -186,6 +186,25 @@ export function SketchEditor({ order, onChange }: Props) {
     return () => window.removeEventListener('pointerdown', onPointer, { capture: true })
   }, [mode])
 
+  // Pulse-feedback: elke configuratie-wijziging triggert een korte glow
+  // op de tekening zodat de gebruiker zichtbare bevestiging krijgt.
+  // Hash van alle "visueel relevante" opties; wijzigt → React remount
+  // van de overlay-div → CSS animation start opnieuw.
+  const pulseKey = useMemo(() => {
+    return [
+      order.colorKind, order.colorOther,
+      order.glassType, order.glassOther,
+      order.system, order.variants.join(','), order.softOpen, order.softClose,
+      order.finishing,
+      order.handleKind, order.handleVerticalMm, order.handleOther,
+      order.handlePosition.side, order.handlePosition.heightFromBottom,
+      order.hingeKind, order.hingeSide,
+      order.breedte, order.hoogte,
+      sketch.verticalLines.length, sketch.horizontalLines.length,
+      sketch.freehand.length,
+    ].join('|')
+  }, [order, sketch.verticalLines.length, sketch.horizontalLines.length, sketch.freehand.length])
+
   const viewBox = `${-MARGIN} ${-MARGIN} ${breedte + 2 * MARGIN} ${hoogte + 2 * MARGIN}`
 
   return (
@@ -309,7 +328,9 @@ export function SketchEditor({ order, onChange }: Props) {
           <TemplateGallery order={order} onPick={pickTemplate} />
         </div>
       ) : (
-        <div className="flex-1 min-h-0 overflow-hidden" style={{ touchAction: 'none' }}>
+        <div className="flex-1 min-h-0 overflow-hidden relative" style={{ touchAction: 'none' }}>
+          {/* Pulse overlay: remount via key triggert CSS animation opnieuw */}
+          <div key={pulseKey} className="door-pulse-overlay" aria-hidden />
           <svg
             ref={svgRef}
             viewBox={viewBox}
