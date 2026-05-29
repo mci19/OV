@@ -13,9 +13,10 @@ import {
   type DragStartEvent,
 } from '@dnd-kit/core'
 import { useState } from 'react'
-import { STAGE_LABELS, STAGE_ORDER, type OpportunityStage, type OpportunityWithCustomer } from '../lib/db'
+import { STAGE_ORDER, type OpportunityStage, type OpportunityWithCustomer } from '../lib/db'
 import { useUpdateStage } from '../lib/queries'
-import { formatEur, relativeTimeNl } from '../lib/format'
+import { formatEur, relativeTime } from '../lib/format'
+import { stageLabel, useT } from '../lib/i18n'
 
 interface Props {
   opportunities: OpportunityWithCustomer[]
@@ -72,6 +73,7 @@ export function KanbanView({ opportunities }: Props) {
 }
 
 function KanbanColumn({ stage, items }: { stage: OpportunityStage; items: OpportunityWithCustomer[] }) {
+  const { t, lang } = useT()
   const { setNodeRef, isOver } = useDroppable({ id: stage })
   const sumValue = items.reduce((s, i) => s + (i.expected_value_cents || 0), 0)
   return (
@@ -83,7 +85,7 @@ function KanbanColumn({ stage, items }: { stage: OpportunityStage; items: Opport
     >
       <div className="px-3 py-2 border-b border-soft-2 flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <span className="stage-pill" data-stage={stage}>{STAGE_LABELS[stage]}</span>
+          <span className="stage-pill" data-stage={stage}>{stageLabel(stage, lang)}</span>
           <span className="font-mono text-xs text-[--color-muted]">({items.length})</span>
         </div>
         {sumValue ? <div className="font-mono text-xs text-[--color-muted] tabular-nums">{formatEur(sumValue)}</div> : null}
@@ -91,7 +93,7 @@ function KanbanColumn({ stage, items }: { stage: OpportunityStage; items: Opport
       <div className="flex-1 p-2 space-y-2 overflow-y-auto">
         {items.length === 0 ? (
           <div className="text-center text-[--color-muted] font-mono text-xs py-8 border border-dashed border-soft-2">
-            Leeg
+            {t('kanban.empty')}
           </div>
         ) : (
           items.map((opp) => <DraggableCard key={opp.id} opp={opp} />)
@@ -116,6 +118,7 @@ function DraggableCard({ opp }: { opp: OpportunityWithCustomer }) {
 }
 
 function Card({ opp, dragging = false }: { opp: OpportunityWithCustomer; dragging?: boolean }) {
+  const { lang } = useT()
   const value = opp.expected_value_cents
   return (
     <Link
@@ -127,7 +130,7 @@ function Card({ opp, dragging = false }: { opp: OpportunityWithCustomer; draggin
       <div className="text-xs text-[--color-muted] truncate">{opp.customer_name ?? '—'}</div>
       <div className="flex items-end justify-between mt-3 gap-2">
         {value ? <div className="font-mono text-xs tabular-nums">{formatEur(value)}</div> : <div />}
-        <div className="font-mono text-[10px] text-[--color-muted]">{relativeTimeNl(opp.updated_at)}</div>
+        <div className="font-mono text-[10px] text-[--color-muted]">{relativeTime(opp.updated_at, lang)}</div>
       </div>
     </Link>
   )

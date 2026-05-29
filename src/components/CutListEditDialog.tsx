@@ -3,6 +3,7 @@ import { Plus, RotateCcw, Save, Trash2, X } from 'lucide-react'
 import type { OrderData } from '../lib/types'
 import { generateCutList, type CutListItem } from '../lib/cutList'
 import { useAppSettings } from '../lib/queries'
+import { useT } from '../lib/i18n'
 
 interface Props {
   order: OrderData
@@ -18,6 +19,7 @@ interface Props {
  * op de order. "Resette naar berekende versie" wist de override weer.
  */
 export function CutListEditDialog({ order, onSave, onClear, onClose }: Props) {
+  const { t } = useT()
   // Startwaarde = override als die er is, anders de berekende versie
   const { data: settings } = useAppSettings()
   const computed = useMemo(() => generateCutList(order, settings?.cut_formulas), [order, settings?.cut_formulas])
@@ -45,7 +47,7 @@ export function CutListEditDialog({ order, onSave, onClear, onClose }: Props) {
     setItems((arr) => arr.map((it) => (it.nr !== null ? { ...it, nr: n++ } : it)))
   }
   function resetToComputed() {
-    if (!confirm('Alle handmatige wijzigingen verwerpen en de berekende zaaglijst herstellen?')) return
+    if (!confirm(t('cutList.resetConfirm'))) return
     setItems(computed.items.map((i) => ({ ...i })))
     setNote('')
   }
@@ -59,18 +61,18 @@ export function CutListEditDialog({ order, onSave, onClear, onClose }: Props) {
         <div className="flex items-start justify-between gap-3 px-5 py-3 border-b border-soft-2">
           <div>
             <div className="font-mono text-[10px] uppercase tracking-[0.18em] text-[--color-muted]">
-              {hasOverride ? 'Handmatige zaaglijst (override)' : 'Bewerk zaaglijst'}
+              {hasOverride ? t('cutList.title.override') : t('cutList.title.edit')}
             </div>
             <h2 className="font-bold text-lg leading-tight" style={{ color: 'var(--color-brand)' }}>
               {order.breedte} × {order.hoogte} mm
             </h2>
             <div className="font-mono text-xs text-[--color-muted] mt-0.5">
               {hasOverride
-                ? 'Wijzigingen vervangen de automatisch berekende lijst in de fabrikant-PDF.'
-                : 'Start vanaf de automatisch berekende lijst en pas aan waar nodig.'}
+                ? t('cutList.intro.override')
+                : t('cutList.intro.edit')}
             </div>
           </div>
-          <button type="button" className="btn btn-ghost btn-icon" onClick={onClose} aria-label="Sluit">
+          <button type="button" className="btn btn-ghost btn-icon" onClick={onClose} aria-label={t('common.close')}>
             <X size={20} />
           </button>
         </div>
@@ -78,11 +80,11 @@ export function CutListEditDialog({ order, onSave, onClear, onClose }: Props) {
         <div className="flex-1 overflow-y-auto p-4 space-y-1">
           {/* Header */}
           <div className="grid grid-cols-[40px_1fr_100px_70px_1.4fr_36px] gap-2 px-1 text-[10px] uppercase tracking-wider text-[--color-muted] font-mono pb-1">
-            <div>Nr</div>
-            <div>Profiel</div>
-            <div className="text-right">Lengte</div>
-            <div className="text-right">Aantal</div>
-            <div>Bewerking</div>
+            <div>{t('cutList.col.nr')}</div>
+            <div>{t('cutList.col.profile')}</div>
+            <div className="text-right">{t('cutList.col.length')}</div>
+            <div className="text-right">{t('cutList.col.count')}</div>
+            <div>{t('cutList.col.operation')}</div>
             <div></div>
           </div>
           {items.map((it, i) => (

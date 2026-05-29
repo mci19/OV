@@ -7,21 +7,24 @@ import { EmptyState } from './HomePage'
 import { formatEur } from '../lib/format'
 import { useDeleteProduct, useProducts, useUpsertProduct } from '../lib/queries'
 import type { Product } from '../lib/db'
+import { useT } from '../lib/i18n'
 
 const UNITS = ['stuk', 'm', 'm²', 'u', 'set', 'forfait']
 
 export function ProductsPage() {
+  const { t } = useT()
   const { data: products = [], isLoading } = useProducts(false)
   const [editing, setEditing] = useState<Product | 'new' | null>(null)
   const del = useDeleteProduct()
 
   async function onDelete(id: string) {
-    if (!confirm('Product verwijderen?')) return
+    if (!confirm(t('products.deleteConfirm'))) return
     await del.mutateAsync(id)
   }
 
+  const uncategorized = t('products.uncategorized')
   const byCategory = products.reduce<Record<string, Product[]>>((acc, p) => {
-    const k = p.category ?? 'Overig'
+    const k = p.category ?? uncategorized
     if (!acc[k]) acc[k] = []
     acc[k].push(p)
     return acc
@@ -30,22 +33,22 @@ export function ProductsPage() {
   return (
     <PageContainer>
       <PageHeader
-        title="Productcatalogus"
-        subtitle="Standaard-regels voor offertes — wijzigingen gelden alleen voor nieuwe offertes"
+        title={t('products.pageTitle')}
+        subtitle={t('products.pageSubtitle')}
         actions={
           <button className="btn btn-primary" onClick={() => setEditing('new')}>
-            <Plus size={16} /> Nieuw product
+            <Plus size={16} /> {t('products.new')}
           </button>
         }
       />
 
-      {isLoading ? <div className="text-[--color-muted] font-mono text-sm">Laden…</div> : null}
+      {isLoading ? <div className="text-[--color-muted] font-mono text-sm">{t('common.loading')}</div> : null}
 
       {products.length === 0 && !isLoading ? (
         <EmptyState
-          title="Catalogus is leeg"
-          subtitle="Voeg producten toe om offertes sneller op te bouwen."
-          cta={<button className="btn btn-primary" onClick={() => setEditing('new')}>+ Nieuw product</button>}
+          title={t('products.emptyTitle')}
+          subtitle={t('products.emptySubtitle')}
+          cta={<button className="btn btn-primary" onClick={() => setEditing('new')}>+ {t('products.new')}</button>}
         />
       ) : null}
 
@@ -62,12 +65,12 @@ export function ProductsPage() {
                   </div>
                   <div className="text-right font-mono">
                     <div className="text-sm font-bold tabular-nums">{formatEur(p.default_price_cents)}</div>
-                    <div className="text-[10px] text-[--color-muted]">per {p.unit}</div>
+                    <div className="text-[10px] text-[--color-muted]">{t('products.unitSuffix', { unit: p.unit })}</div>
                   </div>
-                  <button className="btn btn-ghost btn-icon btn-sm" onClick={() => setEditing(p)} aria-label="Bewerken">
+                  <button className="btn btn-ghost btn-icon btn-sm" onClick={() => setEditing(p)} aria-label={t('products.editAria')}>
                     <Pencil size={14} />
                   </button>
-                  <button className="btn btn-ghost btn-icon btn-sm" onClick={() => onDelete(p.id)} aria-label="Verwijderen">
+                  <button className="btn btn-ghost btn-icon btn-sm" onClick={() => onDelete(p.id)} aria-label={t('products.deleteAria')}>
                     <Trash2 size={14} />
                   </button>
                 </div>
@@ -85,6 +88,7 @@ export function ProductsPage() {
 }
 
 function ProductEditor({ product, onClose }: { product: Product | null; onClose: () => void }) {
+  const { t } = useT()
   const upsert = useUpsertProduct()
   const [error, setError] = useState<string | null>(null)
   const [form, setForm] = useState({
@@ -99,7 +103,7 @@ function ProductEditor({ product, onClose }: { product: Product | null; onClose:
 
   async function onSubmit(e: FormEvent) {
     e.preventDefault()
-    if (!form.name.trim()) { setError('Naam is verplicht'); return }
+    if (!form.name.trim()) { setError(t('customers.editor.nameRequired')); return }
     try {
       const cents = Math.round(Number(form.price_eur.replace(',', '.') || 0) * 100)
       await upsert.mutateAsync({
@@ -122,23 +126,23 @@ function ProductEditor({ product, onClose }: { product: Product | null; onClose:
     <Dialog
       open
       onClose={onClose}
-      title={product ? 'Product bewerken' : 'Nieuw product'}
+      title={product ? t('products.editTitle') : t('products.new')}
       footer={
         <>
-          <button type="button" className="btn" onClick={onClose}>Annuleer</button>
+          <button type="button" className="btn" onClick={onClose}>{t('common.cancel')}</button>
           <button type="submit" form="product-form" className="btn btn-primary" disabled={upsert.isPending}>
-            {upsert.isPending ? '…' : 'Bewaar'}
+            {upsert.isPending ? '…' : t('common.save')}
           </button>
         </>
       }
     >
       <form id="product-form" onSubmit={onSubmit} className="space-y-4">
-        <Field label="Naam" required value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
-        <TextAreaField label="Omschrijving" value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} />
+        <Field label={t('products.name')} required value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
+        <TextAreaField label={t('products.description')} value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} />
         <FieldRow>
-          <Field label="Categorie" value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value })} placeholder="bv. Frame, Glas" />
+          <Field label={t('products.category')} value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value })} placeholder={t('products.categoryPlaceholder')} />
           <SelectField
-            label="Eenheid"
+            label={t('products.unitLabel')}
             value={form.unit}
             onChange={(v) => setForm({ ...form, unit: v })}
             options={UNITS.map((u) => ({ value: u, label: u }))}
@@ -146,7 +150,7 @@ function ProductEditor({ product, onClose }: { product: Product | null; onClose:
         </FieldRow>
         <FieldRow>
           <Field
-            label="Standaardprijs"
+            label={t('products.price')}
             unit="EUR"
             type="text"
             inputMode="decimal"
@@ -154,16 +158,16 @@ function ProductEditor({ product, onClose }: { product: Product | null; onClose:
             onChange={(e) => setForm({ ...form, price_eur: e.target.value })}
           />
           <Field
-            label="Sorteervolgorde"
+            label={t('products.sortOrder')}
             type="number"
             value={form.sort_order}
             onChange={(e) => setForm({ ...form, sort_order: e.target.value })}
-            hint="lagere getallen bovenaan"
+            hint={t('products.sortOrderHint')}
           />
         </FieldRow>
         <label className="flex items-center gap-2 font-mono text-sm">
           <input type="checkbox" checked={form.active} onChange={(e) => setForm({ ...form, active: e.target.checked })} />
-          Actief (zichtbaar in offerte-picker)
+          {t('products.activeLabel')}
         </label>
         {error ? <div className="text-accent font-mono text-xs">{error}</div> : null}
       </form>

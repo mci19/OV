@@ -7,7 +7,7 @@ import { OrderForm } from '../components/OrderForm'
 import { SketchEditor } from '../components/sketch/SketchEditor'
 import { ActionBar } from '../components/ActionBar'
 import { useAppSettings, useOpportunity, useOrderForOpportunity, useQuotes, useSaveOrder, useUpsertOpportunity, useDeleteOpportunity, useLogActivity } from '../lib/queries'
-import { STAGE_LABELS, STAGE_ORDER, type OpportunityStage } from '../lib/db'
+import { STAGE_ORDER, type OpportunityStage } from '../lib/db'
 import { DEFAULT_ORDER, sanitizeOrderData, type OrderData } from '../lib/types'
 import { validateOrder } from '../lib/calculations'
 import { EmptyState, formatEur } from './HomePage'
@@ -15,11 +15,13 @@ import { OpportunityEditor } from './OpportunitiesPage'
 import { ActivityTimeline } from '../components/ActivityTimeline'
 import { CutListEditDialog } from '../components/CutListEditDialog'
 import { useToast, errorMessage } from '../components/Toast'
+import { stageLabel, useT } from '../lib/i18n'
 
 type Tab = 'order' | 'quote' | 'activity'
 type View = 'split' | 'schets' | 'form'
 
 export function OpportunityDetailPage() {
+  const { t, lang } = useT()
   const { id } = useParams()
   const navigate = useNavigate()
   const { data: opp, isLoading } = useOpportunity(id)
@@ -93,14 +95,14 @@ export function OpportunityDetailPage() {
     try {
       await saveOrder.mutateAsync({ id: existingOrder?.id, opportunity_id: id, data: order })
       setDirty(false)
-      toast.success('Bestelling opgeslagen')
+      toast.success(t('opps.detail.toast.orderSaved'))
       logActivity.mutate({
         opportunity_id: id,
         kind: 'order_saved',
-        message: `Bestelling opgeslagen: ${order.breedte}×${order.hoogte} mm`,
+        message: `${t('opps.detail.toast.orderSaved')}: ${order.breedte}×${order.hoogte} mm`,
       })
     } catch (err) {
-      toast.error(`Opslaan mislukt: ${errorMessage(err)}`)
+      toast.error(t('opps.detail.toast.saveFailed', { error: errorMessage(err) }))
     }
   }
 
@@ -109,30 +111,30 @@ export function OpportunityDetailPage() {
     try {
       await updateOpp.mutateAsync({ id: opp.id, customer_id: opp.customer_id, title: opp.title, stage })
     } catch (err) {
-      toast.error(`Stage wijzigen mislukt: ${errorMessage(err)}`)
+      toast.error(t('opps.detail.toast.stageFailed', { error: errorMessage(err) }))
     }
   }
 
   async function onDelete() {
     if (!opp) return
-    if (!confirm(`Opportunity "${opp.title}" verwijderen?`)) return
+    if (!confirm(t('opps.detail.deleteConfirm', { title: opp.title }))) return
     try {
       await delOpp.mutateAsync(opp.id)
       navigate('/opportunities')
     } catch (err) {
-      toast.error(`Verwijderen mislukt: ${errorMessage(err)}`)
+      toast.error(t('opps.detail.toast.deleteFailed', { error: errorMessage(err) }))
     }
   }
 
-  if (isLoading) return <PageContainer><div className="text-[--color-muted] font-mono text-sm">Laden…</div></PageContainer>
-  if (!opp) return <PageContainer><EmptyState title="Opportunity niet gevonden" /></PageContainer>
+  if (isLoading) return <PageContainer><div className="text-[--color-muted] font-mono text-sm">{t('common.loading')}</div></PageContainer>
+  if (!opp) return <PageContainer><EmptyState title={t('opps.notFound')} /></PageContainer>
 
   return (
     <div className="h-[100dvh] flex flex-col">
       {/* Sub-header voor opportunity context */}
       <div className="no-print border-b border-soft-2 bg-paper px-4 py-3 flex items-center gap-3 flex-wrap">
         <Link to="/opportunities" className="btn btn-ghost btn-sm">
-          <ChevronLeft size={14} /> Pipeline
+          <ChevronLeft size={14} /> {t('opps.detail.pipeline')}
         </Link>
         <div className="flex-1 min-w-0">
           <div className="font-bold truncate">{opp.title}</div>
@@ -146,16 +148,16 @@ export function OpportunityDetailPage() {
           onChange={(e) => changeStage(e.target.value as OpportunityStage)}
         >
           {STAGE_ORDER.map((s) => (
-            <option key={s} value={s}>{STAGE_LABELS[s]}</option>
+            <option key={s} value={s}>{stageLabel(s, lang)}</option>
           ))}
         </select>
         {opp.expected_value_cents ? (
           <div className="font-mono text-sm font-bold hidden sm:block tabular-nums">{formatEur(opp.expected_value_cents)}</div>
         ) : null}
-        <button className="btn btn-ghost btn-icon" onClick={() => setEditingOpp(true)} aria-label="Bewerken">
+        <button className="btn btn-ghost btn-icon" onClick={() => setEditingOpp(true)} aria-label={t('opps.detail.editAria')}>
           <Pencil size={16} />
         </button>
-        <button className="btn btn-ghost btn-icon" onClick={onDelete} aria-label="Verwijder">
+        <button className="btn btn-ghost btn-icon" onClick={onDelete} aria-label={t('opps.detail.deleteAria')}>
           <Trash2 size={16} />
         </button>
       </div>
@@ -164,13 +166,13 @@ export function OpportunityDetailPage() {
       <div className="no-print border-b border-soft-2 bg-paper px-4 py-2 flex items-center justify-between gap-2 flex-wrap">
         <div className="flex gap-1">
           <button className="chip" data-active={tab === 'order'} onClick={() => setTab('order')}>
-            Bestelling
+            {t('opps.detail.tab.order')}
           </button>
           <button className="chip" data-active={tab === 'quote'} onClick={() => setTab('quote')}>
-            Offertes {quotes.length ? `(${quotes.length})` : ''}
+            {t('opps.detail.tab.quotes')} {quotes.length ? `(${quotes.length})` : ''}
           </button>
           <button className="chip" data-active={tab === 'activity'} onClick={() => setTab('activity')}>
-            Activiteit
+            {t('opps.detail.tab.activity')}
           </button>
         </div>
         {tab === 'order' ? (
@@ -178,18 +180,18 @@ export function OpportunityDetailPage() {
             <Chips
               value={view}
               options={[
-                { value: 'split', label: 'Beide' },
-                { value: 'schets', label: 'Schets' },
-                { value: 'form', label: 'Formulier' },
+                { value: 'split', label: t('opps.detail.view.both') },
+                { value: 'schets', label: t('opps.detail.view.sketch') },
+                { value: 'form', label: t('opps.detail.view.form') },
               ]}
               onChange={(v) => setView(v)}
             />
             <button
               className="btn"
               onClick={() => setEditingCutList(true)}
-              title="Bewerk de zaaglijst die in de fabrikant-PDF terechtkomt"
+              title={t('opps.detail.cutListTitle')}
             >
-              <Scissors size={14} /> Zaaglijst
+              <Scissors size={14} /> {t('opps.detail.cutListBtn')}
               {order.cutListOverride ? <span className="ml-1 text-[--color-accent]">●</span> : null}
             </button>
             <button
@@ -197,12 +199,12 @@ export function OpportunityDetailPage() {
               onClick={persist}
               disabled={!dirty || saveOrder.isPending}
             >
-              <Save size={14} /> {saveOrder.isPending ? '…' : dirty ? 'Bewaar' : 'Opgeslagen'}
+              <Save size={14} /> {saveOrder.isPending ? '…' : dirty ? t('common.save') : t('common.saved')}
             </button>
           </div>
         ) : tab === 'quote' ? (
           <Link to={`/opportunities/${id}/quote/new`} className="btn btn-primary">
-            <Plus size={14} /> Nieuwe offerte
+            <Plus size={14} /> {t('opps.quotes.newButton')}
           </Link>
         ) : null}
       </div>
@@ -238,7 +240,7 @@ export function OpportunityDetailPage() {
       ) : (
         <div className="flex-1 overflow-y-auto">
           <PageContainer>
-            <h2 className="section-h">Activiteit</h2>
+            <h2 className="section-h">{t('opps.detail.tab.activity')}</h2>
             <ActivityTimeline opportunityId={id!} />
           </PageContainer>
         </div>
@@ -274,16 +276,19 @@ export function OpportunityDetailPage() {
 }
 
 function QuotesTab({ opportunityId }: { opportunityId: string; orderData: OrderData }) {
+  const { t, lang } = useT()
   const { data: quotes = [], isLoading } = useQuotes(opportunityId)
-  if (isLoading) return <div className="p-8 text-[--color-muted] font-mono text-sm">Laden…</div>
+  if (isLoading) return <div className="p-8 text-[--color-muted] font-mono text-sm">{t('common.loading')}</div>
+
+  const locale = lang === 'en' ? 'en-GB' : 'nl-BE'
 
   return (
     <PageContainer>
       {quotes.length === 0 ? (
         <EmptyState
-          title="Nog geen offertes"
-          subtitle="Genereer een offerte uit deze opportunity met regels + prijzen."
-          cta={<Link to={`/opportunities/${opportunityId}/quote/new`} className="btn btn-primary">+ Nieuwe offerte</Link>}
+          title={t('opps.quotes.empty.title')}
+          subtitle={t('opps.quotes.empty.subtitle')}
+          cta={<Link to={`/opportunities/${opportunityId}/quote/new`} className="btn btn-primary">{t('opps.quotes.empty.cta')}</Link>}
         />
       ) : (
         <div className="space-y-2">
@@ -296,7 +301,7 @@ function QuotesTab({ opportunityId }: { opportunityId: string; orderData: OrderD
               <div>
                 <div className="font-mono font-bold text-sm">{q.reference}</div>
                 <div className="text-xs text-[--color-muted] mt-1">
-                  {q.line_items.length} regels · {new Date(q.created_at).toLocaleDateString('nl-BE')}
+                  {t('opps.quotes.lines', { n: q.line_items.length })} · {new Date(q.created_at).toLocaleDateString(locale)}
                 </div>
               </div>
               <div className="flex items-center gap-3">

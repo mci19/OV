@@ -3,6 +3,7 @@ import type { OrderData } from '../lib/types'
 import { orderNumber, slug } from '../lib/orderNumber'
 import { saveConcept } from '../lib/storage'
 import { useAppSettings } from '../lib/queries'
+import { useT } from '../lib/i18n'
 
 interface Props {
   order: OrderData
@@ -11,6 +12,7 @@ interface Props {
 }
 
 export function ActionBar({ order, hasErrors, onSavedConcept }: Props) {
+  const { t } = useT()
   const [busy, setBusy] = useState<string | null>(null)
   const [toast, setToast] = useState<string | null>(null)
   const { data: settings } = useAppSettings()
@@ -43,9 +45,9 @@ export function ActionBar({ order, hasErrors, onSavedConcept }: Props) {
       a.download = `${baseFilename}-${target}.pdf`
       a.click()
       URL.revokeObjectURL(url)
-      flash(`${target === 'fabrikant' ? 'Fabrikant' : 'Klant'}-PDF gedownload`)
+      flash(t('actionBar.pdfDownloaded', { target: target === 'fabrikant' ? t('actionBar.targetFabrikant') : t('actionBar.targetKlant') }))
     } catch (err) {
-      flash(`PDF-generatie mislukt: ${err instanceof Error ? err.message : 'onbekende fout'}`)
+      flash(t('actionBar.pdfFailed', { error: err instanceof Error ? err.message : t('actionBar.unknownError') }))
     } finally {
       setBusy(null)
     }
@@ -59,8 +61,8 @@ export function ActionBar({ order, hasErrors, onSavedConcept }: Props) {
       const data: ShareData = {
         title: `MY DOORS — ${order.klantNaam || orderNumber(order)}`,
         text: target === 'fabrikant'
-          ? `Bestelling MY DOORS · ${orderNumber(order)} · ${order.breedte}×${order.hoogte} mm`
-          : `Uw deur — bevestiging — MY DOORS`,
+          ? `MY DOORS · ${orderNumber(order)} · ${order.breedte}×${order.hoogte} mm`
+          : `MY DOORS`,
         files: [file],
       }
       // Web Share API met file-support
@@ -69,11 +71,11 @@ export function ActionBar({ order, hasErrors, onSavedConcept }: Props) {
       } else {
         // fallback: download
         await downloadPdf(target)
-        flash('Share niet beschikbaar; bestand gedownload')
+        flash(t('actionBar.shareFallback'))
       }
     } catch (err) {
       if (err instanceof Error && err.name !== 'AbortError') {
-        flash(`Versturen mislukt: ${err.message}`)
+        flash(t('actionBar.shareFailed', { error: err.message }))
       }
     } finally {
       setBusy(null)
@@ -82,7 +84,7 @@ export function ActionBar({ order, hasErrors, onSavedConcept }: Props) {
 
   function snapConcept() {
     saveConcept(order)
-    flash('Concept opgeslagen')
+    flash(t('actionBar.draftSaved'))
     onSavedConcept?.()
   }
 
@@ -93,16 +95,16 @@ export function ActionBar({ order, hasErrors, onSavedConcept }: Props) {
       <div className="flex-1 min-w-[180px]">
         {hasErrors ? (
           <span className="font-mono text-xs text-accent">
-            Formulier bevat fouten — controleer rode velden
+            {t('actionBar.formHasErrors')}
           </span>
         ) : (
           <span className="font-mono text-xs text-zinc-500">
-            #{orderNumber(order)} {offline ? '· offline' : ''}
+            #{orderNumber(order)} {offline ? `· ${t('common.offline')}` : ''}
           </span>
         )}
       </div>
       <button type="button" className="chip" onClick={snapConcept} disabled={!!busy}>
-        Bewaar concept
+        {t('actionBar.saveDraft')}
       </button>
       <button
         type="button"
@@ -110,7 +112,7 @@ export function ActionBar({ order, hasErrors, onSavedConcept }: Props) {
         onClick={() => downloadPdf('klant')}
         disabled={!!busy || hasErrors}
       >
-        {busy === 'klant' ? '…' : 'Klant-PDF'}
+        {busy === 'klant' ? '…' : t('actionBar.clientPdf')}
       </button>
       <button
         type="button"
@@ -118,7 +120,7 @@ export function ActionBar({ order, hasErrors, onSavedConcept }: Props) {
         onClick={() => downloadPdf('fabrikant')}
         disabled={!!busy || hasErrors}
       >
-        {busy === 'fabrikant' ? '…' : 'Fabrikant-PDF'}
+        {busy === 'fabrikant' ? '…' : t('actionBar.manufacturerPdf')}
       </button>
       <button
         type="button"
@@ -126,7 +128,7 @@ export function ActionBar({ order, hasErrors, onSavedConcept }: Props) {
         onClick={() => sharePdf('fabrikant')}
         disabled={!!busy || hasErrors}
       >
-        {busy === 'share-fabrikant' ? '…' : 'Verstuur naar fabrikant'}
+        {busy === 'share-fabrikant' ? '…' : t('actionBar.sendToManufacturer')}
       </button>
       {toast ? (
         <div className="toast">{toast}</div>

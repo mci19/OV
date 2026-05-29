@@ -8,8 +8,8 @@ import { formatEur } from '../lib/format'
 import { useAppSettings, useOpportunity, useOrderForOpportunity, useProducts, useQuote, useUpsertQuote, useDeleteQuote, useLogActivity } from '../lib/queries'
 import { Dialog } from '../components/Dialog'
 import type { LineItem, QuoteStatus } from '../lib/db'
-import { QUOTE_STATUS_LABELS } from '../lib/db'
 import { errorMessage, useToast } from '../components/Toast'
+import { quoteStatusLabel, useT } from '../lib/i18n'
 
 const DEFAULT_LINEITEMS: LineItem[] = [
   { id: 'li-1', description: 'Stalen deur op maat', quantity: 1, unit_cents: 0 },
@@ -19,6 +19,7 @@ const DEFAULT_LINEITEMS: LineItem[] = [
 ]
 
 export function QuoteEditorPage() {
+  const { t, lang } = useT()
   const { id: oppId, quoteId } = useParams()
   const navigate = useNavigate()
   const { data: opp } = useOpportunity(oppId)
@@ -97,17 +98,17 @@ export function QuoteEditorPage() {
         valid_until: validUntil || null,
         status,
       })
-      toast.success('Offerte opgeslagen')
+      toast.success(t('quote.toast.saved'))
       if (quoteId === 'new') {
         logActivity.mutate({
           opportunity_id: oppId,
           kind: 'quote_created',
-          message: `Offerte ${saved.reference} aangemaakt`,
+          message: `${t('quote.toast.saved')}: ${saved.reference}`,
         })
         navigate(`/opportunities/${oppId}/quote/${saved.id}`, { replace: true })
       }
     } catch (err) {
-      toast.error(`Opslaan mislukt: ${errorMessage(err)}`)
+      toast.error(t('quote.toast.saveFailed', { error: errorMessage(err) }))
     }
   }
 
@@ -137,7 +138,7 @@ export function QuoteEditorPage() {
       a.click()
       URL.revokeObjectURL(url)
     } catch (err) {
-      toast.error(`PDF-generatie mislukt: ${errorMessage(err)}`)
+      toast.error(t('quote.toast.pdfFailed', { error: errorMessage(err) }))
     } finally {
       setPdfBusy(false)
     }
@@ -145,32 +146,32 @@ export function QuoteEditorPage() {
 
   async function onDelete() {
     if (!existing) return
-    if (!confirm('Offerte verwijderen?')) return
+    if (!confirm(t('quote.deleteConfirm'))) return
     try {
       await del.mutateAsync(existing.id)
       navigate(`/opportunities/${oppId}`)
     } catch (err) {
-      toast.error(`Verwijderen mislukt: ${errorMessage(err)}`)
+      toast.error(t('quote.toast.deleteFailed', { error: errorMessage(err) }))
     }
   }
 
-  if (!opp) return <PageContainer><EmptyState title="Opportunity niet gevonden" /></PageContainer>
-  if (isLoading && quoteId !== 'new') return <PageContainer><div className="text-[--color-muted] font-mono text-sm">Laden…</div></PageContainer>
+  if (!opp) return <PageContainer><EmptyState title={t('opps.notFound')} /></PageContainer>
+  if (isLoading && quoteId !== 'new') return <PageContainer><div className="text-[--color-muted] font-mono text-sm">{t('common.loading')}</div></PageContainer>
 
   return (
     <PageContainer>
       <PageHeader
-        title={existing ? `Offerte ${reference}` : 'Nieuwe offerte'}
+        title={existing ? t('quote.title.edit', { ref: reference }) : t('quote.title.new')}
         subtitle={`${opp.customer_name} · ${opp.title}`}
         actions={
           <>
-            <Link to={`/opportunities/${oppId}`} className="btn btn-ghost"><ChevronLeft size={14} /> Terug</Link>
+            <Link to={`/opportunities/${oppId}`} className="btn btn-ghost"><ChevronLeft size={14} /> {t('common.back')}</Link>
             <button className="btn" onClick={downloadPdf} disabled={pdfBusy}>
-              <Download size={14} /> {pdfBusy ? '…' : 'PDF'}
+              <Download size={14} /> {pdfBusy ? '…' : t('quote.pdf')}
             </button>
             {existing ? <button className="btn btn-danger" onClick={onDelete}><Trash2 size={14} /></button> : null}
             <button className="btn btn-primary" onClick={save} disabled={upsert.isPending}>
-              {upsert.isPending ? '…' : 'Bewaar'}
+              {upsert.isPending ? '…' : t('common.save')}
             </button>
           </>
         }
@@ -179,15 +180,15 @@ export function QuoteEditorPage() {
       <div className="grid grid-cols-1 lg:grid-cols-[1fr_280px] gap-6">
         <div className="space-y-6">
           <div className="card">
-            <h3 className="section-h">Header</h3>
+            <h3 className="section-h">{t('quote.header')}</h3>
             <FieldRow>
               <Field
-                label="Referentie"
+                label={t('quote.reference')}
                 value={reference}
                 onChange={(e) => setReference(e.target.value)}
               />
               <Field
-                label="Geldig tot"
+                label={t('quote.validUntil')}
                 type="date"
                 value={validUntil}
                 onChange={(e) => setValidUntil(e.target.value)}
@@ -195,23 +196,23 @@ export function QuoteEditorPage() {
             </FieldRow>
             <div className="mt-3">
               <SelectField
-                label="Status"
+                label={t('quote.status')}
                 value={status}
                 onChange={(v) => setStatus(v as QuoteStatus)}
-                options={Object.entries(QUOTE_STATUS_LABELS).map(([v, l]) => ({ value: v, label: l }))}
+                options={(['draft', 'sent', 'accepted', 'declined'] as QuoteStatus[]).map((v) => ({ value: v, label: quoteStatusLabel(v, lang) }))}
               />
             </div>
           </div>
 
           <div className="card">
             <div className="flex items-center justify-between mb-3 gap-2 flex-wrap">
-              <h3 className="section-h !mb-0 !pb-0 !border-0">Regels</h3>
+              <h3 className="section-h !mb-0 !pb-0 !border-0">{t('quote.lines')}</h3>
               <div className="flex gap-2">
                 <button className="btn btn-sm" onClick={() => setPicker(true)}>
-                  <Plus size={14} /> Uit catalogus
+                  <Plus size={14} /> {t('quote.fromCatalog')}
                 </button>
                 <button className="btn btn-sm" onClick={addLine}>
-                  <Plus size={14} /> Lege regel
+                  <Plus size={14} /> {t('quote.emptyLine')}
                 </button>
               </div>
             </div>
@@ -225,7 +226,7 @@ export function QuoteEditorPage() {
                 />
               ))}
               {items.length === 0 ? (
-                <div className="text-[--color-muted] font-mono text-sm">Geen regels. Klik "+ Regel".</div>
+                <div className="text-[--color-muted] font-mono text-sm">{t('quote.lineNonePrompt')}</div>
               ) : null}
             </div>
           </div>
@@ -235,12 +236,12 @@ export function QuoteEditorPage() {
         <aside className="space-y-3 lg:sticky lg:top-4 h-fit">
           <div className="card space-y-2">
             <div className="flex justify-between font-mono text-sm">
-              <span>Subtotaal</span>
+              <span>{t('quote.subtotal')}</span>
               <span className="tabular-nums">{formatEur(totals.subtotal)}</span>
             </div>
             <div className="flex justify-between items-center font-mono text-sm">
               <span>
-                BTW{' '}
+                {t('quote.vat')}{' '}
                 <input
                   type="number"
                   className="w-12 border-b border-ink bg-transparent text-center"
@@ -252,7 +253,7 @@ export function QuoteEditorPage() {
               <span className="tabular-nums">{formatEur(totals.vat)}</span>
             </div>
             <div className="border-t border-ink pt-2 flex justify-between font-mono font-bold">
-              <span>Totaal</span>
+              <span>{t('quote.total')}</span>
               <span className="tabular-nums">{formatEur(totals.total)}</span>
             </div>
           </div>
@@ -276,6 +277,7 @@ function ProductPickerDialog({
   onClose,
   onPick,
 }: { onClose: () => void; onPick: (items: { description: string; unit_cents: number }[]) => void }) {
+  const { t } = useT()
   const { data: products = [], isLoading } = useProducts(true)
   const [selected, setSelected] = useState<Set<string>>(new Set())
 
@@ -298,8 +300,9 @@ function ProductPickerDialog({
     onPick(items)
   }
 
+  const uncategorized = t('products.uncategorized')
   const byCategory = products.reduce<Record<string, typeof products>>((acc, p) => {
-    const k = p.category ?? 'Overig'
+    const k = p.category ?? uncategorized
     if (!acc[k]) acc[k] = []
     acc[k].push(p)
     return acc
@@ -309,21 +312,21 @@ function ProductPickerDialog({
     <Dialog
       open
       onClose={onClose}
-      title="Producten uit catalogus"
+      title={t('quote.catalog.title')}
       size="lg"
       footer={
         <>
-          <button type="button" className="btn" onClick={onClose}>Annuleer</button>
+          <button type="button" className="btn" onClick={onClose}>{t('common.cancel')}</button>
           <button type="button" className="btn btn-primary" onClick={confirm} disabled={selected.size === 0}>
-            Voeg toe ({selected.size})
+            {t('quote.catalog.add', { n: selected.size })}
           </button>
         </>
       }
     >
-      {isLoading ? <div className="text-[--color-muted] font-mono text-sm">Laden…</div> : null}
+      {isLoading ? <div className="text-[--color-muted] font-mono text-sm">{t('common.loading')}</div> : null}
       {products.length === 0 && !isLoading ? (
         <div className="text-[--color-muted] font-mono text-sm">
-          Geen actieve producten. Voeg producten toe via <strong>Catalogus</strong>.
+          {t('quote.catalog.empty')}
         </div>
       ) : null}
       <div className="space-y-5">
@@ -361,12 +364,13 @@ function LineRow({
   onChange,
   onRemove,
 }: { item: LineItem; onChange: (patch: Partial<LineItem>) => void; onRemove: () => void }) {
+  const { t } = useT()
   const totalCents = item.quantity * item.unit_cents
   return (
     <div className="grid grid-cols-[1fr_60px_110px_110px_32px] gap-2 items-start">
       <input
         className="field-input"
-        placeholder="Omschrijving"
+        placeholder={t('quote.lineDescription')}
         value={item.description}
         onChange={(e) => onChange({ description: e.target.value })}
       />
@@ -386,7 +390,7 @@ function LineRow({
         onChange={(e) => onChange({ unit_cents: Math.round(Number(e.target.value.replace(',', '.') || 0) * 100) })}
       />
       <div className="font-mono text-sm tabular-nums text-right self-center">{formatEur(totalCents)}</div>
-      <button className="btn btn-ghost btn-icon btn-sm" onClick={onRemove} aria-label="Verwijder regel">
+      <button className="btn btn-ghost btn-icon btn-sm" onClick={onRemove} aria-label={t('quote.deleteAria')}>
         <Trash2 size={14} />
       </button>
     </div>

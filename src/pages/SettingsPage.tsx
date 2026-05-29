@@ -4,42 +4,46 @@ import { PageContainer, PageHeader } from '../components/Layout'
 import { Field, FieldRow, TextAreaField } from '../components/Field'
 import { useAllOptionLists, useAppSettings, useUpdateAppSettings, useUpdateOptionList } from '../lib/queries'
 import { DEFAULT_APP_SETTINGS, DEFAULT_CUT_FORMULAS, type AppSettings, type CutFormulas, type OptionItem, type OptionList } from '../lib/db'
+import { useT } from '../lib/i18n'
 
 type Tab = 'bedrijf' | 'offerte' | 'order' | 'zagerij' | 'opties'
 
-const TABS: { id: Tab; label: string; icon: typeof Building2 }[] = [
-  { id: 'bedrijf', label: 'Bedrijf', icon: Building2 },
-  { id: 'offerte', label: 'Offerte', icon: FileText },
-  { id: 'order',   label: 'Order-defaults', icon: FileText },
-  { id: 'zagerij', label: 'Zagerij-formules', icon: Scissors },
-  { id: 'opties',  label: 'Optie-lijsten', icon: ListChecks },
+interface TabDef { id: Tab; labelKey: 'settings.tab.company' | 'settings.tab.quote' | 'settings.tab.order' | 'settings.tab.zagerij' | 'settings.tab.options'; icon: typeof Building2 }
+
+const TABS: TabDef[] = [
+  { id: 'bedrijf', labelKey: 'settings.tab.company', icon: Building2 },
+  { id: 'offerte', labelKey: 'settings.tab.quote',   icon: FileText },
+  { id: 'order',   labelKey: 'settings.tab.order',   icon: FileText },
+  { id: 'zagerij', labelKey: 'settings.tab.zagerij', icon: Scissors },
+  { id: 'opties',  labelKey: 'settings.tab.options', icon: ListChecks },
 ]
 
 export function SettingsPage() {
+  const { t } = useT()
   const [tab, setTab] = useState<Tab>('bedrijf')
   return (
     <PageContainer>
       <PageHeader
-        title="Instellingen"
-        subtitle="Bedrijfsgegevens, offerte-defaults en configureerbare keuzelijsten"
+        title={t('settings.title')}
+        subtitle={t('settings.subtitle')}
       />
 
       <div className="flex gap-2 overflow-x-auto pb-2 mb-6 border-b border-soft-2">
-        {TABS.map((t) => {
-          const Icon = t.icon
+        {TABS.map((tb) => {
+          const Icon = tb.icon
           return (
             <button
-              key={t.id}
+              key={tb.id}
               type="button"
               className="flex items-center gap-2 px-4 py-2.5 text-sm border-b-2 -mb-px transition-colors"
               style={{
-                borderColor: tab === t.id ? 'var(--color-brand)' : 'transparent',
-                color: tab === t.id ? 'var(--color-brand)' : 'var(--color-muted)',
-                fontWeight: tab === t.id ? 600 : 400,
+                borderColor: tab === tb.id ? 'var(--color-brand)' : 'transparent',
+                color: tab === tb.id ? 'var(--color-brand)' : 'var(--color-muted)',
+                fontWeight: tab === tb.id ? 600 : 400,
               }}
-              onClick={() => setTab(t.id)}
+              onClick={() => setTab(tb.id)}
             >
-              <Icon size={16} /> {t.label}
+              <Icon size={16} /> {t(tb.labelKey)}
             </button>
           )
         })}
@@ -59,6 +63,7 @@ export function SettingsPage() {
 // ─── App settings tabs ───────────────────────────────────────
 
 function AppSettingsTab({ tab }: { tab: 'bedrijf' | 'offerte' | 'order' }) {
+  const { t } = useT()
   const { data: server, isLoading } = useAppSettings()
   const update = useUpdateAppSettings()
   const [draft, setDraft] = useState<AppSettings>(DEFAULT_APP_SETTINGS)
@@ -80,44 +85,44 @@ function AppSettingsTab({ tab }: { tab: 'bedrijf' | 'offerte' | 'order' }) {
       const { id: _id, updated_at: _updated, ...patch } = draft
       void _id; void _updated
       await update.mutateAsync(patch)
-      setSavedHint('Instellingen opgeslagen.')
+      setSavedHint(t('settings.saved'))
       setTimeout(() => setSavedHint(null), 2000)
     } catch (err) {
-      setSavedHint(`Fout: ${err instanceof Error ? err.message : String(err)}`)
+      setSavedHint(t('settings.error', { error: err instanceof Error ? err.message : String(err) }))
     }
   }
 
-  if (isLoading) return <div className="text-[--color-muted] font-mono text-sm">Laden…</div>
+  if (isLoading) return <div className="text-[--color-muted] font-mono text-sm">{t('common.loading')}</div>
 
   return (
     <form onSubmit={onSubmit} className="space-y-6 max-w-3xl">
       {tab === 'bedrijf' ? (
         <div className="card space-y-4">
-          <h2 className="section-h">Bedrijfsgegevens</h2>
-          <Field label="Bedrijfsnaam" value={draft.company_name} onChange={(e) => set('company_name', e.target.value)} />
-          <Field label="Straat + nr" value={draft.company_address_line1 ?? ''} onChange={(e) => set('company_address_line1', e.target.value)} />
+          <h2 className="section-h">{t('settings.company.title')}</h2>
+          <Field label={t('settings.company.name')} value={draft.company_name} onChange={(e) => set('company_name', e.target.value)} />
+          <Field label={t('settings.company.street')} value={draft.company_address_line1 ?? ''} onChange={(e) => set('company_address_line1', e.target.value)} />
           <FieldRow>
-            <Field label="Postcode" value={draft.company_address_postal ?? ''} onChange={(e) => set('company_address_postal', e.target.value)} />
-            <Field label="Gemeente" value={draft.company_address_city ?? ''} onChange={(e) => set('company_address_city', e.target.value)} />
+            <Field label={t('settings.company.postal')} value={draft.company_address_postal ?? ''} onChange={(e) => set('company_address_postal', e.target.value)} />
+            <Field label={t('settings.company.city')} value={draft.company_address_city ?? ''} onChange={(e) => set('company_address_city', e.target.value)} />
           </FieldRow>
           <FieldRow>
-            <Field label="E-mail" type="email" value={draft.company_email ?? ''} onChange={(e) => set('company_email', e.target.value)} />
-            <Field label="Telefoon" type="tel" value={draft.company_phone ?? ''} onChange={(e) => set('company_phone', e.target.value)} />
+            <Field label={t('settings.company.email')} type="email" value={draft.company_email ?? ''} onChange={(e) => set('company_email', e.target.value)} />
+            <Field label={t('settings.company.phone')} type="tel" value={draft.company_phone ?? ''} onChange={(e) => set('company_phone', e.target.value)} />
           </FieldRow>
-          <Field label="Website" type="url" value={draft.company_website ?? ''} onChange={(e) => set('company_website', e.target.value)} />
+          <Field label={t('settings.company.website')} type="url" value={draft.company_website ?? ''} onChange={(e) => set('company_website', e.target.value)} />
           <FieldRow>
-            <Field label="BTW-nummer" value={draft.company_btw ?? ''} onChange={(e) => set('company_btw', e.target.value)} placeholder="BE0123.456.789" />
-            <Field label="IBAN" value={draft.company_iban ?? ''} onChange={(e) => set('company_iban', e.target.value)} placeholder="BE.. .... .... ...." />
+            <Field label={t('settings.company.vat')} value={draft.company_btw ?? ''} onChange={(e) => set('company_btw', e.target.value)} placeholder="BE0123.456.789" />
+            <Field label={t('settings.company.iban')} value={draft.company_iban ?? ''} onChange={(e) => set('company_iban', e.target.value)} placeholder="BE.. .... .... ...." />
           </FieldRow>
         </div>
       ) : null}
 
       {tab === 'offerte' ? (
         <div className="card space-y-4">
-          <h2 className="section-h">Offerte-defaults</h2>
+          <h2 className="section-h">{t('settings.quote.title')}</h2>
           <FieldRow>
             <Field
-              label="BTW-tarief"
+              label={t('settings.quote.vatRate')}
               unit="%"
               type="number"
               step={0.01}
@@ -125,42 +130,42 @@ function AppSettingsTab({ tab }: { tab: 'bedrijf' | 'offerte' | 'order' }) {
               onChange={(e) => set('quote_vat_rate', Number(e.target.value))}
             />
             <Field
-              label="Geldigheidsduur"
-              unit="dagen"
+              label={t('settings.quote.validity')}
+              unit={t('settings.quote.validityUnit')}
               type="number"
               value={draft.quote_validity_days}
               onChange={(e) => set('quote_validity_days', Number(e.target.value))}
-              hint="bv. 30 dagen vanaf aanmaakdatum"
+              hint={t('settings.quote.validityHint')}
             />
           </FieldRow>
           <Field
-            label="Referentie-prefix"
+            label={t('settings.quote.refPrefix')}
             value={draft.quote_reference_prefix}
             onChange={(e) => set('quote_reference_prefix', e.target.value)}
-            hint='Bv. "Q" geeft Q-20260601-001'
+            hint={t('settings.quote.refPrefixHint')}
           />
           <TextAreaField
-            label="Voettekst onder elke offerte"
+            label={t('settings.quote.footer')}
             value={draft.quote_footer_note ?? ''}
             onChange={(e) => set('quote_footer_note', e.target.value)}
-            hint="Bv. betaalvoorwaarden, garantie-info"
+            hint={t('settings.quote.footerHint')}
           />
         </div>
       ) : null}
 
       {tab === 'order' ? (
         <div className="card space-y-4">
-          <h2 className="section-h">Order-defaults</h2>
+          <h2 className="section-h">{t('settings.order.title')}</h2>
           <FieldRow>
             <Field
-              label="Standaard breedte"
+              label={t('settings.order.defaultWidth')}
               unit="mm"
               type="number"
               value={draft.default_door_width}
               onChange={(e) => set('default_door_width', Number(e.target.value))}
             />
             <Field
-              label="Standaard hoogte"
+              label={t('settings.order.defaultHeight')}
               unit="mm"
               type="number"
               value={draft.default_door_height}
@@ -168,25 +173,25 @@ function AppSettingsTab({ tab }: { tab: 'bedrijf' | 'offerte' | 'order' }) {
             />
           </FieldRow>
           <Field
-            label="Standaard greep-hoogte"
-            unit="mm vanaf onder"
+            label={t('settings.order.defaultHandleHeight')}
+            unit={t('settings.order.defaultHandleHeightUnit')}
             type="number"
             value={draft.default_handle_height}
             onChange={(e) => set('default_handle_height', Number(e.target.value))}
-            hint="Ergonomisch advies: 1050 mm"
+            hint={t('settings.order.defaultHandleHeightHint')}
           />
           <Field
-            label="Order-nummer prefix"
+            label={t('settings.order.numberPrefix')}
             value={draft.order_number_prefix}
             onChange={(e) => set('order_number_prefix', e.target.value)}
-            placeholder="optioneel — leeg laten voor YYYYMMDD-XXX"
+            placeholder={t('settings.order.numberPrefixPlaceholder')}
           />
         </div>
       ) : null}
 
       <div className="flex items-center gap-3 sticky bottom-4 z-10 p-3 bg-paper/90 backdrop-blur border border-soft-2 rounded-lg">
         <button type="submit" className="btn btn-primary" disabled={update.isPending}>
-          <Save size={14} /> {update.isPending ? 'Opslaan…' : 'Bewaar wijzigingen'}
+          <Save size={14} /> {update.isPending ? t('common.saving') : t('settings.save')}
         </button>
         {savedHint ? (
           <span className="font-mono text-xs text-[--color-success]">{savedHint}</span>
@@ -199,12 +204,13 @@ function AppSettingsTab({ tab }: { tab: 'bedrijf' | 'offerte' | 'order' }) {
 // ─── Optie-lijsten tab ───────────────────────────────────────
 
 function OptionListsTab() {
+  const { t } = useT()
   const { data: lists = [], isLoading } = useAllOptionLists()
-  if (isLoading) return <div className="text-[--color-muted] font-mono text-sm">Laden…</div>
+  if (isLoading) return <div className="text-[--color-muted] font-mono text-sm">{t('common.loading')}</div>
   if (lists.length === 0) {
     return (
       <div className="card text-sm text-[--color-muted]">
-        Geen optie-lijsten gevonden. Run migration <code>0003_settings.sql</code> in Supabase.
+        {t('settings.options.noLists')}
       </div>
     )
   }
@@ -218,9 +224,10 @@ function OptionListsTab() {
 }
 
 function OptionListEditor({ list }: { list: OptionList }) {
+  const { t } = useT()
   const update = useUpdateOptionList()
   const [items, setItems] = useState<OptionItem[]>(list.items ?? [])
-  const [savedHint, setSavedHint] = useState<string | null>(null)
+  const [savedHint, setSavedHint] = useState<{ msg: string; isErr: boolean } | null>(null)
 
   useEffect(() => { setItems(list.items ?? []) }, [list])
 
@@ -254,15 +261,15 @@ function OptionListEditor({ list }: { list: OptionList }) {
       // Validate: alle values uniek + niet leeg
       const seen = new Set<string>()
       for (const it of items) {
-        if (!it.value.trim()) throw new Error('Elke regel heeft een "value" nodig')
-        if (seen.has(it.value)) throw new Error(`Dubbele value: ${it.value}`)
+        if (!it.value.trim()) throw new Error(t('settings.options.errValue'))
+        if (seen.has(it.value)) throw new Error(t('settings.options.errDuplicate', { value: it.value }))
         seen.add(it.value)
       }
       await update.mutateAsync({ list_key: list.list_key, items, description: list.description ?? undefined })
-      setSavedHint('Opgeslagen.')
+      setSavedHint({ msg: t('settings.options.saved'), isErr: false })
       setTimeout(() => setSavedHint(null), 1800)
     } catch (err) {
-      setSavedHint(`Fout: ${err instanceof Error ? err.message : String(err)}`)
+      setSavedHint({ msg: t('settings.error', { error: err instanceof Error ? err.message : String(err) }), isErr: true })
     }
   }
 
@@ -270,7 +277,7 @@ function OptionListEditor({ list }: { list: OptionList }) {
     <div className="card">
       <div className="flex items-start justify-between gap-3 mb-3">
         <div>
-          <h3 className="section-h !mb-1 !pb-0 !border-0">{listLabel(list.list_key)}</h3>
+          <h3 className="section-h !mb-1 !pb-0 !border-0">{listLabel(list.list_key, t)}</h3>
           <div className="text-xs text-[--color-muted]">
             <code className="font-mono">{list.list_key}</code>
             {list.description ? ` · ${list.description}` : null}
@@ -278,24 +285,24 @@ function OptionListEditor({ list }: { list: OptionList }) {
         </div>
         <div className="flex gap-2">
           <button type="button" className="btn btn-sm" onClick={addItem}>
-            <Plus size={14} /> Regel
+            <Plus size={14} /> {t('settings.options.addRow')}
           </button>
           <button type="button" className="btn btn-primary btn-sm" onClick={save} disabled={update.isPending}>
-            <Save size={14} /> {update.isPending ? '…' : 'Bewaar'}
+            <Save size={14} /> {update.isPending ? '…' : t('common.save')}
           </button>
         </div>
       </div>
 
       {items.length === 0 ? (
-        <div className="text-sm text-[--color-muted] italic py-4">Nog geen items. Klik "+ Regel".</div>
+        <div className="text-sm text-[--color-muted] italic py-4">{t('settings.options.noItems')}</div>
       ) : (
         <div className="space-y-2">
           <div className="grid grid-cols-[100px_1fr_2fr_80px_120px] gap-2 px-2 text-[10px] uppercase tracking-wider text-[--color-muted] font-mono">
-            <div>Sort</div>
-            <div>Value</div>
-            <div>Label</div>
-            <div>Actief</div>
-            <div>Acties</div>
+            <div>{t('settings.options.sort')}</div>
+            <div>{t('settings.options.value')}</div>
+            <div>{t('settings.options.label')}</div>
+            <div>{t('settings.options.active')}</div>
+            <div>{t('settings.options.actions')}</div>
           </div>
           {items.map((it, i) => (
             <div key={i} className="grid grid-cols-[100px_1fr_2fr_80px_120px] gap-2 items-center">
@@ -307,13 +314,13 @@ function OptionListEditor({ list }: { list: OptionList }) {
               />
               <input
                 className="field-input"
-                placeholder="bv. muharrem"
+                placeholder={t('settings.options.valuePlaceholder')}
                 value={it.value}
                 onChange={(e) => patchItem(i, { value: e.target.value })}
               />
               <input
                 className="field-input"
-                placeholder="weergavenaam"
+                placeholder={t('settings.options.labelPlaceholder')}
                 value={it.label}
                 onChange={(e) => patchItem(i, { label: e.target.value })}
               />
@@ -325,13 +332,13 @@ function OptionListEditor({ list }: { list: OptionList }) {
                 />
               </label>
               <div className="flex gap-1 justify-end">
-                <button type="button" className="btn btn-ghost btn-icon btn-sm" onClick={() => moveItem(i, -1)} disabled={i === 0} aria-label="Omhoog">
+                <button type="button" className="btn btn-ghost btn-icon btn-sm" onClick={() => moveItem(i, -1)} disabled={i === 0} aria-label={t('settings.options.upAria')}>
                   <ArrowUp size={14} />
                 </button>
-                <button type="button" className="btn btn-ghost btn-icon btn-sm" onClick={() => moveItem(i, 1)} disabled={i === items.length - 1} aria-label="Omlaag">
+                <button type="button" className="btn btn-ghost btn-icon btn-sm" onClick={() => moveItem(i, 1)} disabled={i === items.length - 1} aria-label={t('settings.options.downAria')}>
                   <ArrowDown size={14} />
                 </button>
-                <button type="button" className="btn btn-ghost btn-icon btn-sm" onClick={() => removeItem(i)} aria-label="Verwijder">
+                <button type="button" className="btn btn-ghost btn-icon btn-sm" onClick={() => removeItem(i)} aria-label={t('settings.options.deleteAria')}>
                   <Trash2 size={14} />
                 </button>
               </div>
@@ -341,18 +348,18 @@ function OptionListEditor({ list }: { list: OptionList }) {
       )}
 
       {savedHint ? (
-        <div className="mt-3 text-xs font-mono" style={{ color: savedHint.startsWith('Fout') ? 'var(--color-accent)' : 'var(--color-success)' }}>
-          {savedHint}
+        <div className="mt-3 text-xs font-mono" style={{ color: savedHint.isErr ? 'var(--color-accent)' : 'var(--color-success)' }}>
+          {savedHint.msg}
         </div>
       ) : null}
     </div>
   )
 }
 
-function listLabel(key: string): string {
+function listLabel(key: string, t: ReturnType<typeof useT>['t']): string {
   switch (key) {
-    case 'verkopers': return 'Verkopers'
-    case 'ral_extras': return 'Extra RAL-kleuren'
+    case 'verkopers': return t('settings.options.listSellers')
+    case 'ral_extras': return t('settings.options.listRalExtras')
     default: return key
   }
 }
@@ -431,10 +438,11 @@ const FORMULA_GROUPS: { title: string; description: string; fields: FormulaField
 ]
 
 function ZagerijTab() {
+  const { t } = useT()
   const { data: server, isLoading } = useAppSettings()
   const update = useUpdateAppSettings()
   const [draft, setDraft] = useState<CutFormulas>(DEFAULT_CUT_FORMULAS)
-  const [savedHint, setSavedHint] = useState<string | null>(null)
+  const [savedHint, setSavedHint] = useState<{ msg: string; isErr: boolean } | null>(null)
 
   useEffect(() => {
     if (server) setDraft({ ...DEFAULT_CUT_FORMULAS, ...(server.cut_formulas ?? {}) })
@@ -453,7 +461,7 @@ function ZagerijTab() {
   const isValid = invalidFields.length === 0
 
   function resetDefaults() {
-    if (!confirm('Alle formules terugzetten naar de oorspronkelijke MY DOORS productie-defaults?')) return
+    if (!confirm(t('zagerij.resetConfirm'))) return
     setDraft(DEFAULT_CUT_FORMULAS)
   }
 
@@ -463,23 +471,21 @@ function ZagerijTab() {
     setSavedHint(null)
     try {
       await update.mutateAsync({ cut_formulas: draft })
-      setSavedHint('Formules opgeslagen. Volgende zaaglijst gebruikt de nieuwe waardes.')
+      setSavedHint({ msg: t('zagerij.saved'), isErr: false })
       setTimeout(() => setSavedHint(null), 3000)
     } catch (err) {
-      setSavedHint(`Fout: ${err instanceof Error ? err.message : String(err)}`)
+      setSavedHint({ msg: t('settings.error', { error: err instanceof Error ? err.message : String(err) }), isErr: true })
     }
   }
 
-  if (isLoading) return <div className="text-[--color-muted] font-mono text-sm">Laden…</div>
+  if (isLoading) return <div className="text-[--color-muted] font-mono text-sm">{t('common.loading')}</div>
 
   return (
     <form onSubmit={onSubmit} className="space-y-6 max-w-3xl">
       <div className="card bg-paper/60">
-        <h2 className="section-h">Zagerij-formules</h2>
+        <h2 className="section-h">{t('settings.zagerij.title')}</h2>
         <p className="text-sm text-[--color-muted] mb-3">
-          De automatische zaaglijst gebruikt deze constanten. Wijzigingen werken vanaf de eerstvolgende
-          PDF-export of openen van de zaaglijst-editor. Per order kan de lijst nog steeds handmatig
-          worden overschreven via de Zaaglijst-knop.
+          {t('zagerij.intro')}
         </p>
       </div>
 
@@ -507,7 +513,7 @@ function ZagerijTab() {
                     setField(field.key, raw === '' ? NaN : Number(raw))
                   }}
                   hint={field.hint}
-                  error={invalid ? 'Vul een positief getal in' : undefined}
+                  error={invalid ? t('zagerij.invalidField') : undefined}
                 />
               )
             })}
@@ -517,21 +523,21 @@ function ZagerijTab() {
 
       <div className="flex items-center gap-3 sticky bottom-4 z-10 p-3 bg-paper/90 backdrop-blur border border-soft-2 rounded-lg">
         <button type="submit" className="btn btn-primary" disabled={update.isPending || !isValid}>
-          <Save size={14} /> {update.isPending ? 'Opslaan…' : 'Bewaar formules'}
+          <Save size={14} /> {update.isPending ? t('common.saving') : t('zagerij.save')}
         </button>
         <button type="button" className="btn" onClick={resetDefaults}>
-          <RotateCcw size={14} /> Reset naar defaults
+          <RotateCcw size={14} /> {t('zagerij.reset')}
         </button>
         {!isValid ? (
           <span className="font-mono text-xs text-accent">
-            {invalidFields.length} veld(en) ongeldig — corrigeer eerst
+            {t('zagerij.invalidFields', { n: invalidFields.length })}
           </span>
         ) : savedHint ? (
           <span
             className="font-mono text-xs"
-            style={{ color: savedHint.startsWith('Fout') ? 'var(--color-accent)' : 'var(--color-success)' }}
+            style={{ color: savedHint.isErr ? 'var(--color-accent)' : 'var(--color-success)' }}
           >
-            {savedHint}
+            {savedHint.msg}
           </span>
         ) : null}
       </div>
