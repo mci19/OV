@@ -31,7 +31,16 @@ export interface CutListResult {
  *
  * Formules (uit MY DOORS productie-documentatie):
  *  - Buitenframe kozijn: 2× 20×40×2 op hoogte; 1× 20×40×2 op breedte-40
- *  - Deurbladkader: 2× 20×40×2 op hoogte-30; 2× 20×40×2 op breedte-88
+ *  - Vast-paneel uitbreidingen (sinds v5):
+ *    · Bij zij-paneel(en): 1× 20×40×2 op hoogte per paneel (verticale
+ *      divider); deurblad-horiz wordt verminderd met paneel-breedtes +
+ *      40 mm per divider
+ *    · Bij top-paneel: 1× 20×40×2 op breedte-80 (horizontale divider),
+ *      deurblad-vert verminderd met topPanelHeight + 40 mm
+ *    · Per paneel: eigen glaslijst-kader (4× 15×15 gelaste + 4× poederlak)
+ *      met zelfde aftrek-formules als deurblad
+ *  - Deurbladkader: 2× 20×40×2 op (hoogte-30-eventueel top); 2× 20×40×2 op
+ *    (breedte-88-paneelbreedtes-dividers)
  *    (88 = 2×40 mm profielbreedte + 2×4 mm speling)
  *  - Glaslijst kader gelaste kant: lengtes = blade_vert-40, breedtes = blade_horiz-30
  *    (=2× 15 mm aftrek per zijde)
@@ -60,20 +69,48 @@ export function generateCutList(order: OrderData, formulas: CutFormulas = DEFAUL
   // "andere zijde 2 mm korter" = 1 mm per uiteinde × 2 uiteinden
   const poederlakTotalMarge = f.poederlak_marge_per_zijde * 2
 
-  // ─── Geometrie ──────────────────────────────────────────
-  const bladeVert = hoogte - f.blade_vert_aftrek
-  const bladeHoriz = breedte - f.blade_horiz_aftrek
+  // ─── Vast-paneel geometrie ──────────────────────────────
+  // Een divider tussen deur en paneel is een 20×40×2 profiel (zelfde
+  // als het outer kozijn, bevestigd door productie-foto's).
+  const DIVIDER_W = 40
+  const isSidePanel = order.doorConfig === 'side_panel'
+  const panelsActive = isSidePanel ? order.sidePanels : []
+  const hasLeft = panelsActive.includes('left')
+  const hasRight = panelsActive.includes('right')
+  const hasTop = panelsActive.includes('top')
+  const lw = hasLeft ? order.leftPanelWidth : 0
+  const rw = hasRight ? order.rightPanelWidth : 0
+  const th = hasTop ? order.topPanelHeight : 0
+  const nSideDividers = (hasLeft ? 1 : 0) + (hasRight ? 1 : 0)
+
+  // ─── Geometrie deurblad (verkleind voor panelen) ────────
+  // bladeHoriz wordt verminderd met paneel-breedtes + 1× divider per
+  // side panel. bladeVert wordt verminderd bij top-paneel.
+  const bladeVert = hoogte - f.blade_vert_aftrek - (hasTop ? th + DIVIDER_W : 0)
+  const bladeHoriz = breedte - f.blade_horiz_aftrek - lw - rw - nSideDividers * DIVIDER_W
   const glassKaderVertGelaste = bladeVert - f.glaslijst_vert_aftrek
   const glassKaderHorizGelaste = bladeHoriz - f.glaslijst_horiz_aftrek
   const glassKaderVertPoederlak = glassKaderVertGelaste - poederlakTotalMarge
   const glassKaderHorizPoederlak = glassKaderHorizGelaste - poederlakTotalMarge
 
+  // Door-blade glas-zone in door-coords (voor sketch-line filtering).
+  // Het deurblad zit IN het kozijn, met links de outer kozijn (40mm) +
+  // eventueel paneel + divider. Rechts idem.
+  const doorBladeXStart = (breedte - bladeHoriz) / 2  // gecentreerd voor het no-panel-geval
+    + (hasLeft ? (lw + DIVIDER_W) / 2 : 0) - (hasRight ? (rw + DIVIDER_W) / 2 : 0)
+  const doorBladeXEnd = doorBladeXStart + bladeHoriz
+
   // Converteer v4 sketch-posities (vanaf kozijn-links) naar kader-coords
-  const poederlakKaderLeftX = (breedte - glassKaderHorizPoederlak) / 2
-  const poederlakKaderBottomY = (hoogte - glassKaderVertPoederlak) / 2 + 24
+  // van het deurblad (rekening houdend met de positie binnen het kozijn).
+  const poederlakKaderLeftX = doorBladeXStart + (bladeHoriz - glassKaderHorizPoederlak) / 2
+  const poederlakKaderBottomY = (hoogte - glassKaderVertPoederlak) / 2 + 24 + (hasTop ? -((th + DIVIDER_W) / 2) : 0)
   // 24 mm = visuele bovenoffset glas; voor de cuts gebruiken we kader-coords
 
+  // Filter design-lijnen: alleen die binnen het deur-blade-x-bereik
+  // tellen mee voor de deurblad-cuts. Lijnen in paneel-x-range worden
+  // (voorlopig) genegeerd — area-bound lijnen-feature komt later.
   const verticalsK: { x: number }[] = sketch.verticalLines
+    .filter((v) => v.x >= doorBladeXStart && v.x <= doorBladeXEnd)
     .map((v) => ({ x: v.x - poederlakKaderLeftX }))
     .filter((v) => v.x > 5 && v.x < glassKaderHorizPoederlak - 5)
     .sort((a, b) => a.x - b.x)
@@ -89,6 +126,22 @@ export function generateCutList(order: OrderData, formulas: CutFormulas = DEFAUL
   // ─── Buitenframe (kozijn) ───────────────────────────────
   items.push({ nr: nr++, profiel: '20*40*2', lengte: hoogte, aantal: 2 })
   items.push({ nr: nr++, profiel: '20*40*2', lengte: breedte - f.kozijn_horiz_aftrek, aantal: 1 })
+
+  // ─── Panel-dividers (NIEUW bij side_panel) ──────────────
+  if (nSideDividers > 0) {
+    items.push({
+      nr: nr++, profiel: '20*40*2', lengte: hoogte, aantal: nSideDividers,
+      bewerking: 'verticale paneel-divider',
+    })
+  }
+  if (hasTop) {
+    // Horizontale divider tussen top-paneel en alles eronder. Spant de
+    // inner-kozijn-breedte (= breedte - 2× 40 mm outer kozijn).
+    items.push({
+      nr: nr++, profiel: '20*40*2', lengte: breedte - 2 * DIVIDER_W, aantal: 1,
+      bewerking: 'horizontale top-paneel-divider',
+    })
+  }
 
   // ─── Deurbladkader ──────────────────────────────────────
   items.push({ nr: nr++, profiel: '20*40*2', lengte: bladeVert, aantal: 2 })
@@ -142,6 +195,28 @@ export function generateCutList(order: OrderData, formulas: CutFormulas = DEFAUL
       aantal: Nglas,
     })
   }
+
+  // ─── Per-paneel glaslijst-kader (NIEUW) ─────────────────
+  // Elk paneel heeft zijn eigen 4-zijdige 15×15 glaslijst, in beide
+  // finishes (gelaste + poederlak). Zelfde aftrek-formules als de
+  // deurblad-glaslijsten.
+  function addPanelGlaslijst(panelVert: number, panelHoriz: number, label: string) {
+    const vGel = panelVert - f.glaslijst_vert_aftrek
+    const hGel = panelHoriz - f.glaslijst_horiz_aftrek
+    const vPdr = vGel - poederlakTotalMarge
+    const hPdr = hGel - poederlakTotalMarge
+    items.push({ nr: nr++, profiel: '15*15*1.5', lengte: vGel, aantal: 2, bewerking: `${label} gelaste` })
+    items.push({ nr: nr++, profiel: '15*15*1.5', lengte: hGel, aantal: 2, bewerking: `${label} gelaste` })
+    items.push({ nr: nr++, profiel: '15*15*1.5', lengte: vPdr, aantal: 2, bewerking: `${label} poederlak` })
+    items.push({ nr: nr++, profiel: '15*15*1.5', lengte: hPdr, aantal: 2, bewerking: `${label} poederlak` })
+  }
+  // Voor zij-panelen: vertical = bladeVert (zelfde verticale extent als
+  // het deurblad), horizontal = paneel-breedte.
+  if (hasLeft) addPanelGlaslijst(bladeVert, lw, 'zij-paneel links')
+  if (hasRight) addPanelGlaslijst(bladeVert, rw, 'zij-paneel rechts')
+  // Top-paneel: vertical = topPanelHeight, horizontal = volle inner-
+  // kozijn-breedte (= breedte - 2× 40 mm).
+  if (hasTop) addPanelGlaslijst(th, breedte - 2 * DIVIDER_W, 'top-paneel')
 
   // ─── Extras ─────────────────────────────────────────────
   // Greep — vorm bepaalt profiel en lengte. Adjustable types (l_grip,
