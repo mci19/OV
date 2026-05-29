@@ -1,12 +1,13 @@
 import { useEffect, useMemo, useState, type FormEvent } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
-import { Plus, Search } from 'lucide-react'
+import { Plus, Search, Copy } from 'lucide-react'
 import { PageContainer, PageHeader } from '../components/Layout'
 import { Chips, Field, FieldRow, SelectField, TextAreaField } from '../components/Field'
 import { Dialog } from '../components/Dialog'
 import { EmptyState } from './HomePage'
 import { formatEur, relativeTime } from '../lib/format'
-import { useCustomers, useOpportunities, useUpsertOpportunity } from '../lib/queries'
+import { useCustomers, useDuplicateOpportunity, useOpportunities, useUpsertOpportunity } from '../lib/queries'
+import { errorMessage, useToast } from '../components/Toast'
 import { STAGE_ORDER, type OpportunityStage } from '../lib/db'
 import type { OpportunityWithCustomer } from '../lib/db'
 import { stageLabel, useT } from '../lib/i18n'
@@ -25,6 +26,19 @@ export function OpportunitiesPage() {
   const [view, setView] = useState<ViewMode>(() => readViewMode('opportunities', 'table'))
   const [editing, setEditing] = useState<{ customer_id?: string } | null>(null)
   const { data: opps = [], isLoading, error } = useOpportunities()
+  const dupOpp = useDuplicateOpportunity()
+  const toast = useToast()
+
+  async function duplicate(o: OpportunityWithCustomer) {
+    if (!confirm(t('common.duplicateConfirm', { title: o.title }))) return
+    try {
+      const copy = await dupOpp.mutateAsync(o.id)
+      toast.success(t('common.duplicateSuccess'))
+      navigate(`/opportunities/${copy.id}`)
+    } catch (err) {
+      toast.error(t('common.duplicateFailed', { error: errorMessage(err) }))
+    }
+  }
 
   // Auto-open editor when navigated to with ?new=1 (typisch vanaf klant-detail)
   useEffect(() => {
@@ -104,6 +118,26 @@ export function OpportunitiesPage() {
       sortValue: (o) => o.updated_at,
       align: 'right',
       hideBelow: 1280,
+    },
+    {
+      key: 'actions',
+      header: t('common.actions'),
+      sortable: false,
+      align: 'right',
+      width: '70px',
+      cell: (o) => (
+        <div className="flex justify-end" onClick={(e) => e.stopPropagation()}>
+          <button
+            className="btn btn-ghost btn-icon btn-sm"
+            onClick={() => duplicate(o)}
+            disabled={dupOpp.isPending}
+            aria-label={t('common.duplicate')}
+            title={t('common.duplicate')}
+          >
+            <Copy size={14} />
+          </button>
+        </div>
+      ),
     },
   ]
 

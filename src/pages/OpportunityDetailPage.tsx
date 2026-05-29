@@ -1,12 +1,12 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
-import { ChevronLeft, Save, Trash2, Plus, FileText, Pencil, Scissors } from 'lucide-react'
+import { ChevronLeft, Save, Trash2, Plus, FileText, Pencil, Scissors, Copy } from 'lucide-react'
 import { PageContainer } from '../components/Layout'
 import { Chips } from '../components/Field'
 import { OrderForm } from '../components/OrderForm'
 import { SketchEditor } from '../components/sketch/SketchEditor'
 import { ActionBar } from '../components/ActionBar'
-import { useAppSettings, useOpportunity, useOrderForOpportunity, useQuotes, useSaveOrder, useUpsertOpportunity, useDeleteOpportunity, useLogActivity } from '../lib/queries'
+import { useAppSettings, useOpportunity, useOrderForOpportunity, useQuotes, useSaveOrder, useUpsertOpportunity, useDeleteOpportunity, useDuplicateOpportunity, useLogActivity } from '../lib/queries'
 import { STAGE_ORDER, type OpportunityStage } from '../lib/db'
 import { DEFAULT_ORDER, sanitizeOrderData, type OrderData } from '../lib/types'
 import { validateOrder } from '../lib/calculations'
@@ -32,6 +32,7 @@ export function OpportunityDetailPage() {
   const saveOrder = useSaveOrder()
   const updateOpp = useUpsertOpportunity()
   const delOpp = useDeleteOpportunity()
+  const dupOpp = useDuplicateOpportunity()
   const logActivity = useLogActivity()
 
   const [order, setOrder] = useState<OrderData>(DEFAULT_ORDER)
@@ -130,6 +131,18 @@ export function OpportunityDetailPage() {
     }
   }
 
+  async function onDuplicate() {
+    if (!opp) return
+    if (!confirm(t('common.duplicateConfirm', { title: opp.title }))) return
+    try {
+      const copy = await dupOpp.mutateAsync(opp.id)
+      toast.success(t('common.duplicateSuccess'))
+      navigate(`/opportunities/${copy.id}`)
+    } catch (err) {
+      toast.error(t('common.duplicateFailed', { error: errorMessage(err) }))
+    }
+  }
+
   if (isLoading) return <PageContainer><div className="text-[--color-muted] font-mono text-sm">{t('common.loading')}</div></PageContainer>
   if (!opp) return <PageContainer><EmptyState title={t('opps.notFound')} /></PageContainer>
 
@@ -160,6 +173,9 @@ export function OpportunityDetailPage() {
         ) : null}
         <button className="btn btn-ghost btn-icon" onClick={() => setEditingOpp(true)} aria-label={t('opps.detail.editAria')}>
           <Pencil size={16} />
+        </button>
+        <button className="btn btn-ghost btn-icon" onClick={onDuplicate} disabled={dupOpp.isPending} aria-label={t('common.duplicate')} title={t('common.duplicate')}>
+          <Copy size={16} />
         </button>
         <button className="btn btn-ghost btn-icon" onClick={onDelete} aria-label={t('opps.detail.deleteAria')}>
           <Trash2 size={16} />

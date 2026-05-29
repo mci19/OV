@@ -564,3 +564,59 @@ export function useCreateUser() {
     },
   })
 }
+
+/**
+ * Dupliceer een opportunity inclusief order-data. Maakt een nieuwe
+ * opportunity aan onder dezelfde klant met "(kopie)"-suffix, stage='lead',
+ * waarde + notities meegekopieerd. Als er een bestaande order is, wordt
+ * die ook gedupliceerd.
+ */
+export function useDuplicateOpportunity() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (id: string) => {
+      // 1. Haal source opportunity op
+      const { data: src, error: srcErr } = await supabase
+        .from('opportunities')
+        .select('*')
+        .eq('id', id)
+        .single()
+      if (srcErr || !src) throw srcErr || new Error('Source niet gevonden')
+
+      // 2. Maak nieuwe opportunity met (kopie) suffix
+      const srcOpp = src as Opportunity
+      const { data: newOpp, error: oppErr } = await supabase
+        .from('opportunities')
+        .insert({
+          customer_id: srcOpp.customer_id,
+          title: `${srcOpp.title} (kopie)`,
+          stage: 'lead',
+          expected_value_cents: srcOpp.expected_value_cents,
+          notes: srcOpp.notes,
+        })
+        .select()
+        .single()
+      if (oppErr || !newOpp) throw oppErr || new Error('Kon nieuwe opportunity niet aanmaken')
+
+      // 3. Kopieer order-data als die bestaat
+      const { data: srcOrder } = await supabase
+        .from('orders')
+        .select('data')
+        .eq('opportunity_id', id)
+        .order('updated_at', { ascending: false })
+        .limit(1)
+        .maybeSingle()
+      if (srcOrder?.data) {
+        await supabase.from('orders').insert({
+          opportunity_id: (newOpp as Opportunity).id,
+          data: srcOrder.data,
+        })
+      }
+
+      return newOpp as Opportunity
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['opportunities'] })
+    },
+  })
+}

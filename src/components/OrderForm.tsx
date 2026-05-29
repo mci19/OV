@@ -61,17 +61,6 @@ export function OrderForm({ order, set, issues }: Props) {
             />
           </FieldRow>
         </div>
-        <div className="mt-3">
-          <Field
-            label={t('order.numDoors')}
-            type="number"
-            value={order.aantalDeuren}
-            min={1}
-            max={20}
-            onChange={(e) => set('aantalDeuren', Number(e.target.value))}
-            error={errorFor(issues, 'aantalDeuren')}
-          />
-        </div>
       </section>
 
       <section>
