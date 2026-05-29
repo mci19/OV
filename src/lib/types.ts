@@ -253,5 +253,12 @@ export function sanitizeOrderData(raw: Partial<OrderData>): OrderData {
     merged.glassType = 'cathedraal'
   }
 
+  // Measurement type ('door_opening' vs 'production') is verwijderd uit
+  // het formulier — alles is voortaan 'production' (deurmaat, niet de
+  // opening). Legacy 'door_opening' wordt geremaped.
+  if (merged.doorType !== 'production') {
+    merged.doorType = 'production'
+  }
+
   return merged
 }

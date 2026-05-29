@@ -1,7 +1,7 @@
 import type { OrderData, ValidationIssue } from '../lib/types'
 import { Chips, Field, FieldRow } from './Field'
 import { useT } from '../lib/i18n'
-import { useAppSettings } from '../lib/queries'
+import { useAppSettings, useOptionList } from '../lib/queries'
 import { DEFAULT_CUT_FORMULAS } from '../lib/db'
 
 interface Props {
@@ -21,6 +21,8 @@ const ADJUSTABLE_HANDLE_KINDS = new Set(['l_grip', 'horizontal_bar', 't_grip', '
 export function OrderForm({ order, set, issues }: Props) {
   const { t } = useT()
   const { data: settings } = useAppSettings()
+  const { data: ralExtrasList } = useOptionList('ral_extras')
+  const ralExtras = (ralExtrasList?.items ?? []).filter((it) => it.active)
   const formulas = settings?.cut_formulas ?? DEFAULT_CUT_FORMULAS
   const handleDefault = (() => {
     switch (order.handleKind) {
@@ -35,16 +37,7 @@ export function OrderForm({ order, set, issues }: Props) {
     <div className="space-y-8">
       <section>
         <h2 className="section-h">{t('order.section.dimensions')}</h2>
-        <Chips
-          label={t('order.measureType')}
-          value={order.doorType}
-          options={[
-            { value: 'door_opening', label: t('order.measureDoorOpening') },
-            { value: 'production', label: t('order.measureProduction') },
-          ]}
-          onChange={(v) => set('doorType', v)}
-        />
-        <div className="mt-3">
+        <div>
           <FieldRow>
             <Field
               label={t('order.height')}
@@ -298,15 +291,36 @@ export function OrderForm({ order, set, issues }: Props) {
         <h2 className="section-h">{t('order.section.color')}</h2>
         <Chips
           label={t('order.colorRal')}
-          value={order.colorKind}
+          // Mapping: standaard 2 + dynamische extras (uit Settings →
+          // Optie-lijsten → ral_extras). Een extra wordt geselecteerd
+          // door colorKind='other' + colorOther=label.
+          value={
+            order.colorKind === 'other'
+              ? (ralExtras.find((e) => (e.label ?? '').trim() === order.colorOther.trim())?.value ?? 'other')
+              : order.colorKind
+          }
           options={[
             { value: 'ral_9005', label: t('order.colorBlack') },
             { value: 'ral_9010', label: t('order.colorWhite') },
+            ...ralExtras.map((e) => ({ value: e.value, label: e.label })),
             { value: 'other', label: t('order.colorOther') },
           ]}
-          onChange={(v) => set('colorKind', v)}
+          onChange={(v) => {
+            if (v === 'ral_9005' || v === 'ral_9010') {
+              set('colorKind', v as 'ral_9005' | 'ral_9010')
+              set('colorOther', '')
+            } else if (v === 'other') {
+              set('colorKind', 'other')
+              set('colorOther', '')
+            } else {
+              // Een extra is gekozen — bewaar als 'other' + colorOther label
+              const extra = ralExtras.find((e) => e.value === v)
+              set('colorKind', 'other')
+              set('colorOther', extra?.label ?? '')
+            }
+          }}
         />
-        {order.colorKind === 'other' ? (
+        {order.colorKind === 'other' && !ralExtras.some((e) => (e.label ?? '').trim() === order.colorOther.trim()) ? (
           <div className="mt-3">
             <Field
               label={t('order.colorRalCode')}

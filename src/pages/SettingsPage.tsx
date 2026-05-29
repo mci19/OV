@@ -1,8 +1,9 @@
 import { useEffect, useState, type FormEvent } from 'react'
 import { Building2, FileText, ListChecks, Save, Plus, Trash2, ArrowUp, ArrowDown, Scissors, RotateCcw, Users as UsersIcon, ShieldCheck, ShieldOff } from 'lucide-react'
 import { PageContainer, PageHeader } from '../components/Layout'
-import { Field, FieldRow, TextAreaField } from '../components/Field'
-import { useAllOptionLists, useAllProfiles, useAppSettings, useUpdateAppSettings, useUpdateOptionList, useUpdateProfile, type ProfileWithEmail } from '../lib/queries'
+import { Field, FieldRow, SelectField, TextAreaField } from '../components/Field'
+import { useAllOptionLists, useAllProfiles, useAppSettings, useCreateUser, useUpdateAppSettings, useUpdateOptionList, useUpdateProfile, type CreatedUserResult, type ProfileWithEmail } from '../lib/queries'
+import { Dialog } from '../components/Dialog'
 import { DEFAULT_APP_SETTINGS, DEFAULT_CUT_FORMULAS, type AppSettings, type CutFormulas, type OptionItem, type OptionList } from '../lib/db'
 import { useT } from '../lib/i18n'
 import { useAuth } from '../lib/auth'
@@ -93,6 +94,8 @@ function UsersTab() {
   const { data: profiles = [], isLoading } = useAllProfiles()
   const update = useUpdateProfile()
   const toast = useToast()
+  const [creating, setCreating] = useState(false)
+  const [credentials, setCredentials] = useState<CreatedUserResult | null>(null)
 
   async function changeRole(p: ProfileWithEmail, newRole: 'admin' | 'sales') {
     // Self-demote blokkeren om te voorkomen dat de enige admin zichzelf
@@ -188,17 +191,33 @@ function UsersTab() {
 
   return (
     <div className="space-y-3 max-w-5xl">
-      <div className="card !p-3 bg-paper/40">
-        <p className="text-xs text-[--color-muted]">{t('users.inviteNote')}</p>
+      <div className="flex items-start justify-between gap-3">
+        <div className="card !p-3 bg-paper/40 flex-1">
+          <p className="text-xs text-[--color-muted]">{t('users.inviteNote')}</p>
+        </div>
+        <button className="btn btn-primary shrink-0" onClick={() => setCreating(true)}>
+          <Plus size={14} /> {t('users.create')}
+        </button>
       </div>
       <DataTable<ProfileWithEmail>
         rows={profiles}
         columns={columns}
         rowKey={(p) => p.id}
         persistKey="users"
-        defaultSort={{ key: 'created', dir: 'asc' }}
+        defaultSort={{ key: 'created', dir: 'desc' }}
         emptyText={t('users.empty')}
       />
+
+      {creating ? (
+        <CreateUserDialog
+          onClose={() => setCreating(false)}
+          onCreated={(result) => { setCredentials(result); setCreating(false) }}
+        />
+      ) : null}
+
+      {credentials ? (
+        <CredentialsDialog credentials={credentials} onClose={() => setCredentials(null)} />
+      ) : null}
     </div>
   )
 }
@@ -687,5 +706,124 @@ function ZagerijTab() {
         ) : null}
       </div>
     </form>
+  )
+}
+
+// ─── Create-user dialog (admin only) ──────────────────────────
+
+function CreateUserDialog({ onClose, onCreated }: { onClose: () => void; onCreated: (r: CreatedUserResult) => void }) {
+  const { t } = useT()
+  const create = useCreateUser()
+  const toast = useToast()
+  const [form, setForm] = useState({ email: '', full_name: '', role: 'sales' as 'admin' | 'sales', password: '' })
+  const [error, setError] = useState<string | null>(null)
+
+  async function onSubmit(e: FormEvent) {
+    e.preventDefault()
+    setError(null)
+    try {
+      const result = await create.mutateAsync({
+        email: form.email,
+        full_name: form.full_name,
+        role: form.role,
+        password: form.password || undefined,
+      })
+      toast.success(t('users.create.success'))
+      onCreated(result)
+    } catch (err) {
+      const msg = errorMessage(err)
+      setError(msg)
+      toast.error(t('users.create.failed', { error: msg }))
+    }
+  }
+
+  return (
+    <Dialog
+      open
+      onClose={onClose}
+      title={t('users.create.title')}
+      footer={
+        <>
+          <button type="button" className="btn" onClick={onClose}>{t('common.cancel')}</button>
+          <button type="submit" form="create-user-form" className="btn btn-primary" disabled={create.isPending}>
+            {create.isPending ? '…' : t('users.create.submit')}
+          </button>
+        </>
+      }
+    >
+      <form id="create-user-form" onSubmit={onSubmit} className="space-y-4">
+        <Field
+          label={t('users.colEmail')}
+          type="email"
+          required
+          autoFocus
+          value={form.email}
+          onChange={(e) => setForm({ ...form, email: e.target.value })}
+        />
+        <Field
+          label={t('users.colName')}
+          required
+          value={form.full_name}
+          onChange={(e) => setForm({ ...form, full_name: e.target.value })}
+        />
+        <SelectField
+          label={t('users.colRole')}
+          value={form.role}
+          onChange={(v) => setForm({ ...form, role: v as 'admin' | 'sales' })}
+          options={[
+            { value: 'sales', label: t('profile.roleSales') },
+            { value: 'admin', label: t('profile.roleAdmin') },
+          ]}
+        />
+        <Field
+          label={t('profile.password' as never as 'login.password')}
+          type="text"
+          value={form.password}
+          onChange={(e) => setForm({ ...form, password: e.target.value })}
+          placeholder={t('users.create.passwordPlaceholder')}
+          hint={t('users.create.passwordHint')}
+        />
+        {error ? <div className="text-accent font-mono text-xs">{error}</div> : null}
+      </form>
+    </Dialog>
+  )
+}
+
+function CredentialsDialog({ credentials, onClose }: { credentials: CreatedUserResult; onClose: () => void }) {
+  const { t } = useT()
+  const toast = useToast()
+  function copy() {
+    navigator.clipboard.writeText(credentials.password).then(() => toast.success(t('users.create.copied')))
+  }
+  return (
+    <Dialog
+      open
+      onClose={onClose}
+      title={t('users.create.credentialsTitle')}
+      footer={
+        <button type="button" className="btn btn-primary" onClick={onClose}>{t('users.create.done')}</button>
+      }
+    >
+      <div className="space-y-3">
+        <p className="text-sm text-[--color-muted]">{t('users.create.credentialsNote')}</p>
+        <div className="card !p-3 bg-paper/40 space-y-2">
+          <div>
+            <div className="font-mono text-[10px] uppercase tracking-wider text-[--color-muted]">{t('users.colEmail')}</div>
+            <div className="font-mono text-sm">{credentials.email}</div>
+          </div>
+          <div>
+            <div className="font-mono text-[10px] uppercase tracking-wider text-[--color-muted]">{t('login.password')}</div>
+            <div className="flex gap-2 items-center">
+              <code className="font-mono text-sm bg-white px-2 py-1 rounded border border-soft-2 flex-1 break-all">
+                {credentials.password}
+              </code>
+              <button type="button" className="btn btn-sm" onClick={copy}>
+                {t('users.create.copyPassword')}
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </Dialog>
   )
 }

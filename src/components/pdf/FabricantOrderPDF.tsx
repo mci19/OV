@@ -85,12 +85,6 @@ export function FabricantOrderPDF({ order, cutFormulas, lang = 'nl' }: Props) {
 
         <View style={styles.block}>
           <Text style={styles.h2}>{tFor(lang, 'pdf.specs')}</Text>
-          <Specs
-            label={tFor(lang, 'pdf.measurementType')}
-            value={order.doorType === 'door_opening'
-              ? tFor(lang, 'labels.measureType.doorOpening')
-              : tFor(lang, 'labels.measureType.production')}
-          />
           <Specs label={tFor(lang, 'pdf.dimensions')} value={`${order.breedte} × ${order.hoogte} mm`} />
           <Specs label={tFor(lang, 'pdf.numDoors')} value={`${order.aantalDeuren}`} />
           <Specs label={tFor(lang, 'pdf.hinge')} value={hingeLabel(order, lang)} />

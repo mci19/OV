@@ -12,10 +12,15 @@
   directory = "netlify/functions"
   node_bundler = "esbuild"
 
-# /api/* → serverless functions (ai-sketch etc.)
+# /api/* → serverless functions
 [[redirects]]
   from = "/api/ai-sketch"
   to = "/.netlify/functions/ai-sketch"
+  status = 200
+
+[[redirects]]
+  from = "/api/admin-users"
+  to = "/.netlify/functions/admin-users"
   status = 200
 
 # SPA fallback: alle andere routes → index.html (React rendert client-side).

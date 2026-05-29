@@ -531,3 +531,36 @@ export function useUpdateProfile() {
     },
   })
 }
+
+export interface CreatedUserResult {
+  id: string
+  email: string
+  password: string
+  generated_password: boolean
+}
+
+/** Admin-only: maak een nieuwe gebruiker aan via de Netlify Function. */
+export function useCreateUser() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (input: { email: string; full_name: string; role: 'admin' | 'sales'; password?: string }) => {
+      const { data } = await supabase.auth.getSession()
+      const token = data.session?.access_token
+      if (!token) throw new Error('Niet ingelogd')
+      const res = await fetch('/api/admin-users', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify(input),
+      })
+      const json = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error((json as { error?: string }).error || `HTTP ${res.status}`)
+      return json as CreatedUserResult
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['profiles'] })
+    },
+  })
+}
