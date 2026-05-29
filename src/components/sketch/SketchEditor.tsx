@@ -265,10 +265,23 @@ export function SketchEditor({ order, onChange }: Props) {
 
   const viewBox = `${-MARGIN} ${-MARGIN} ${breedte + 2 * MARGIN} ${hoogte + 2 * MARGIN}`
 
+  // Vlakken die nu actief zijn op de deur — gebruikt voor de area-picker
+  // én voor de klik-overlay binnen het canvas.
+  const activeAreasList: SketchArea[] = (() => {
+    const bounds = computeAreaBounds(order)
+    return (['door', 'left_panel', 'right_panel', 'top_panel'] as SketchArea[])
+      .filter((a) => bounds[a].active)
+  })()
+
   return (
     <div className="flex flex-col h-full">
+      {/* ── Rij 1 — modus + vlak-kiezer (centraal, altijd zichtbaar voor
+              lijnen/curve zodat de gebruiker niet vastloopt). ── */}
       <div className="no-print border-b border-black/10 bg-paper px-3 py-2 flex items-center justify-between gap-2 flex-wrap">
-        <div className="flex gap-1">
+        <div className="flex items-center gap-1 flex-wrap">
+          <span className="font-mono text-[10px] uppercase tracking-widest text-[--color-muted] mr-1">
+            {t('sketch.modeLabel')}
+          </span>
           {(['snel', 'lijnen', 'vrij', 'curve'] as const).map((m) => (
             <button
               key={m}
@@ -281,34 +294,33 @@ export function SketchEditor({ order, onChange }: Props) {
             </button>
           ))}
         </div>
-        <div className="flex gap-1 items-center flex-wrap">
-          {/* Vlak-kiezer: zichtbaar wanneer er meer dan één actief vlak is
-              (= deur + minstens 1 paneel). Bepaalt waar nieuwe lijnen en
-              curves geplaatst worden. */}
-          {(mode === 'lijnen' || mode === 'curve') && (() => {
-            const bounds = computeAreaBounds(order)
-            const active: SketchArea[] = (['door', 'left_panel', 'right_panel', 'top_panel'] as SketchArea[])
-              .filter((a) => bounds[a].active)
-            if (active.length < 2) return null
-            return (
-              <div className="flex items-center gap-1 pr-1 mr-1 border-r border-soft-2">
-                <span className="font-mono text-[10px] uppercase tracking-widest text-[--color-muted]">
-                  {t('sketch.area')}
-                </span>
-                {active.map((a) => (
-                  <button
-                    key={a}
-                    type="button"
-                    className="chip"
-                    data-active={activeArea === a}
-                    onClick={() => setActiveArea(a)}
-                  >
-                    {areaLabel(a, lang)}
-                  </button>
-                ))}
-              </div>
-            )
-          })()}
+        {(mode === 'lijnen' || mode === 'curve') && activeAreasList.length > 1 ? (
+          <div className="flex items-center gap-1 flex-wrap">
+            <span className="font-mono text-[10px] uppercase tracking-widest text-[--color-muted] mr-1">
+              {t('sketch.area')}
+            </span>
+            {activeAreasList.map((a) => (
+              <button
+                key={a}
+                type="button"
+                className="chip"
+                data-active={activeArea === a}
+                onClick={() => setActiveArea(a)}
+              >
+                {areaLabel(a, lang)}
+              </button>
+            ))}
+          </div>
+        ) : null}
+      </div>
+
+      {/* ── Rij 2 — acties binnen het geselecteerde modus. Alleen zichtbaar
+              wanneer er iets te kiezen valt (anders blijft de toolbar leeg). ── */}
+      {(mode === 'lijnen' || mode === 'vrij' || mode === 'curve') ? (
+        <div className="no-print border-b border-black/10 bg-paper/60 px-3 py-1.5 flex items-center gap-1 flex-wrap">
+          <span className="font-mono text-[10px] uppercase tracking-widest text-[--color-muted] mr-1">
+            {t('sketch.actionsLabel')}
+          </span>
           {mode === 'lijnen' ? (
             <>
               <button type="button" className="chip" onClick={addVertical}>
@@ -321,20 +333,14 @@ export function SketchEditor({ order, onChange }: Props) {
           ) : null}
           {mode === 'vrij' ? (
             <>
-              <button
-                type="button"
-                className="chip"
-                onClick={() => updateSketch({ freehand: [] })}
-              >
+              <button type="button" className="chip" onClick={() => updateSketch({ freehand: [] })}>
                 {t('sketch.clearFree')}
               </button>
               {sketch.freehand.length > 0 ? (
                 <button
                   type="button"
                   className="chip"
-                  onClick={() =>
-                    updateSketch({ freehand: sketch.freehand.slice(0, -1) })
-                  }
+                  onClick={() => updateSketch({ freehand: sketch.freehand.slice(0, -1) })}
                 >
                   {t('sketch.undo')}
                 </button>
@@ -355,11 +361,7 @@ export function SketchEditor({ order, onChange }: Props) {
           ) : null}
           {mode === 'curve' ? (
             <>
-              <button
-                type="button"
-                className="chip"
-                onClick={() => updateSketch({ curves: [] })}
-              >
+              <button type="button" className="chip" onClick={() => updateSketch({ curves: [] })}>
                 {t('sketch.curve.clear')}
               </button>
               {(sketch.curves?.length ?? 0) > 0 ? (
@@ -373,23 +375,33 @@ export function SketchEditor({ order, onChange }: Props) {
               ) : null}
             </>
           ) : null}
-          <button
-            type="button"
-            className="chip"
-            data-active={showDetails}
-            onClick={() => setShowDetails((v) => !v)}
-            title={t('sketch.detailsTooltip')}
-          >
-            {t('sketch.details')}
-          </button>
-          <button
-            type="button"
-            className="chip"
-            data-active={clientView}
-            onClick={() => setClientView((v) => !v)}
-          >
-            {clientView ? t('sketch.clientViewOn') : t('sketch.clientView')}
-          </button>
+        </div>
+      ) : null}
+
+      {/* ── Rij 3 — view-opties + templates. Stabiel, altijd op dezelfde
+              positie zodat ze niet door modus-wisselingen verschuiven. ── */}
+      <div className="no-print border-b border-black/10 bg-paper/40 px-3 py-1.5 flex items-center gap-1 flex-wrap">
+        <span className="font-mono text-[10px] uppercase tracking-widest text-[--color-muted] mr-1">
+          {t('sketch.viewLabel')}
+        </span>
+        <button
+          type="button"
+          className="chip"
+          data-active={showDetails}
+          onClick={() => setShowDetails((v) => !v)}
+          title={t('sketch.detailsTooltip')}
+        >
+          {t('sketch.details')}
+        </button>
+        <button
+          type="button"
+          className="chip"
+          data-active={clientView}
+          onClick={() => setClientView((v) => !v)}
+        >
+          {clientView ? t('sketch.clientViewOn') : t('sketch.clientView')}
+        </button>
+        <div className="ml-auto flex items-center gap-1">
           <button
             type="button"
             className="chip"
@@ -632,6 +644,38 @@ export function SketchEditor({ order, onChange }: Props) {
                 </>
               )
             })()}
+
+            {/* Klik-om-vlak-te-kiezen overlay. Toont alleen wanneer er
+                meerdere actieve vlakken zijn en de gebruiker NIET aan
+                het vrije tekenen of curve-tekenen is (anders eet de hit-
+                rect de pointer-events op). Highlight het actieve vlak
+                met een licht-oranje rand. */}
+            {!clientView && activeAreasList.length > 1 && mode !== 'vrij' && mode !== 'curve' ? (
+              <g>
+                {activeAreasList.map((a) => {
+                  const b = computeAreaBounds(order)[a]
+                  return (
+                    <rect
+                      key={`pick-${a}`}
+                      x={b.x}
+                      y={b.y}
+                      width={b.w}
+                      height={b.h}
+                      fill="transparent"
+                      stroke={activeArea === a ? '#FF5C00' : 'transparent'}
+                      strokeWidth={3}
+                      strokeDasharray="8 4"
+                      vectorEffect="non-scaling-stroke"
+                      style={{ cursor: 'pointer' }}
+                      onPointerDown={(e) => {
+                        e.stopPropagation()
+                        setActiveArea(a)
+                      }}
+                    />
+                  )
+                })}
+              </g>
+            ) : null}
 
             {/* maatvoering — niet in klant-zicht */}
             {!clientView ? <DimensionLabels order={order} /> : null}
