@@ -443,7 +443,41 @@ function HandleDetail({ order }: { order: OrderData }) {
       ) : null}
 
       {/* Greep — vorm uit handleKind */}
-      {order.handleKind === 'none' ? null : order.handleKind === 'l_vertical' && order.handleVerticalMm > 100 ? (
+      {order.handleKind === 'none' ? null : order.handleKind === 'l_grip' ? (
+        // L-greep: 200 mm verticale bar gemonteerd via 2 korte armen.
+        // Bar is geconstrueerd uit een L-profiel (vandaar de naam) en
+        // staat ~10 px uit de deur via de mounts.
+        <g>
+          {(() => {
+            const dir = handleSide === 'left' ? -1 : 1
+            const barLen = 70 // visueel ~200 mm op 1:scale
+            const barX = handleX + dir * 10
+            const top = handleY - barLen / 2
+            const bot = handleY + barLen / 2
+            return (
+              <>
+                {/* 2 montage-armen */}
+                <line x1={handleX} y1={top + 6} x2={barX} y2={top + 6}
+                  stroke={stroke} strokeWidth={2} strokeLinecap="round" />
+                <line x1={handleX} y1={bot - 6} x2={barX} y2={bot - 6}
+                  stroke={stroke} strokeWidth={2} strokeLinecap="round" />
+                {/* De grip-bar */}
+                <rect
+                  x={barX - 2.5}
+                  y={top}
+                  width={5}
+                  height={barLen}
+                  fill={stroke}
+                  rx={1}
+                />
+                <text x={barX + dir * 8} y={handleY + 3} fontSize={7} fill="#6B6B62" textAnchor={dir === 1 ? 'start' : 'end'}>
+                  L-greep 200 mm
+                </text>
+              </>
+            )
+          })()}
+        </g>
+      ) : order.handleKind === 'l_vertical' && order.handleVerticalMm > 100 ? (
         <g>
           <rect
             x={handleSide === 'left' ? handleX - 22 : handleX + 4}
@@ -461,7 +495,7 @@ function HandleDetail({ order }: { order: OrderData }) {
         </g>
       ) : (
         <g>
-          {/* horizontaal uitstekende klinker — 200 mm voor l_grip & horizontal_bar */}
+          {/* horizontaal uitstekende klinker — voor horizontal_bar en other */}
           <line
             x1={handleX}
             y1={handleY}
@@ -472,20 +506,8 @@ function HandleDetail({ order }: { order: OrderData }) {
             strokeLinecap="round"
           />
           <circle cx={handleX} cy={handleY} r={6} fill="#FFFFFF" stroke={stroke} strokeWidth={1} />
-          {/* L-grip extra haak naar onder */}
-          {order.handleKind === 'l_grip' ? (
-            <line
-              x1={handleSide === 'left' ? handleX - 50 : handleX + 50}
-              y1={handleY}
-              x2={handleSide === 'left' ? handleX - 50 : handleX + 50}
-              y2={handleY + 14}
-              stroke={stroke}
-              strokeWidth={3}
-              strokeLinecap="round"
-            />
-          ) : null}
           <text x={handleSide === 'left' ? handleX - 28 : handleX + 28} y={handleY + 28} fontSize={7} fill="#6B6B62" textAnchor="middle">
-            {order.handleKind === 'l_grip' ? 'L-grip 200' : order.handleKind === 'horizontal_bar' ? 'Stang 200' : (order.handleOther.trim() || 'klinker')}
+            {order.handleKind === 'horizontal_bar' ? 'Stang 200' : (order.handleOther.trim() || 'klinker')}
           </text>
         </g>
       )}

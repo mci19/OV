@@ -380,25 +380,38 @@ function LockAndHandle({ order, bladeX, bladeY, bladeW, bladeH, hingeOnLeft, cli
               vectorEffect="non-scaling-stroke" />
           </g>
         )
-      case 'l_grip':
-        // 200 mm L-vorm: horizontaal segment + neerwaartse haak
+      case 'l_grip': {
+        // L-greep: 200 mm verticale bar gemonteerd met 2 korte armen op
+        // de deur (L-profiel in doorsnede, niet in vooraanzicht). Bar
+        // staat ~25 mm uit de deur via de armen.
+        const len = 200
+        const top = handleYFromTop - len / 2
+        const bot = handleYFromTop + len / 2
+        const barX = handleX + dirSign * 25 // 25 mm offset = montage-arm lengte
         return (
           <g>
-            <circle cx={handleX} cy={handleYFromTop} r={18}
-              fill={fillBg} stroke={stroke} strokeWidth={1.4}
+            {/* Montage-armen (horizontaal van deur naar bar) — boven + onder */}
+            <line x1={handleX} y1={top + 15} x2={barX} y2={top + 15}
+              stroke={stroke} strokeWidth={6} strokeLinecap="round"
               vectorEffect="non-scaling-stroke" />
-            <line x1={handleX + dirSign * 18} y1={handleYFromTop}
-              x2={handleX + dirSign * 200} y2={handleYFromTop}
-              stroke={stroke} strokeWidth={5} strokeLinecap="round"
+            <line x1={handleX} y1={bot - 15} x2={barX} y2={bot - 15}
+              stroke={stroke} strokeWidth={6} strokeLinecap="round"
               vectorEffect="non-scaling-stroke" />
-            {!clientView ? (
-              <line x1={handleX + dirSign * 200} y1={handleYFromTop}
-                x2={handleX + dirSign * 200} y2={handleYFromTop + 30}
-                stroke={stroke} strokeWidth={5} strokeLinecap="round"
-                vectorEffect="non-scaling-stroke" />
-            ) : null}
+            {/* De verticale grip-bar zelf (200 mm) */}
+            <rect
+              x={dirSign === 1 ? barX - 4 : barX - 4}
+              y={top}
+              width={8}
+              height={len}
+              fill={stroke}
+              stroke={stroke}
+              strokeWidth={1}
+              rx={2}
+              vectorEffect="non-scaling-stroke"
+            />
           </g>
         )
+      }
       case 'other':
       default:
         return (

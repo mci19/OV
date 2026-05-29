@@ -2,9 +2,8 @@ import { useState, type FormEvent } from 'react'
 import { Navigate, useNavigate } from 'react-router-dom'
 import { useAuth } from '../lib/auth'
 import { Field } from '../components/Field'
-import { LanguageSwitcher } from '../components/LanguageSwitcher'
 import { supabaseConfigured } from '../lib/supabase'
-import { useT } from '../lib/i18n'
+import { LANGUAGES, useT, type Lang } from '../lib/i18n'
 
 // Self-signup is uitgeschakeld voor productie — accounts worden door de
 // admin aangemaakt in de Supabase dashboard om tenant-leakage te
@@ -14,7 +13,7 @@ const SELF_SIGNUP_ENABLED = import.meta.env.VITE_ALLOW_SIGNUP === 'true'
 export function LoginPage() {
   const { user, signIn, signUp, loading } = useAuth()
   const navigate = useNavigate()
-  const { t } = useT()
+  const { t, lang, setLang } = useT()
   const [mode, setMode] = useState<'signin' | 'signup'>('signin')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -45,10 +44,30 @@ export function LoginPage() {
   }
 
   return (
-    <div className="min-h-[100dvh] grid place-items-center p-4">
-      <div className="absolute top-4 right-4">
-        <LanguageSwitcher />
+    <div className="min-h-[100dvh] grid place-items-center p-4 relative">
+      {/* Taal-toggle rechtsboven — duidelijk zichtbaar als knoppen-paar
+          i.p.v. dropdown, zodat anonieme bezoekers meteen zien dat de
+          UI in NL én EN beschikbaar is. */}
+      <div className="absolute top-4 right-4 flex gap-1 items-center bg-paper/70 backdrop-blur border border-soft-2 rounded-lg p-1 shadow-sm">
+        {LANGUAGES.map((l) => (
+          <button
+            key={l.value}
+            type="button"
+            onClick={() => setLang(l.value as Lang)}
+            className="px-3 py-1.5 rounded font-mono text-[11px] font-bold uppercase tracking-wider transition-colors"
+            style={{
+              background: lang === l.value ? 'var(--color-ink)' : 'transparent',
+              color: lang === l.value ? 'var(--color-paper)' : 'var(--color-muted)',
+            }}
+            aria-label={l.label}
+            title={l.label}
+          >
+            <span className="mr-1.5">{l.flag}</span>
+            {l.value.toUpperCase()}
+          </button>
+        ))}
       </div>
+
       <div className="w-full max-w-md">
         <div className="mb-10 text-center">
           <div className="inline-flex items-center justify-center mb-4">
