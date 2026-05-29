@@ -1,6 +1,8 @@
 import type { OrderData, ValidationIssue } from '../lib/types'
 import { Chips, Field, FieldRow, MultiChips } from './Field'
 import { useT } from '../lib/i18n'
+import { useAppSettings } from '../lib/queries'
+import { DEFAULT_CUT_FORMULAS } from '../lib/db'
 
 interface Props {
   order: OrderData
@@ -13,8 +15,22 @@ function errorFor(issues: ValidationIssue[], field: string): string | null {
   return it ? it.message : null
 }
 
+// Types waarvoor de gebruiker een aangepaste lengte kan invoeren.
+const ADJUSTABLE_HANDLE_KINDS = new Set(['l_grip', 'horizontal_bar', 't_grip', 'custom'])
+
 export function OrderForm({ order, set, issues }: Props) {
   const { t } = useT()
+  const { data: settings } = useAppSettings()
+  const formulas = settings?.cut_formulas ?? DEFAULT_CUT_FORMULAS
+  const handleDefault = (() => {
+    switch (order.handleKind) {
+      case 'l_grip':         return formulas.greep_l_grip_lengte
+      case 'horizontal_bar': return formulas.greep_horizontal_bar_lengte
+      case 't_grip':         return formulas.greep_t_grip_lengte
+      case 'custom':         return formulas.greep_custom_default_lengte
+      default:               return 0
+    }
+  })()
   return (
     <div className="space-y-8">
       <section>
@@ -195,20 +211,34 @@ export function OrderForm({ order, set, issues }: Props) {
             { value: 'l_grip', label: t('order.handleLGrip') },
             { value: 'l_vertical', label: t('order.handleLVertical') },
             { value: 'horizontal_bar', label: t('order.handleHorizontalBar') },
+            { value: 't_grip', label: t('order.handleTGrip') },
+            { value: 'custom', label: t('order.handleCustom') },
+            { value: 'veerklink', label: t('order.handleVeerklink') },
             { value: 'other', label: t('order.handleOtherLabel') },
           ]}
           onChange={(v) => set('handleKind', v)}
         />
-        {order.handleKind === 'l_vertical' ? (
+        {ADJUSTABLE_HANDLE_KINDS.has(order.handleKind) ? (
           <div className="mt-3">
             <Field
-              label={t('order.handleLVerticalLength')}
+              label={t('order.handleLengthLabel')}
               unit="mm"
               type="number"
-              value={order.handleVerticalMm}
-              onChange={(e) => set('handleVerticalMm', Number(e.target.value))}
-              hint={t('order.handleLongHandleHint')}
+              value={order.handleVerticalMm || ''}
+              placeholder={String(handleDefault)}
+              onChange={(e) => set('handleVerticalMm', e.target.value === '' ? 0 : Number(e.target.value))}
+              hint={t('order.handleLengthHint', { default: handleDefault })}
             />
+          </div>
+        ) : null}
+        {order.handleKind === 'l_vertical' ? (
+          <div className="mt-3 p-3 rounded border border-soft-2 bg-paper/40 font-mono text-xs text-[--color-muted]">
+            {t('order.handleLVerticalDescription')}
+          </div>
+        ) : null}
+        {order.handleKind === 'veerklink' ? (
+          <div className="mt-3 p-3 rounded border border-soft-2 bg-paper/40 font-mono text-xs text-[--color-muted]">
+            {t('order.handleVeerklinkDescription')}
           </div>
         ) : null}
         {order.handleKind === 'other' ? (

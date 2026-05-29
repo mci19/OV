@@ -573,8 +573,10 @@ const FORMULA_GROUPS: { title: string; description: string; fields: FormulaField
     title: 'Greep-lengtes (Kampas 30×30)',
     description: 'Standaard lengtes per greep-type. L-verticaal gebruikt de manueel-ingevoerde lengte per order.',
     fields: [
-      { key: 'greep_l_grip_lengte', label: 'L-grip', unit: 'mm', hint: 'Default 200' },
-      { key: 'greep_horizontal_bar_lengte', label: 'Horizontale stang', unit: 'mm', hint: 'Default 200' },
+      { key: 'greep_l_grip_lengte', label: 'L-greep', unit: 'mm', hint: 'Default 200 — overschrijfbaar per order' },
+      { key: 'greep_horizontal_bar_lengte', label: 'Horizontale stang', unit: 'mm', hint: 'Default 200 — overschrijfbaar per order' },
+      { key: 'greep_t_grip_lengte', label: 'T-greep', unit: 'mm', hint: 'Default 200 — overschrijfbaar per order' },
+      { key: 'greep_custom_default_lengte', label: 'Greep op maat', unit: 'mm', hint: 'Default 500 — overschrijfbaar per order' },
       { key: 'greep_other_default_lengte', label: 'Other (fallback)', unit: 'mm', hint: 'Default 700 — gebruikt als geen lengte gegeven' },
     ],
   },

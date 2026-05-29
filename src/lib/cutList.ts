@@ -144,17 +144,39 @@ export function generateCutList(order: OrderData, formulas: CutFormulas = DEFAUL
   }
 
   // ─── Extras ─────────────────────────────────────────────
-  // Greep — vorm bepaalt profiel en lengte. Onbekende kinds (legacy data)
-  // worden behandeld als 'other' zodat de fabriek altijd een greep krijgt.
+  // Greep — vorm bepaalt profiel en lengte. Adjustable types (l_grip,
+  // horizontal_bar, t_grip, custom) gebruiken handleVerticalMm als > 0,
+  // anders het CutFormulas-default. l_vertical = volle bladeVert hoogte.
+  // veerklink = aparte hardware-line, geen Kampas.
+  const overrideMm = order.handleVerticalMm && order.handleVerticalMm > 0
+    ? Math.max(1, Math.round(order.handleVerticalMm))
+    : 0
+
   if (order.handleKind === 'l_grip') {
-    items.push({ nr: null, profiel: 'Kampas 30*30', lengte: f.greep_l_grip_lengte, aantal: 2, bewerking: `L-greep ${f.greep_l_grip_lengte} mm` })
+    const len = overrideMm || f.greep_l_grip_lengte
+    items.push({ nr: null, profiel: 'Kampas 30*30', lengte: len, aantal: 2, bewerking: `L-greep ${len} mm` })
   } else if (order.handleKind === 'horizontal_bar') {
-    items.push({ nr: null, profiel: 'Kampas 30*30', lengte: f.greep_horizontal_bar_lengte, aantal: 2, bewerking: `horizontale stang ${f.greep_horizontal_bar_lengte} mm` })
+    const len = overrideMm || f.greep_horizontal_bar_lengte
+    items.push({ nr: null, profiel: 'Kampas 30*30', lengte: len, aantal: 2, bewerking: `horizontale stang ${len} mm` })
+  } else if (order.handleKind === 't_grip') {
+    const len = overrideMm || f.greep_t_grip_lengte
+    items.push({ nr: null, profiel: 'Kampas 30*30', lengte: len, aantal: 2, bewerking: `T-greep ${len} mm` })
   } else if (order.handleKind === 'l_vertical') {
-    const len = Math.max(1, Math.round(order.handleVerticalMm || f.greep_other_default_lengte))
-    items.push({ nr: null, profiel: 'Kampas 30*30', lengte: len, aantal: 2, bewerking: `L-verticaal ${len} mm` })
-  } else if (order.handleKind !== 'none') {
-    items.push({ nr: null, profiel: 'Kampas 30*30', lengte: f.greep_other_default_lengte, aantal: 2, bewerking: order.handleOther?.trim() || 'greep' })
+    // Volle deurhoogte = bladeVert, 200 mm vanaf openingsrand
+    items.push({
+      nr: null, profiel: 'Kampas 30*30', lengte: bladeVert, aantal: 1,
+      bewerking: `L-verticaal volle hoogte ${bladeVert} mm, 200 mm van openingsrand, gelast top+bottom`,
+    })
+  } else if (order.handleKind === 'custom') {
+    const len = overrideMm || f.greep_custom_default_lengte
+    items.push({ nr: null, profiel: 'Kampas 30*30', lengte: len, aantal: 2, bewerking: `Greep op maat ${len} mm` })
+  } else if (order.handleKind === 'veerklink') {
+    // Geen Kampas — aparte hardware. Wel een line-item zodat fabriek weet
+    // dat hij een veerklink-unit moet voorzien.
+    items.push({ nr: null, profiel: 'Veerklink', lengte: 0, aantal: 1, bewerking: 'horizontale klink-deurkruk (lever + rozet)' })
+  } else if (order.handleKind === 'other') {
+    const len = overrideMm || f.greep_other_default_lengte
+    items.push({ nr: null, profiel: 'Kampas 30*30', lengte: len, aantal: 2, bewerking: order.handleOther?.trim() || 'greep' })
   }
   items.push({ nr: null, profiel: 'Juosta-35*4', lengte: hoogte, aantal: 2 })
   items.push({ nr: null, profiel: 'Juosta-35*4', lengte: breedte - f.juosta_horiz_aftrek, aantal: 1 })

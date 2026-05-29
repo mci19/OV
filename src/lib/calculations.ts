@@ -1,5 +1,6 @@
 import type { OrderData, ValidationIssue } from './types'
-import { tFor, type Lang } from './i18n'
+import { resolveHandleLength, tFor, type Lang } from './i18n'
+import { DEFAULT_CUT_FORMULAS, type CutFormulas } from './db'
 
 export function validateOrder(order: OrderData): ValidationIssue[] {
   const issues: ValidationIssue[] = []
@@ -68,12 +69,16 @@ export function finishingLabel(o: OrderData, lang: Lang = 'nl'): string {
   return tFor(lang, keyMap[o.finishing])
 }
 
-export function handleLabel(o: OrderData, lang: Lang = 'nl'): string {
+export function handleLabel(o: OrderData, lang: Lang = 'nl', formulas: CutFormulas = DEFAULT_CUT_FORMULAS): string {
+  const mm = resolveHandleLength(o.handleKind, o.handleVerticalMm, formulas)
   switch (o.handleKind) {
     case 'none':           return tFor(lang, 'labels.handle.none')
-    case 'l_grip':         return tFor(lang, 'labels.handle.lGrip')
-    case 'l_vertical':     return tFor(lang, 'labels.handle.lVertical', { mm: o.handleVerticalMm })
-    case 'horizontal_bar': return tFor(lang, 'labels.handle.horizontalBar')
+    case 'l_grip':         return tFor(lang, 'labels.handle.lGrip', { mm })
+    case 'l_vertical':     return tFor(lang, 'labels.handle.lVertical')
+    case 'horizontal_bar': return tFor(lang, 'labels.handle.horizontalBar', { mm })
+    case 't_grip':         return tFor(lang, 'labels.handle.tGrip', { mm })
+    case 'custom':         return tFor(lang, 'labels.handle.custom', { mm })
+    case 'veerklink':      return tFor(lang, 'labels.handle.veerklink')
     case 'other':          return o.handleOther.trim() || tFor(lang, 'labels.handle.otherFallback')
     default:               return o.handleOther?.trim() || tFor(lang, 'labels.handle.otherUnknown')
   }

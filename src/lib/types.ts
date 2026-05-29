@@ -20,9 +20,12 @@ export type Finishing = 'glasslist_10' | 'glasslist_15' | 'soudal_mastiek'
 
 export type HandleKind =
   | 'none'
-  | 'l_grip'         // altijd 200 mm L-vorm
-  | 'l_vertical'    // handmatige lengte via handleVerticalMm
+  | 'l_grip'         // altijd 200 mm L-profiel verticaal
+  | 'l_vertical'    // volle deurhoogte, U-vorm, 200 mm van openingsrand
   | 'horizontal_bar' // altijd 200 mm horizontaal
+  | 't_grip'         // T-vorm: korte verticale bar + horizontale top, 200 mm
+  | 'custom'         // greep op maat — verticale bar, default 500 mm, lengte instelbaar via handleVerticalMm
+  | 'veerklink'      // klassieke horizontale klink-deurkruk (separate hardware, geen Kampas)
   | 'other'
 
 export type LockKind =
@@ -171,7 +174,7 @@ export interface ValidationIssue {
  * de rest van de app altijd geldige data ziet.
  */
 const LEGACY_HANDLE_KINDS = new Set(['pull_bar', 'round_knob', 'recessed_pull'])
-const VALID_HANDLE_KINDS: HandleKind[] = ['none', 'l_grip', 'l_vertical', 'horizontal_bar', 'other']
+const VALID_HANDLE_KINDS: HandleKind[] = ['none', 'l_grip', 'l_vertical', 'horizontal_bar', 't_grip', 'custom', 'veerklink', 'other']
 
 export function sanitizeOrderData(raw: Partial<OrderData>): OrderData {
   const merged = { ...DEFAULT_ORDER, ...raw }

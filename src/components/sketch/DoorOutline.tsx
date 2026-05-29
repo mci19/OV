@@ -354,20 +354,50 @@ function LockAndHandle({ order, bladeX, bladeY, bladeW, bladeH, hingeOnLeft, cli
     )
   }
 
-  // Handle visuals per type
+  // Handle visuals per type. Adjustable types lezen handleVerticalMm
+  // met fallback op een sensible default; voor exacte cut-list waarden
+  // gebruikt cutList.ts de CutFormulas defaults uit settings.
   function renderHandle() {
+    const adjustableDefault = (() => {
+      switch (order.handleKind) {
+        case 'l_grip':
+        case 'horizontal_bar':
+        case 't_grip':         return 200
+        case 'custom':         return 500
+        default:               return 0
+      }
+    })()
+    const len = order.handleVerticalMm && order.handleVerticalMm > 0
+      ? Math.max(40, Math.round(order.handleVerticalMm))
+      : adjustableDefault
+
     switch (order.handleKind) {
       case 'l_vertical': {
-        const len = Math.max(120, order.handleVerticalMm || 700)
+        // Verticale greep over volle deurhoogte, 200 mm vanaf de opening-
+        // sedge (= handle-side). Lichte U-vorm in zij-aanzicht via 2
+        // weld-points top + bottom.
+        const fullTop = bladeY + 20
+        const fullBot = bladeY + bladeH - 20
+        const fullLen = fullBot - fullTop
+        // Positie: 200 mm van opening-rand (= handle-side rand)
+        const lvX = handleSide === 'left' ? bladeX + 200 : bladeX + bladeW - 200
         return (
-          <rect x={handleX - 8} y={handleYFromTop - len / 2}
-            width={16} height={len}
-            fill={fillBg} stroke={stroke} strokeWidth={1.2}
-            vectorEffect="non-scaling-stroke" rx={4} />
+          <g>
+            {/* Top + bottom weld-bracket (kleine driehoekjes/lasnaden) */}
+            <rect x={lvX - 6} y={fullTop - 6} width={12} height={6}
+              fill={stroke} vectorEffect="non-scaling-stroke" />
+            <rect x={lvX - 6} y={fullBot} width={12} height={6}
+              fill={stroke} vectorEffect="non-scaling-stroke" />
+            {/* Verticale bar over volle hoogte */}
+            <rect x={lvX - 5} y={fullTop} width={10} height={fullLen}
+              fill={stroke} stroke={stroke} strokeWidth={1} rx={2}
+              vectorEffect="non-scaling-stroke" />
+          </g>
         )
       }
+
       case 'horizontal_bar':
-        // 200 mm horizontale stang, getekend vanaf 200 mm van de rand
+        // Horizontale stang — lengte adjustable via handleVerticalMm
         return (
           <g>
             <rect x={handleX - 8} y={handleYFromTop - 6}
@@ -375,43 +405,100 @@ function LockAndHandle({ order, bladeX, bladeY, bladeW, bladeH, hingeOnLeft, cli
               fill={fillBg} stroke={stroke} strokeWidth={1.2} rx={3}
               vectorEffect="non-scaling-stroke" />
             <line x1={handleX + dirSign * 8} y1={handleYFromTop}
-              x2={handleX + dirSign * 200} y2={handleYFromTop}
+              x2={handleX + dirSign * len} y2={handleYFromTop}
               stroke={stroke} strokeWidth={8} strokeLinecap="round"
               vectorEffect="non-scaling-stroke" />
           </g>
         )
+
       case 'l_grip': {
-        // L-greep: 200 mm verticale bar gemonteerd met 2 korte armen op
-        // de deur (L-profiel in doorsnede, niet in vooraanzicht). Bar
-        // staat ~25 mm uit de deur via de armen.
-        const len = 200
+        // L-greep: verticale bar (adjustable) gemonteerd met 2 korte
+        // montage-armen op de deur (L-profiel in doorsnede).
         const top = handleYFromTop - len / 2
         const bot = handleYFromTop + len / 2
-        const barX = handleX + dirSign * 25 // 25 mm offset = montage-arm lengte
+        const barX = handleX + dirSign * 25
         return (
           <g>
-            {/* Montage-armen (horizontaal van deur naar bar) — boven + onder */}
             <line x1={handleX} y1={top + 15} x2={barX} y2={top + 15}
               stroke={stroke} strokeWidth={6} strokeLinecap="round"
               vectorEffect="non-scaling-stroke" />
             <line x1={handleX} y1={bot - 15} x2={barX} y2={bot - 15}
               stroke={stroke} strokeWidth={6} strokeLinecap="round"
               vectorEffect="non-scaling-stroke" />
-            {/* De verticale grip-bar zelf (200 mm) */}
-            <rect
-              x={dirSign === 1 ? barX - 4 : barX - 4}
-              y={top}
-              width={8}
-              height={len}
-              fill={stroke}
-              stroke={stroke}
-              strokeWidth={1}
-              rx={2}
-              vectorEffect="non-scaling-stroke"
-            />
+            <rect x={barX - 4} y={top} width={8} height={len}
+              fill={stroke} stroke={stroke} strokeWidth={1} rx={2}
+              vectorEffect="non-scaling-stroke" />
           </g>
         )
       }
+
+      case 't_grip': {
+        // T-greep: korte verticale bar + horizontale top-cap, gemonteerd
+        // op de deurkant. Adjustable via handleVerticalMm.
+        const top = handleYFromTop - len / 2
+        const bot = handleYFromTop + len / 2
+        const barX = handleX + dirSign * 22
+        const capLen = Math.min(60, len * 0.35) // top-cap = ~35% van bar-lengte
+        return (
+          <g>
+            {/* Verticale bar */}
+            <rect x={barX - 4} y={top + 10} width={8} height={len - 20}
+              fill={stroke} stroke={stroke} strokeWidth={1} rx={2}
+              vectorEffect="non-scaling-stroke" />
+            {/* Top horizontale cap */}
+            <rect x={barX - capLen / 2} y={top}
+              width={capLen} height={10}
+              fill={stroke} stroke={stroke} strokeWidth={1} rx={2}
+              vectorEffect="non-scaling-stroke" />
+            {/* Mount onder */}
+            <line x1={handleX} y1={bot - 5} x2={barX} y2={bot - 5}
+              stroke={stroke} strokeWidth={4} strokeLinecap="round"
+              vectorEffect="non-scaling-stroke" />
+          </g>
+        )
+      }
+
+      case 'custom': {
+        // Greep op maat: verticale bar met instelbare lengte, default 500
+        const top = handleYFromTop - len / 2
+        const bot = handleYFromTop + len / 2
+        const barX = handleX + dirSign * 22
+        return (
+          <g>
+            <line x1={handleX} y1={top + 10} x2={barX} y2={top + 10}
+              stroke={stroke} strokeWidth={4} strokeLinecap="round"
+              vectorEffect="non-scaling-stroke" />
+            <line x1={handleX} y1={bot - 10} x2={barX} y2={bot - 10}
+              stroke={stroke} strokeWidth={4} strokeLinecap="round"
+              vectorEffect="non-scaling-stroke" />
+            <rect x={barX - 4} y={top} width={8} height={len}
+              fill={stroke} stroke={stroke} strokeWidth={1} rx={2}
+              vectorEffect="non-scaling-stroke" />
+          </g>
+        )
+      }
+
+      case 'veerklink':
+        // Klassieke horizontale klink-deurkruk met rozet
+        return (
+          <g>
+            {/* Lange rozet-plaat op deur-rand */}
+            <rect x={handleX - 8} y={handleYFromTop - 80}
+              width={16} height={160}
+              fill={fillBg} stroke={stroke} strokeWidth={1.2} rx={2}
+              vectorEffect="non-scaling-stroke" />
+            {/* Klink-hub (cirkel waar lever uit komt) */}
+            <circle cx={handleX} cy={handleYFromTop} r={9}
+              fill={fillBg} stroke={stroke} strokeWidth={1.4}
+              vectorEffect="non-scaling-stroke" />
+            {/* Horizontale lever */}
+            <line x1={handleX + dirSign * 9} y1={handleYFromTop}
+              x2={handleX + dirSign * 110} y2={handleYFromTop}
+              stroke={stroke} strokeWidth={9} strokeLinecap="round"
+              vectorEffect="non-scaling-stroke" />
+          </g>
+        )
+
       case 'other':
       default:
         return (

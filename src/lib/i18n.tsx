@@ -301,11 +301,17 @@ const dict = {
     'order.finishing': 'Afwerking',
     'order.handleKind': 'Type',
     'order.handleNone': 'Geen greep',
-    'order.handleLGrip': 'L-grip 200 mm',
-    'order.handleLVertical': 'L-verticaal',
-    'order.handleHorizontalBar': 'Horizontale stang 200 mm',
+    'order.handleLGrip': 'L-greep',
+    'order.handleLVertical': 'L-verticaal (volle hoogte)',
+    'order.handleHorizontalBar': 'Horizontale stang',
+    'order.handleTGrip': 'T-greep',
+    'order.handleCustom': 'Greep op maat',
+    'order.handleVeerklink': 'Veerklink',
     'order.handleOtherLabel': 'Anders',
-    'order.handleLVerticalLength': 'Lengte L-verticaal',
+    'order.handleLengthLabel': 'Lengte greep',
+    'order.handleLengthHint': 'Standaard {default} mm — laat leeg of 0 voor default',
+    'order.handleLVerticalDescription': 'Verticale greep over de volle deurhoogte, gelast aan boven- en onderrand (lichte U-vorm in zijaanzicht). Standaard 200 mm vanaf de openingsrand.',
+    'order.handleVeerklinkDescription': 'Klassieke horizontale klink-deurkruk. Aparte hardware (lever + rozet), niet uit Kampas-profiel.',
     'order.handleLongHandleHint': 'bv. 700 voor long handle',
     'order.handleOtherDescription': 'Andere greep',
     'order.handleOtherDescHint': 'bv. long handle 700mm',
@@ -641,9 +647,12 @@ const dict = {
     'labels.finishing.glasslist15': 'Glaslijst 15×15',
     'labels.finishing.soudal': 'Soudal Mastiek',
     'labels.handle.none': 'Geen greep',
-    'labels.handle.lGrip': 'L-greep 200 mm',
-    'labels.handle.lVertical': 'L-verticaal {mm} mm',
-    'labels.handle.horizontalBar': 'Horizontale stang 200 mm',
+    'labels.handle.lGrip': 'L-greep {mm} mm',
+    'labels.handle.lVertical': 'L-verticaal (volle hoogte)',
+    'labels.handle.horizontalBar': 'Horizontale stang {mm} mm',
+    'labels.handle.tGrip': 'T-greep {mm} mm',
+    'labels.handle.custom': 'Greep op maat {mm} mm',
+    'labels.handle.veerklink': 'Veerklink (horizontale klink)',
     'labels.handle.otherFallback': 'Greep — vrij',
     'labels.handle.otherUnknown': 'Greep — onbekend type',
     'labels.lock.cilinderLitto': 'Cilinder Litto 30/30',
@@ -986,11 +995,17 @@ const dict = {
     'order.finishing': 'Finish',
     'order.handleKind': 'Type',
     'order.handleNone': 'No handle',
-    'order.handleLGrip': 'L-grip 200 mm',
-    'order.handleLVertical': 'L-vertical',
-    'order.handleHorizontalBar': 'Horizontal bar 200 mm',
+    'order.handleLGrip': 'L-grip',
+    'order.handleLVertical': 'L-vertical (full height)',
+    'order.handleHorizontalBar': 'Horizontal bar',
+    'order.handleTGrip': 'T-grip',
+    'order.handleCustom': 'Custom handle',
+    'order.handleVeerklink': 'Lever handle',
     'order.handleOtherLabel': 'Other',
-    'order.handleLVerticalLength': 'L-vertical length',
+    'order.handleLengthLabel': 'Handle length',
+    'order.handleLengthHint': 'Default {default} mm — leave empty or 0 for default',
+    'order.handleLVerticalDescription': 'Vertical handle over the full door height, welded at the top and bottom edge (slight U-shape in side view). Default 200 mm from the opening edge.',
+    'order.handleVeerklinkDescription': 'Classic horizontal lever handle. Separate hardware (lever + rosette), not from Kampas profile.',
     'order.handleLongHandleHint': 'e.g. 700 for long handle',
     'order.handleOtherDescription': 'Other handle',
     'order.handleOtherDescHint': 'e.g. long handle 700mm',
@@ -1326,9 +1341,12 @@ const dict = {
     'labels.finishing.glasslist15': 'Glass list 15×15',
     'labels.finishing.soudal': 'Soudal Mastic',
     'labels.handle.none': 'No handle',
-    'labels.handle.lGrip': 'L-grip 200 mm',
-    'labels.handle.lVertical': 'L-vertical {mm} mm',
-    'labels.handle.horizontalBar': 'Horizontal bar 200 mm',
+    'labels.handle.lGrip': 'L-grip {mm} mm',
+    'labels.handle.lVertical': 'L-vertical (full height)',
+    'labels.handle.horizontalBar': 'Horizontal bar {mm} mm',
+    'labels.handle.tGrip': 'T-grip {mm} mm',
+    'labels.handle.custom': 'Custom handle {mm} mm',
+    'labels.handle.veerklink': 'Lever handle (horizontal latch)',
     'labels.handle.otherFallback': 'Handle — custom',
     'labels.handle.otherUnknown': 'Handle — unknown type',
     'labels.lock.cilinderLitto': 'Cylinder Litto 30/30',
@@ -1471,4 +1489,25 @@ export function stageLabel(stage: StageKey, lang: Lang): string {
 
 export function quoteStatusLabel(status: QuoteStatusKey, lang: Lang): string {
   return tFor(lang, `quoteStatus.${status}` as TranslationKey)
+}
+
+/**
+ * Resolve de effectieve greep-lengte. Voor adjustable types (l_grip,
+ * horizontal_bar, t_grip, custom) geldt: handleVerticalMm > 0 wint,
+ * anders default uit CutFormulas. Voor types zonder lengte-concept
+ * (none, l_vertical, veerklink, other) retourneert deze 0.
+ */
+export function resolveHandleLength(
+  kind: string,
+  handleVerticalMm: number,
+  formulas: { greep_l_grip_lengte: number; greep_horizontal_bar_lengte: number; greep_t_grip_lengte: number; greep_custom_default_lengte: number },
+): number {
+  const override = Number.isFinite(handleVerticalMm) && handleVerticalMm > 0 ? Math.round(handleVerticalMm) : 0
+  switch (kind) {
+    case 'l_grip':         return override || formulas.greep_l_grip_lengte
+    case 'horizontal_bar': return override || formulas.greep_horizontal_bar_lengte
+    case 't_grip':         return override || formulas.greep_t_grip_lengte
+    case 'custom':         return override || formulas.greep_custom_default_lengte
+    default:               return 0
+  }
 }

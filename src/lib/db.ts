@@ -194,8 +194,10 @@ export interface CutFormulas {
   // Juosta-afdekstrip
   juosta_horiz_aftrek: number              // breedte − 70
   // Standaard greep-lengtes (Kampas 30×30) per handleKind
-  greep_l_grip_lengte: number              // 200 mm
-  greep_horizontal_bar_lengte: number      // 200 mm
+  greep_l_grip_lengte: number              // 200 mm — default L-greep, override via handleVerticalMm
+  greep_horizontal_bar_lengte: number      // 200 mm — default horizontale stang
+  greep_t_grip_lengte: number              // 200 mm — T-greep (verticaal + top-cap)
+  greep_custom_default_lengte: number      // 500 mm — greep-op-maat default
   greep_other_default_lengte: number       // 700 mm
 }
 
@@ -212,6 +214,8 @@ export const DEFAULT_CUT_FORMULAS: CutFormulas = {
   juosta_horiz_aftrek: 70,
   greep_l_grip_lengte: 200,
   greep_horizontal_bar_lengte: 200,
+  greep_t_grip_lengte: 200,
+  greep_custom_default_lengte: 500,
   greep_other_default_lengte: 700,
 }
 
