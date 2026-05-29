@@ -561,9 +561,7 @@ export function SketchEditor({ order, onChange }: Props) {
                 doorWidth={breedte}
                 doorHeight={hoogte}
                 side={order.handlePosition.side}
-                // Snap-targets: horizontaal midden + alle verticale design-
-                // lijnen. Default-rand (handle-side) komt al uit DraggableHandle.
-                snapXTargets={[breedte / 2, ...sketch.verticalLines.map((v) => v.x)]}
+                snapXTargets={sketch.verticalLines.map((v) => v.x)}
                 snapYTargets={sketch.horizontalLines.map((h) => h.y)}
                 onChange={(next) => onChange({
                   ...order,

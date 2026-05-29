@@ -116,25 +116,11 @@ export function ElementOptionsPanel({
                 }}
               />
             </label>
-            <div className="flex gap-2">
-              <button
-                type="button"
-                className="btn btn-sm flex-1 justify-center"
-                onClick={() => commit({
-                  ...(draft as Extract<SelectedElement, { kind: 'handle' }>),
-                  xCurrent: Math.round(doorWidth / 2),
-                  xOverridden: true,
-                })}
-                title={t('elemOpts.centerHorizontalHint')}
-              >
-                {t('elemOpts.centerHorizontal')}
+            {onReset && (selected as { xOverridden: boolean }).xOverridden ? (
+              <button type="button" className="btn btn-sm w-full justify-center" onClick={onReset}>
+                <RotateCcw size={14} /> {t('elemOpts.resetPosition')}
               </button>
-              {onReset && (selected as { xOverridden: boolean }).xOverridden ? (
-                <button type="button" className="btn btn-sm flex-1 justify-center" onClick={onReset}>
-                  <RotateCcw size={14} /> {t('elemOpts.resetPosition')}
-                </button>
-              ) : null}
-            </div>
+            ) : null}
           </>
         ) : selected.kind === 'curve' ? (
           <div className="font-mono text-[11px] text-[--color-muted] space-y-1">
