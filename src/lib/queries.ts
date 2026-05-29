@@ -472,3 +472,60 @@ export function useUpdateOptionList() {
     },
   })
 }
+
+// ─── User management (admin-only) ────────────────────────────
+
+export interface ProfileWithEmail {
+  id: string
+  full_name: string
+  role: 'admin' | 'sales'
+  created_at: string
+  email: string | null
+}
+
+/** Lijst alle profielen — door RLS enkel zichtbaar voor admins. */
+export function useAllProfiles() {
+  return useQuery({
+    queryKey: ['profiles'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('profiles_with_email')
+        .select('*')
+        .order('created_at', { ascending: true })
+      if (error) throw error
+      return (data ?? []) as ProfileWithEmail[]
+    },
+    staleTime: 60 * 1000,
+  })
+}
+
+/** Patch full_name of role van een gebruiker. RLS controleert of de
+ *  caller dit mag (zelf-update OF admin). De `guard_role_change`-trigger
+ *  blokkeert sales-users die hun eigen role proberen te promoten. */
+export function useUpdateProfile() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (input: { id: string; full_name?: string; role?: 'admin' | 'sales' }) => {
+      const patch: { full_name?: string; role?: 'admin' | 'sales' } = {}
+      if (input.full_name !== undefined) patch.full_name = input.full_name
+      if (input.role !== undefined) patch.role = input.role
+      const { data, error } = await supabase
+        .from('profiles')
+        .update(patch)
+        .eq('id', input.id)
+        .select()
+        .single()
+      if (error) {
+        // Trigger-message van guard_role_change of RLS
+        if (/role/i.test(error.message)) {
+          throw new Error('Alleen admins kunnen rollen wijzigen')
+        }
+        throw error
+      }
+      return data
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['profiles'] })
+    },
+  })
+}

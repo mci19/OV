@@ -492,3 +492,74 @@ textarea.field-input { font-family: var(--font-sans); resize: vertical; min-heig
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb { background: var(--color-soft-2); border-radius: 5px; border: 2px solid transparent; background-clip: padding-box; }
 ::-webkit-scrollbar-thumb:hover { background: var(--color-muted); background-clip: padding-box; border: 2px solid transparent; }
+
+/* ─── DataTable ──────────────────────────────────────────── */
+.data-table-wrap {
+  width: 100%;
+  overflow-x: auto;
+  background: var(--color-paper);
+  border: 1px solid var(--color-soft-2);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-sm);
+}
+.data-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+.data-table thead {
+  background: color-mix(in srgb, var(--color-paper), var(--color-soft) 50%);
+  border-bottom: 1px solid var(--color-soft-2);
+}
+.data-table th {
+  padding: 10px 14px;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--color-muted);
+  white-space: nowrap;
+}
+.data-table td {
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--color-soft);
+  vertical-align: middle;
+}
+.data-table tbody tr:last-child td { border-bottom: none; }
+.data-table tbody tr[data-interactive] {
+  cursor: pointer;
+  transition: background 120ms ease;
+}
+.data-table tbody tr[data-interactive]:hover {
+  background: color-mix(in srgb, var(--color-paper), var(--color-brand-tint, var(--color-soft)) 60%);
+}
+.data-table-sort {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  background: none;
+  border: none;
+  padding: 0;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+  letter-spacing: inherit;
+  text-transform: inherit;
+}
+.data-table-sort:hover { color: var(--color-ink); }
+
+/* Responsief: verberg kolommen onder een viewport-breedte */
+@media (max-width: 640px) {
+  .data-table th[data-hide-below="640"],
+  .data-table td[data-hide-below="640"] { display: none; }
+}
+@media (max-width: 768px) {
+  .data-table th[data-hide-below="768"],
+  .data-table td[data-hide-below="768"] { display: none; }
+}
+@media (max-width: 1024px) {
+  .data-table th[data-hide-below="1024"],
+  .data-table td[data-hide-below="1024"] { display: none; }
+}

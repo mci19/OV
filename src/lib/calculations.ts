@@ -1,4 +1,5 @@
 import type { OrderData, ValidationIssue } from './types'
+import { tFor, type Lang } from './i18n'
 
 export function validateOrder(order: OrderData): ValidationIssue[] {
   const issues: ValidationIssue[] = []
@@ -34,70 +35,79 @@ export function validateOrder(order: OrderData): ValidationIssue[] {
   return issues
 }
 
-export function ralLabel(o: OrderData): string {
-  if (o.colorKind === 'ral_9005') return 'RAL 9005 (zwart)'
-  if (o.colorKind === 'ral_9010') return 'RAL 9010 (wit)'
-  return o.colorOther.trim() || 'RAL ?'
+export function ralLabel(o: OrderData, lang: Lang = 'nl'): string {
+  if (o.colorKind === 'ral_9005') return tFor(lang, 'labels.ral.9005')
+  if (o.colorKind === 'ral_9010') return tFor(lang, 'labels.ral.9010')
+  return o.colorOther.trim() || tFor(lang, 'labels.ral.unknown')
 }
 
-export function glassLabel(o: OrderData): string {
+export function glassLabel(o: OrderData, lang: Lang = 'nl'): string {
   switch (o.glassType) {
-    case 'clear': return 'Helder glas'
-    case 'matt': return 'Mat glas'
-    case 'cathedraal_flute': return 'Cathedraal / Flute'
-    case 'other': return o.glassOther.trim() || 'Ander glas'
+    case 'clear': return tFor(lang, 'labels.glass.clear')
+    case 'matt': return tFor(lang, 'labels.glass.matt')
+    case 'cathedraal_flute': return tFor(lang, 'labels.glass.cathedraal')
+    case 'other': return o.glassOther.trim() || tFor(lang, 'labels.glass.otherFallback')
   }
 }
 
-export function systemLabel(o: OrderData): string {
-  return { hinges: 'Scharnieren', pivotica: 'Pivotica', sliding: 'Schuifsysteem' }[o.system]
+export function systemLabel(o: OrderData, lang: Lang = 'nl'): string {
+  const keyMap = {
+    hinges: 'labels.system.hinges',
+    pivotica: 'labels.system.pivotica',
+    sliding: 'labels.system.sliding',
+  } as const
+  return tFor(lang, keyMap[o.system])
 }
 
-export function finishingLabel(o: OrderData): string {
-  return {
-    glasslist_10: 'Glaslijst 10×10',
-    glasslist_15: 'Glaslijst 15×15',
-    soudal_mastiek: 'Soudal Mastiek',
-  }[o.finishing]
+export function finishingLabel(o: OrderData, lang: Lang = 'nl'): string {
+  const keyMap = {
+    glasslist_10: 'labels.finishing.glasslist10',
+    glasslist_15: 'labels.finishing.glasslist15',
+    soudal_mastiek: 'labels.finishing.soudal',
+  } as const
+  return tFor(lang, keyMap[o.finishing])
 }
 
-export function handleLabel(o: OrderData): string {
+export function handleLabel(o: OrderData, lang: Lang = 'nl'): string {
   switch (o.handleKind) {
-    case 'none':           return 'Geen greep'
-    case 'l_grip':         return 'L-greep 200 mm'
-    case 'l_vertical':     return `L-verticaal ${o.handleVerticalMm} mm`
-    case 'horizontal_bar': return 'Horizontale stang 200 mm'
-    case 'other':          return o.handleOther.trim() || 'Greep — vrij'
-    default:               return o.handleOther?.trim() || 'Greep — onbekend type'
+    case 'none':           return tFor(lang, 'labels.handle.none')
+    case 'l_grip':         return tFor(lang, 'labels.handle.lGrip')
+    case 'l_vertical':     return tFor(lang, 'labels.handle.lVertical', { mm: o.handleVerticalMm })
+    case 'horizontal_bar': return tFor(lang, 'labels.handle.horizontalBar')
+    case 'other':          return o.handleOther.trim() || tFor(lang, 'labels.handle.otherFallback')
+    default:               return o.handleOther?.trim() || tFor(lang, 'labels.handle.otherUnknown')
   }
 }
 
-export function lockLabel(o: OrderData): string {
+export function lockLabel(o: OrderData, lang: Lang = 'nl'): string {
   switch (o.lockKind) {
-    case 'cilinder_litto': return 'Cilinder Litto 30/30'
-    case 'magnetic':       return 'Magneetslot'
-    case 'electronic':     return 'Elektronisch slot / smart-lock'
-    case 'keyhole_only':   return 'Alleen sleutelgat (zonder klink)'
-    case 'no_cilinder':    return 'Geen cilinder'
-    case 'other':          return o.lockOther.trim() || 'Ander slot'
+    case 'cilinder_litto': return tFor(lang, 'labels.lock.cilinderLitto')
+    case 'magnetic':       return tFor(lang, 'labels.lock.magnetic')
+    case 'electronic':     return tFor(lang, 'labels.lock.electronic')
+    case 'keyhole_only':   return tFor(lang, 'labels.lock.keyholeOnly')
+    case 'no_cilinder':    return tFor(lang, 'labels.lock.noCilinder')
+    case 'other':          return o.lockOther.trim() || tFor(lang, 'labels.lock.otherFallback')
   }
 }
 
-export function hingeLabel(o: OrderData): string {
+export function hingeLabel(o: OrderData, lang: Lang = 'nl'): string {
   if (o.hingeKind === 'single') {
-    return o.hingeSide === 'belgisch_links' ? 'Single — Belgisch Links (DIN R)' : 'Single — Belgisch Rechts (DIN L)'
+    return o.hingeSide === 'belgisch_links'
+      ? tFor(lang, 'labels.hinge.singleBelgischLinks')
+      : tFor(lang, 'labels.hinge.singleBelgischRechts')
   }
-  return `Double — ${o.hingeSide.replace('double_', 'optie ')}`
+  const n = o.hingeSide.replace('double_', '')
+  return tFor(lang, 'labels.hinge.doublePrefix', { n })
 }
 
-export function variantLabel(o: OrderData): string {
-  if (!o.variants.length) return '—'
-  const map: Record<string, string> = {
-    panel_door: 'Panel + Deur',
-    double_door: 'Dubbele deur',
-    fritsjurgens_3: 'Fritsjurgens 3',
-  }
-  return o.variants.map((v) => map[v] ?? v).join(', ')
+export function variantLabel(o: OrderData, lang: Lang = 'nl'): string {
+  if (!o.variants.length) return tFor(lang, 'labels.variant.empty')
+  const keyMap = {
+    panel_door: 'labels.variant.panelDoor',
+    double_door: 'labels.variant.doubleDoor',
+    fritsjurgens_3: 'labels.variant.fritsjurgens3',
+  } as const
+  return o.variants.map((v) => (v in keyMap ? tFor(lang, keyMap[v as keyof typeof keyMap]) : v)).join(', ')
 }
 
 // Voor visuele weergave op de schets: breedte/hoogte van het deurblad

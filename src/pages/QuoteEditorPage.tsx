@@ -142,6 +142,7 @@ export function QuoteEditorPage() {
           items={items}
           vatRate={vatRate}
           settings={settings}
+          lang={lang}
         />,
       ).toBlob()
       const url = URL.createObjectURL(blob)

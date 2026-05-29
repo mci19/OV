@@ -1,26 +1,49 @@
 import { useEffect, useState, type FormEvent } from 'react'
-import { Building2, FileText, ListChecks, Save, Plus, Trash2, ArrowUp, ArrowDown, Scissors, RotateCcw } from 'lucide-react'
+import { Building2, FileText, ListChecks, Save, Plus, Trash2, ArrowUp, ArrowDown, Scissors, RotateCcw, Users as UsersIcon, ShieldCheck, ShieldOff } from 'lucide-react'
 import { PageContainer, PageHeader } from '../components/Layout'
 import { Field, FieldRow, TextAreaField } from '../components/Field'
-import { useAllOptionLists, useAppSettings, useUpdateAppSettings, useUpdateOptionList } from '../lib/queries'
+import { useAllOptionLists, useAllProfiles, useAppSettings, useUpdateAppSettings, useUpdateOptionList, useUpdateProfile, type ProfileWithEmail } from '../lib/queries'
 import { DEFAULT_APP_SETTINGS, DEFAULT_CUT_FORMULAS, type AppSettings, type CutFormulas, type OptionItem, type OptionList } from '../lib/db'
 import { useT } from '../lib/i18n'
+import { useAuth } from '../lib/auth'
+import { EmptyState } from './HomePage'
+import { DataTable, type DataTableColumn } from '../components/DataTable'
+import { errorMessage, useToast } from '../components/Toast'
 
-type Tab = 'bedrijf' | 'offerte' | 'order' | 'zagerij' | 'opties'
+type Tab = 'bedrijf' | 'offerte' | 'order' | 'zagerij' | 'opties' | 'gebruikers'
 
-interface TabDef { id: Tab; labelKey: 'settings.tab.company' | 'settings.tab.quote' | 'settings.tab.order' | 'settings.tab.zagerij' | 'settings.tab.options'; icon: typeof Building2 }
+interface TabDef { id: Tab; labelKey: 'settings.tab.company' | 'settings.tab.quote' | 'settings.tab.order' | 'settings.tab.zagerij' | 'settings.tab.options' | 'users.title'; icon: typeof Building2 }
 
 const TABS: TabDef[] = [
-  { id: 'bedrijf', labelKey: 'settings.tab.company', icon: Building2 },
-  { id: 'offerte', labelKey: 'settings.tab.quote',   icon: FileText },
-  { id: 'order',   labelKey: 'settings.tab.order',   icon: FileText },
-  { id: 'zagerij', labelKey: 'settings.tab.zagerij', icon: Scissors },
-  { id: 'opties',  labelKey: 'settings.tab.options', icon: ListChecks },
+  { id: 'bedrijf',    labelKey: 'settings.tab.company', icon: Building2 },
+  { id: 'offerte',    labelKey: 'settings.tab.quote',   icon: FileText },
+  { id: 'order',      labelKey: 'settings.tab.order',   icon: FileText },
+  { id: 'zagerij',    labelKey: 'settings.tab.zagerij', icon: Scissors },
+  { id: 'opties',     labelKey: 'settings.tab.options', icon: ListChecks },
+  { id: 'gebruikers', labelKey: 'users.title',          icon: UsersIcon },
 ]
 
 export function SettingsPage() {
   const { t } = useT()
+  const { isAdmin, loading } = useAuth()
   const [tab, setTab] = useState<Tab>('bedrijf')
+
+  // Sales-users zien een lege staat met uitleg i.p.v. de instellingen.
+  if (loading) {
+    return <PageContainer><div className="text-[--color-muted] font-mono text-sm">{t('common.loading')}</div></PageContainer>
+  }
+  if (!isAdmin) {
+    return (
+      <PageContainer>
+        <PageHeader title={t('settings.title')} subtitle={t('settings.subtitle')} />
+        <EmptyState
+          title={t('profile.adminOnly')}
+          subtitle={t('users.inviteNote')}
+        />
+      </PageContainer>
+    )
+  }
+
   return (
     <PageContainer>
       <PageHeader
@@ -35,7 +58,7 @@ export function SettingsPage() {
             <button
               key={tb.id}
               type="button"
-              className="flex items-center gap-2 px-4 py-2.5 text-sm border-b-2 -mb-px transition-colors"
+              className="flex items-center gap-2 px-4 py-2.5 text-sm border-b-2 -mb-px transition-colors whitespace-nowrap"
               style={{
                 borderColor: tab === tb.id ? 'var(--color-brand)' : 'transparent',
                 color: tab === tb.id ? 'var(--color-brand)' : 'var(--color-muted)',
@@ -53,10 +76,130 @@ export function SettingsPage() {
         <AppSettingsTab tab={tab} />
       ) : tab === 'zagerij' ? (
         <ZagerijTab />
+      ) : tab === 'gebruikers' ? (
+        <UsersTab />
       ) : (
         <OptionListsTab />
       )}
     </PageContainer>
+  )
+}
+
+// ─── Users tab (admin only) ─────────────────────────────────
+
+function UsersTab() {
+  const { t, lang } = useT()
+  const { user } = useAuth()
+  const { data: profiles = [], isLoading } = useAllProfiles()
+  const update = useUpdateProfile()
+  const toast = useToast()
+
+  async function changeRole(p: ProfileWithEmail, newRole: 'admin' | 'sales') {
+    // Self-demote blokkeren om te voorkomen dat de enige admin zichzelf
+    // buitensluit.
+    if (p.id === user?.id && newRole === 'sales') {
+      toast.error(t('users.demoteSelfBlocked'))
+      return
+    }
+    const message = newRole === 'admin'
+      ? t('users.promoteConfirm', { name: p.full_name || p.email || p.id })
+      : t('users.demoteConfirm', { name: p.full_name || p.email || p.id })
+    if (!confirm(message)) return
+    try {
+      await update.mutateAsync({ id: p.id, role: newRole })
+      toast.success(t('users.roleUpdated'))
+    } catch (err) {
+      toast.error(t('users.roleUpdateFailed', { error: errorMessage(err) }))
+    }
+  }
+
+  const columns: DataTableColumn<ProfileWithEmail>[] = [
+    {
+      key: 'name',
+      header: t('users.colName'),
+      cell: (p) => <span className="font-bold">{p.full_name || '—'}</span>,
+      sortValue: (p) => p.full_name,
+    },
+    {
+      key: 'email',
+      header: t('users.colEmail'),
+      cell: (p) => <span className="font-mono text-xs">{p.email || '—'}</span>,
+      sortValue: (p) => p.email ?? '',
+      hideBelow: 640,
+    },
+    {
+      key: 'role',
+      header: t('users.colRole'),
+      cell: (p) => (
+        <span
+          className="chip"
+          data-active={p.role === 'admin' || undefined}
+          style={{ background: p.role === 'admin' ? 'var(--color-brand)' : undefined, color: p.role === 'admin' ? 'var(--color-paper)' : undefined }}
+        >
+          {p.role === 'admin' ? t('profile.roleAdmin') : t('profile.roleSales')}
+        </span>
+      ),
+      sortValue: (p) => p.role,
+    },
+    {
+      key: 'created',
+      header: t('users.colCreated'),
+      cell: (p) => (
+        <span className="font-mono text-[11px] text-[--color-muted]">
+          {new Date(p.created_at).toLocaleDateString(lang === 'en' ? 'en-GB' : 'nl-BE')}
+        </span>
+      ),
+      sortValue: (p) => p.created_at,
+      hideBelow: 768,
+    },
+    {
+      key: 'actions',
+      header: t('users.colActions'),
+      sortable: false,
+      align: 'right',
+      width: '180px',
+      cell: (p) => (
+        <div className="flex justify-end gap-1" onClick={(e) => e.stopPropagation()}>
+          {p.role === 'sales' ? (
+            <button
+              className="btn btn-sm"
+              onClick={() => changeRole(p, 'admin')}
+              disabled={update.isPending}
+              title={t('users.promote')}
+            >
+              <ShieldCheck size={14} /> {t('users.promote')}
+            </button>
+          ) : (
+            <button
+              className="btn btn-sm"
+              onClick={() => changeRole(p, 'sales')}
+              disabled={update.isPending || p.id === user?.id}
+              title={p.id === user?.id ? t('users.demoteSelfBlocked') : t('users.demote')}
+            >
+              <ShieldOff size={14} /> {t('users.demote')}
+            </button>
+          )}
+        </div>
+      ),
+    },
+  ]
+
+  if (isLoading) return <div className="text-[--color-muted] font-mono text-sm">{t('common.loading')}</div>
+
+  return (
+    <div className="space-y-3 max-w-5xl">
+      <div className="card !p-3 bg-paper/40">
+        <p className="text-xs text-[--color-muted]">{t('users.inviteNote')}</p>
+      </div>
+      <DataTable<ProfileWithEmail>
+        rows={profiles}
+        columns={columns}
+        rowKey={(p) => p.id}
+        persistKey="users"
+        defaultSort={{ key: 'created', dir: 'asc' }}
+        emptyText={t('users.empty')}
+      />
+    </div>
   )
 }
 

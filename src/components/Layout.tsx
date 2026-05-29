@@ -1,26 +1,29 @@
 import { useEffect, useState, type ReactNode } from 'react'
 import { NavLink, Outlet, useNavigate } from 'react-router-dom'
-import { Home, Users, Briefcase, Package, Settings, LogOut, Menu, X, PanelLeftClose, PanelLeftOpen } from 'lucide-react'
+import { Home, Users, Briefcase, Package, Settings, LogOut, Menu, X, PanelLeftClose, PanelLeftOpen, User as UserIcon } from 'lucide-react'
 import { useAuth } from '../lib/auth'
 import { supabaseConfigured } from '../lib/supabase'
 import { useT, type TranslationKey } from '../lib/i18n'
-import { LanguageSwitcher } from './LanguageSwitcher'
+import { ProfileDialog } from './ProfileDialog'
 
-const NAV: { to: string; icon: typeof Home; labelKey: TranslationKey; end?: boolean }[] = [
+interface NavItem { to: string; icon: typeof Home; labelKey: TranslationKey; end?: boolean; adminOnly?: boolean }
+
+const NAV: NavItem[] = [
   { to: '/', icon: Home, labelKey: 'nav.home', end: true },
   { to: '/opportunities', icon: Briefcase, labelKey: 'nav.opportunities' },
   { to: '/customers', icon: Users, labelKey: 'nav.customers' },
   { to: '/products', icon: Package, labelKey: 'nav.products' },
-  { to: '/settings', icon: Settings, labelKey: 'nav.settings' },
+  { to: '/settings', icon: Settings, labelKey: 'nav.settings', adminOnly: true },
 ]
 
 const COLLAPSE_KEY = 'mydoors:sidebar:collapsed'
 
 export function Layout() {
-  const { user, signOut } = useAuth()
+  const { user, profile, isAdmin, signOut } = useAuth()
   const navigate = useNavigate()
   const { t } = useT()
   const [drawer, setDrawer] = useState(false)
+  const [profileOpen, setProfileOpen] = useState(false)
   const [collapsed, setCollapsed] = useState(() => {
     try { return localStorage.getItem(COLLAPSE_KEY) === '1' } catch { return false }
   })
@@ -50,7 +53,10 @@ export function Layout() {
         <aside className="hidden lg:flex flex-col border-r border-soft-2 bg-paper relative">
           <SidebarContent
             onLogout={onLogout}
+            onOpenProfile={() => setProfileOpen(true)}
             userEmail={user?.email ?? ''}
+            userName={profile?.full_name || ''}
+            isAdmin={isAdmin}
             collapsed={collapsed}
             onToggle={() => setCollapsed((c) => !c)}
           />
@@ -77,7 +83,10 @@ export function Layout() {
               </div>
               <SidebarContent
                 onLogout={onLogout}
+                onOpenProfile={() => { setProfileOpen(true); setDrawer(false) }}
                 userEmail={user?.email ?? ''}
+                userName={profile?.full_name || ''}
+                isAdmin={isAdmin}
                 collapsed={false}
                 onNavigate={() => setDrawer(false)}
               />
@@ -89,20 +98,34 @@ export function Layout() {
           <Outlet />
         </main>
       </div>
+
+      {profileOpen ? <ProfileDialog onClose={() => setProfileOpen(false)} /> : null}
     </div>
   )
 }
 
 interface SidebarProps {
   onLogout: () => void
+  onOpenProfile: () => void
   userEmail: string
+  userName: string
+  isAdmin: boolean
   collapsed: boolean
   onToggle?: () => void
   onNavigate?: () => void
 }
 
-function SidebarContent({ onLogout, userEmail, collapsed, onToggle, onNavigate }: SidebarProps) {
+function SidebarContent({ onLogout, onOpenProfile, userEmail, userName, isAdmin, collapsed, onToggle, onNavigate }: SidebarProps) {
   const { t } = useT()
+  const items = NAV.filter((n) => !n.adminOnly || isAdmin)
+  // Initialen voor de avatar (max 2 letters): "John Doe" → "JD", "muharrem" → "M"
+  const initials = (userName || userEmail || '?')
+    .split(/\s+|@/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((s) => s[0]?.toUpperCase() ?? '')
+    .join('') || '?'
+
   return (
     <>
       {/* Brand + collapse-knop */}
@@ -124,7 +147,6 @@ function SidebarContent({ onLogout, userEmail, collapsed, onToggle, onNavigate }
         ) : (
           <div className="pl-2">
             <div className="brand-mark text-lg leading-tight">MY DOORS</div>
-            <div className="font-mono text-[10px] uppercase tracking-[0.2em] text-[--color-muted] mt-1">CRM · v4</div>
           </div>
         )}
       </div>
@@ -143,7 +165,7 @@ function SidebarContent({ onLogout, userEmail, collapsed, onToggle, onNavigate }
 
       {/* Nav-items */}
       <nav className={`flex-1 flex flex-col ${collapsed ? 'py-3 gap-1' : 'py-2'}`}>
-        {NAV.map((n) => {
+        {items.map((n) => {
           const Icon = n.icon
           const label = t(n.labelKey)
           return (
@@ -172,25 +194,59 @@ function SidebarContent({ onLogout, userEmail, collapsed, onToggle, onNavigate }
         })}
       </nav>
 
-      {/* Language switcher + user + logout */}
-      <div className={`border-t border-soft-2 ${collapsed ? 'p-2 flex flex-col items-center gap-2' : 'p-3 space-y-2'}`}>
-        <LanguageSwitcher compact={collapsed} />
-        {!collapsed ? (
+      {/* Profile + logout (taal + role zit in profile-dialog) */}
+      <div className={`border-t border-soft-2 ${collapsed ? 'p-2 flex flex-col items-center gap-1' : 'p-3 space-y-2'}`}>
+        {collapsed ? (
           <>
-            <div className="font-mono text-[11px] text-[--color-muted] truncate">{userEmail}</div>
+            <button
+              type="button"
+              className="nav-icon-button"
+              onClick={onOpenProfile}
+              title={userName || userEmail}
+              aria-label={t('profile.openAria')}
+            >
+              <div
+                className="w-7 h-7 rounded-full grid place-items-center font-mono text-[11px] font-bold text-paper"
+                style={{ background: 'var(--color-brand)' }}
+              >
+                {initials}
+              </div>
+            </button>
+            <button
+              className="nav-icon-button"
+              onClick={onLogout}
+              title={t('nav.logout')}
+              aria-label={t('nav.logout')}
+            >
+              <LogOut size={20} />
+            </button>
+          </>
+        ) : (
+          <>
+            <button
+              type="button"
+              className="w-full flex items-center gap-2 px-2 py-2 rounded hover:bg-soft transition-colors text-left"
+              onClick={onOpenProfile}
+              aria-label={t('profile.openAria')}
+            >
+              <div
+                className="w-9 h-9 rounded-full grid place-items-center font-mono text-xs font-bold text-paper shrink-0"
+                style={{ background: 'var(--color-brand)' }}
+              >
+                {initials}
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="font-mono text-[12px] font-bold truncate">{userName || userEmail.split('@')[0]}</div>
+                <div className="font-mono text-[10px] text-[--color-muted] truncate">
+                  {isAdmin ? t('profile.roleAdmin') : t('profile.roleSales')}
+                </div>
+              </div>
+              <UserIcon size={14} className="text-[--color-muted] shrink-0" />
+            </button>
             <button className="btn btn-ghost w-full justify-start" onClick={onLogout}>
               <LogOut size={16} /> {t('nav.logout')}
             </button>
           </>
-        ) : (
-          <button
-            className="nav-icon-button"
-            onClick={onLogout}
-            title={t('nav.logout')}
-            aria-label={t('nav.logout')}
-          >
-            <LogOut size={20} />
-          </button>
         )}
       </div>
     </>

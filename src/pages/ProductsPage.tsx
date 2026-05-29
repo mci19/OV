@@ -8,6 +8,8 @@ import { formatEur } from '../lib/format'
 import { useDeleteProduct, useProducts, useUpsertProduct } from '../lib/queries'
 import type { Product } from '../lib/db'
 import { useT } from '../lib/i18n'
+import { DataTable, type DataTableColumn } from '../components/DataTable'
+import { ViewToggle, readViewMode, writeViewMode, type ViewMode } from '../components/ViewToggle'
 
 const UNITS = ['stuk', 'm', 'm²', 'u', 'set', 'forfait']
 
@@ -15,7 +17,13 @@ export function ProductsPage() {
   const { t } = useT()
   const { data: products = [], isLoading } = useProducts(false)
   const [editing, setEditing] = useState<Product | 'new' | null>(null)
+  const [view, setView] = useState<ViewMode>(() => readViewMode('products', 'cards'))
   const del = useDeleteProduct()
+
+  function setViewMode(m: ViewMode) {
+    setView(m)
+    writeViewMode('products', m)
+  }
 
   async function onDelete(id: string) {
     if (!confirm(t('products.deleteConfirm'))) return
@@ -30,15 +38,73 @@ export function ProductsPage() {
     return acc
   }, {})
 
+  const tableColumns: DataTableColumn<Product>[] = [
+    {
+      key: 'name',
+      header: t('products.name'),
+      cell: (p) => <span className="font-bold" style={{ opacity: p.active ? 1 : 0.5 }}>{p.name}</span>,
+      sortValue: (p) => p.name,
+    },
+    {
+      key: 'category',
+      header: t('products.category'),
+      cell: (p) => p.category ?? '—',
+      sortValue: (p) => p.category ?? '',
+      hideBelow: 640,
+    },
+    {
+      key: 'unit',
+      header: t('products.unitLabel'),
+      cell: (p) => p.unit,
+      sortValue: (p) => p.unit,
+      hideBelow: 768,
+    },
+    {
+      key: 'price',
+      header: t('products.price'),
+      cell: (p) => <span className="font-mono tabular-nums">{formatEur(p.default_price_cents)}</span>,
+      sortValue: (p) => p.default_price_cents,
+      align: 'right',
+    },
+    {
+      key: 'active',
+      header: t('products.activeLabel'),
+      cell: (p) => p.active ? '✓' : '·',
+      sortValue: (p) => p.active ? 1 : 0,
+      align: 'center',
+      hideBelow: 640,
+    },
+    {
+      key: 'actions',
+      header: t('common.actions'),
+      sortable: false,
+      align: 'right',
+      width: '110px',
+      cell: (p) => (
+        <div className="flex gap-1 justify-end" onClick={(e) => e.stopPropagation()}>
+          <button className="btn btn-ghost btn-icon btn-sm" onClick={() => setEditing(p)} aria-label={t('products.editAria')}>
+            <Pencil size={14} />
+          </button>
+          <button className="btn btn-ghost btn-icon btn-sm" onClick={() => onDelete(p.id)} aria-label={t('products.deleteAria')}>
+            <Trash2 size={14} />
+          </button>
+        </div>
+      ),
+    },
+  ]
+
   return (
     <PageContainer>
       <PageHeader
         title={t('products.pageTitle')}
         subtitle={t('products.pageSubtitle')}
         actions={
-          <button className="btn btn-primary" onClick={() => setEditing('new')}>
-            <Plus size={16} /> {t('products.new')}
-          </button>
+          <>
+            <ViewToggle value={view} onChange={setViewMode} modes={['cards', 'table']} />
+            <button className="btn btn-primary" onClick={() => setEditing('new')}>
+              <Plus size={16} /> {t('products.new')}
+            </button>
+          </>
         }
       />
 
@@ -50,35 +116,45 @@ export function ProductsPage() {
           subtitle={t('products.emptySubtitle')}
           cta={<button className="btn btn-primary" onClick={() => setEditing('new')}>+ {t('products.new')}</button>}
         />
-      ) : null}
-
-      <div className="space-y-6">
-        {Object.entries(byCategory).map(([cat, items]) => (
-          <section key={cat}>
-            <h2 className="section-h">{cat}</h2>
-            <div className="space-y-1">
-              {items.map((p) => (
-                <div key={p.id} className="card flex items-center gap-3" style={{ opacity: p.active ? 1 : 0.5 }}>
-                  <div className="flex-1 min-w-0">
-                    <div className="font-bold truncate">{p.name}</div>
-                    {p.description ? <div className="text-xs text-[--color-muted] mt-1 truncate">{p.description}</div> : null}
+      ) : view === 'table' ? (
+        <DataTable<Product>
+          rows={products}
+          columns={tableColumns}
+          rowKey={(p) => p.id}
+          persistKey="products"
+          defaultSort={{ key: 'name', dir: 'asc' }}
+          onRowClick={(p) => setEditing(p)}
+          emptyText={t('products.emptyTitle')}
+        />
+      ) : (
+        <div className="space-y-6">
+          {Object.entries(byCategory).map(([cat, items]) => (
+            <section key={cat}>
+              <h2 className="section-h">{cat}</h2>
+              <div className="space-y-1">
+                {items.map((p) => (
+                  <div key={p.id} className="card flex items-center gap-3" style={{ opacity: p.active ? 1 : 0.5 }}>
+                    <div className="flex-1 min-w-0">
+                      <div className="font-bold truncate">{p.name}</div>
+                      {p.description ? <div className="text-xs text-[--color-muted] mt-1 truncate">{p.description}</div> : null}
+                    </div>
+                    <div className="text-right font-mono">
+                      <div className="text-sm font-bold tabular-nums">{formatEur(p.default_price_cents)}</div>
+                      <div className="text-[10px] text-[--color-muted]">{t('products.unitSuffix', { unit: p.unit })}</div>
+                    </div>
+                    <button className="btn btn-ghost btn-icon btn-sm" onClick={() => setEditing(p)} aria-label={t('products.editAria')}>
+                      <Pencil size={14} />
+                    </button>
+                    <button className="btn btn-ghost btn-icon btn-sm" onClick={() => onDelete(p.id)} aria-label={t('products.deleteAria')}>
+                      <Trash2 size={14} />
+                    </button>
                   </div>
-                  <div className="text-right font-mono">
-                    <div className="text-sm font-bold tabular-nums">{formatEur(p.default_price_cents)}</div>
-                    <div className="text-[10px] text-[--color-muted]">{t('products.unitSuffix', { unit: p.unit })}</div>
-                  </div>
-                  <button className="btn btn-ghost btn-icon btn-sm" onClick={() => setEditing(p)} aria-label={t('products.editAria')}>
-                    <Pencil size={14} />
-                  </button>
-                  <button className="btn btn-ghost btn-icon btn-sm" onClick={() => onDelete(p.id)} aria-label={t('products.deleteAria')}>
-                    <Trash2 size={14} />
-                  </button>
-                </div>
-              ))}
-            </div>
-          </section>
-        ))}
-      </div>
+                ))}
+              </div>
+            </section>
+          ))}
+        </div>
+      )}
 
       {editing ? (
         <ProductEditor product={editing === 'new' ? null : editing} onClose={() => setEditing(null)} />

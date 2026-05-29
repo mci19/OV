@@ -10,6 +10,7 @@ import {
   systemLabel,
 } from '../../lib/calculations'
 import { orderNumber } from '../../lib/orderNumber'
+import { tFor, type Lang } from '../../lib/i18n'
 import { SketchPdfBlock } from './SketchPdfBlock'
 
 const styles = StyleSheet.create({
@@ -28,39 +29,45 @@ const styles = StyleSheet.create({
 
 interface Props {
   order: OrderData
+  lang?: Lang
 }
 
-export function ClientConfirmPDF({ order }: Props) {
+export function ClientConfirmPDF({ order, lang = 'nl' }: Props) {
   const nr = orderNumber(order)
+  const customerName = order.klantNaam || tFor(lang, 'pdf.clientFallbackName')
   return (
-    <Document title={`MY DOORS — ${order.klantNaam}`} author="MY DOORS">
+    <Document
+      title={tFor(lang, 'pdf.docTitleCustomer', { name: order.klantNaam })}
+      author={tFor(lang, 'pdf.author')}
+    >
       <Page size="A4" style={styles.page}>
         <View style={styles.header}>
           <Text style={styles.h1}>MY DOORS</Text>
-          <Text style={styles.hSub}>Uw bestelling — ter bevestiging</Text>
+          <Text style={styles.hSub}>{tFor(lang, 'pdf.clientSubtitle')}</Text>
         </View>
 
         <Text style={styles.intro}>
-          Beste {order.klantNaam || 'klant'},{'\n'}
-          Hieronder vindt u een visuele samenvatting van uw deur zoals besproken
-          in onze showroom. Maten en kleuren zijn ter bevestiging.
+          {tFor(lang, 'pdf.clientIntro', { name: customerName })}
         </Text>
 
         <View style={styles.sketchWrap}>
           <SketchPdfBlock order={order} clientView showDimensions={false} width={420} height={580} />
         </View>
 
-        <Text style={styles.h2}>Uw keuzes</Text>
-        <Row label="Afmetingen" value={`${order.breedte} × ${order.hoogte} mm`} />
-        <Row label="Glas" value={glassLabel(order)} />
-        <Row label="Kleur" value={ralLabel(order)} />
-        <Row label="Scharnier" value={hingeLabel(order)} />
-        <Row label="Systeem" value={systemLabel(order)} />
-        <Row label="Afwerking" value={finishingLabel(order)} />
-        <Row label="Greep" value={handleLabel(order)} />
-        <Row label="Slot" value={lockLabel(order)} />
-        <Row label="Plaatsing" value={order.plaatsingInbegrepen ? 'inbegrepen' : 'apart te bespreken'} />
-        <Row label="Aantal deuren" value={`${order.aantalDeuren}`} />
+        <Text style={styles.h2}>{tFor(lang, 'pdf.clientHeading')}</Text>
+        <Row label={tFor(lang, 'pdf.dimensions')} value={`${order.breedte} × ${order.hoogte} mm`} />
+        <Row label={tFor(lang, 'pdf.glass')} value={glassLabel(order, lang)} />
+        <Row label={tFor(lang, 'pdf.color')} value={ralLabel(order, lang)} />
+        <Row label={tFor(lang, 'pdf.hinge')} value={hingeLabel(order, lang)} />
+        <Row label={tFor(lang, 'pdf.system')} value={systemLabel(order, lang)} />
+        <Row label={tFor(lang, 'pdf.finishingAlt')} value={finishingLabel(order, lang)} />
+        <Row label={tFor(lang, 'pdf.handle')} value={handleLabel(order, lang)} />
+        <Row label={tFor(lang, 'pdf.lock')} value={lockLabel(order, lang)} />
+        <Row
+          label={tFor(lang, 'pdf.installation')}
+          value={order.plaatsingInbegrepen ? tFor(lang, 'pdf.installationIncludedShort') : tFor(lang, 'pdf.installationApart')}
+        />
+        <Row label={tFor(lang, 'pdf.numDoors')} value={`${order.aantalDeuren}`} />
 
         <Text style={styles.footer}>
           MY DOORS · {order.datum} · ref. {nr}

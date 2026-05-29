@@ -9,12 +9,51 @@ import { useCustomer, useCustomers, useDeleteCustomer, useOpportunities, useUpse
 import type { Customer } from '../lib/db'
 import { errorMessage, useToast } from '../components/Toast'
 import { stageLabel, useT } from '../lib/i18n'
+import { DataTable, type DataTableColumn } from '../components/DataTable'
+import { ViewToggle, readViewMode, writeViewMode, type ViewMode } from '../components/ViewToggle'
 
 export function CustomersPage() {
   const { t } = useT()
+  const navigate = useNavigate()
   const [search, setSearch] = useState('')
   const [editing, setEditing] = useState<Customer | 'new' | null>(null)
+  const [view, setView] = useState<ViewMode>(() => readViewMode('customers', 'cards'))
   const { data: customers = [], isLoading, error } = useCustomers(search)
+
+  function setViewMode(m: ViewMode) {
+    setView(m)
+    writeViewMode('customers', m)
+  }
+
+  const tableColumns: DataTableColumn<Customer>[] = [
+    {
+      key: 'name',
+      header: t('customers.name'),
+      cell: (c) => <span className="font-bold">{c.name}</span>,
+      sortValue: (c) => c.name,
+    },
+    {
+      key: 'email',
+      header: t('customers.email'),
+      cell: (c) => c.email || '—',
+      sortValue: (c) => c.email ?? '',
+      hideBelow: 768,
+    },
+    {
+      key: 'phone',
+      header: t('customers.phone'),
+      cell: (c) => c.phone || '—',
+      sortValue: (c) => c.phone ?? '',
+      hideBelow: 640,
+    },
+    {
+      key: 'city',
+      header: t('customers.editor.city'),
+      cell: (c) => c.address_city || '—',
+      sortValue: (c) => c.address_city ?? '',
+      hideBelow: 1024,
+    },
+  ]
 
   return (
     <PageContainer>
@@ -22,9 +61,12 @@ export function CustomersPage() {
         title={t('customers.title')}
         subtitle={t('customers.subtitle')}
         actions={
-          <button className="btn btn-primary" onClick={() => setEditing('new')}>
-            <Plus size={16} /> {t('customers.new')}
-          </button>
+          <>
+            <ViewToggle value={view} onChange={setViewMode} modes={['cards', 'table']} />
+            <button className="btn btn-primary" onClick={() => setEditing('new')}>
+              <Plus size={16} /> {t('customers.new')}
+            </button>
+          </>
         }
       />
 
@@ -47,20 +89,30 @@ export function CustomersPage() {
           subtitle={search ? t('opps.empty.subtitleFiltered') : undefined}
           cta={!search ? <button className="btn btn-primary" onClick={() => setEditing('new')}>+ {t('customers.new')}</button> : null}
         />
-      ) : null}
-
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-        {customers.map((c) => (
-          <Link key={c.id} to={`/customers/${c.id}`} className="card card-interactive">
-            <div className="font-bold text-base mb-1 truncate">{c.name}</div>
-            {c.email ? <Row icon={Mail}>{c.email}</Row> : null}
-            {c.phone ? <Row icon={Phone}>{c.phone}</Row> : null}
-            {c.address_city || c.address_line1 ? (
-              <Row icon={MapPin}>{[c.address_line1, c.address_city].filter(Boolean).join(', ')}</Row>
-            ) : null}
-          </Link>
-        ))}
-      </div>
+      ) : view === 'table' ? (
+        <DataTable<Customer>
+          rows={customers}
+          columns={tableColumns}
+          rowKey={(c) => c.id}
+          persistKey="customers"
+          defaultSort={{ key: 'name', dir: 'asc' }}
+          onRowClick={(c) => navigate(`/customers/${c.id}`)}
+          emptyText={t('customers.empty')}
+        />
+      ) : (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+          {customers.map((c) => (
+            <Link key={c.id} to={`/customers/${c.id}`} className="card card-interactive">
+              <div className="font-bold text-base mb-1 truncate">{c.name}</div>
+              {c.email ? <Row icon={Mail}>{c.email}</Row> : null}
+              {c.phone ? <Row icon={Phone}>{c.phone}</Row> : null}
+              {c.address_city || c.address_line1 ? (
+                <Row icon={MapPin}>{[c.address_line1, c.address_city].filter(Boolean).join(', ')}</Row>
+              ) : null}
+            </Link>
+          ))}
+        </div>
+      )}
 
       {editing ? (
         <CustomerEditor

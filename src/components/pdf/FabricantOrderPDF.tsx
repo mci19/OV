@@ -13,6 +13,7 @@ import {
 } from '../../lib/calculations'
 import { orderNumber } from '../../lib/orderNumber'
 import { generateCutList } from '../../lib/cutList'
+import { tFor, type Lang } from '../../lib/i18n'
 import { SketchPdfBlock } from './SketchPdfBlock'
 import { CutListPdfBlock } from './CutListPdfBlock'
 import { CrossSectionPdf } from './CrossSectionPdf'
@@ -36,9 +37,10 @@ const styles = StyleSheet.create({
 interface Props {
   order: OrderData
   cutFormulas?: CutFormulas
+  lang?: Lang
 }
 
-export function FabricantOrderPDF({ order, cutFormulas }: Props) {
+export function FabricantOrderPDF({ order, cutFormulas, lang = 'nl' }: Props) {
   const nr = orderNumber(order)
   const computed = generateCutList(order, cutFormulas)
   // Manuele override geldt boven de berekende lijst (header/RAL blijven gelijk)
@@ -46,86 +48,95 @@ export function FabricantOrderPDF({ order, cutFormulas }: Props) {
     ? { ...computed, items: order.cutListOverride.items }
     : computed
   const overrideNote = order.cutListOverride?.note
+  const yes = tFor(lang, 'common.yes')
+  const no = tFor(lang, 'common.no')
+  const sideLabel = order.handlePosition.side === 'left' ? tFor(lang, 'pdf.left') : tFor(lang, 'pdf.right')
   return (
-    <Document title={`MY DOORS — ${nr}`} author="MY DOORS" subject="Fabrikant bestelling">
+    <Document
+      title={tFor(lang, 'pdf.docTitleManufacturer', { nr })}
+      author={tFor(lang, 'pdf.author')}
+      subject={tFor(lang, 'pdf.subjectManufacturer')}
+    >
       <Page size="A4" style={styles.page}>
         <View style={styles.header}>
           <View>
             <Text style={styles.h1}>MY DOORS</Text>
-            <Text style={styles.hSub}>Stalen binnendeuren · mydoors.be</Text>
+            <Text style={styles.hSub}>{tFor(lang, 'pdf.steelDoors')}</Text>
           </View>
           <View style={styles.rightHead}>
-            <Text style={{ fontSize: 9, letterSpacing: 1.2 }}>BESTELLING FABRIKANT</Text>
-            <Text>Nr.: {nr}</Text>
-            <Text>Datum: {order.datum}</Text>
-            <Text>Verkoper: {order.verkoper}</Text>
+            <Text style={{ fontSize: 9, letterSpacing: 1.2 }}>{tFor(lang, 'pdf.manufacturerOrder')}</Text>
+            <Text>{tFor(lang, 'pdf.no')}: {nr}</Text>
+            <Text>{tFor(lang, 'pdf.date')}: {order.datum}</Text>
+            <Text>{tFor(lang, 'pdf.salesperson')}: {order.verkoper}</Text>
           </View>
         </View>
 
         <View style={styles.block}>
-          <Text style={styles.h2}>Klant</Text>
+          <Text style={styles.h2}>{tFor(lang, 'pdf.customer')}</Text>
           <View style={styles.row}>
-            <Text style={styles.label}>Naam</Text>
+            <Text style={styles.label}>{tFor(lang, 'pdf.name')}</Text>
             <Text style={styles.value}>{order.klantNaam || '—'}</Text>
           </View>
           <View style={styles.row}>
-            <Text style={styles.label}>Referentie</Text>
+            <Text style={styles.label}>{tFor(lang, 'pdf.reference')}</Text>
             <Text style={styles.value}>{order.referentie || '—'}</Text>
           </View>
         </View>
 
         <View style={styles.block}>
-          <Text style={styles.h2}>Specificaties</Text>
-          <Specs label="Type meting" value={order.doorType === 'door_opening' ? 'Door opening' : 'Production'} />
-          <Specs label="Afmetingen" value={`${order.breedte} × ${order.hoogte} mm`} />
-          <Specs label="Aantal deuren" value={`${order.aantalDeuren}`} />
-          <Specs label="Scharnier" value={hingeLabel(order)} />
-          <Specs label="Glas" value={glassLabel(order)} />
-          <Specs label="Systeem" value={systemLabel(order)} />
-          <Specs label="Variant" value={variantLabel(order)} />
-          <Specs label="Soft open / close" value={`${order.softOpen ? 'ja' : 'nee'} / ${order.softClose ? 'ja' : 'nee'}`} />
-          <Specs label="Finishing" value={finishingLabel(order)} />
+          <Text style={styles.h2}>{tFor(lang, 'pdf.specs')}</Text>
           <Specs
-            label="Greep"
-            value={`${handleLabel(order)} — ${order.handlePosition.side === 'left' ? 'links' : 'rechts'} op ${order.handlePosition.heightFromBottom} mm`}
+            label={tFor(lang, 'pdf.measurementType')}
+            value={order.doorType === 'door_opening'
+              ? tFor(lang, 'labels.measureType.doorOpening')
+              : tFor(lang, 'labels.measureType.production')}
           />
-          <Specs label="Slot" value={lockLabel(order)} />
-          <Specs label="Kleur" value={ralLabel(order)} />
-          <Specs label="Plaatsing inbegrepen" value={order.plaatsingInbegrepen ? 'ja' : 'nee'} />
+          <Specs label={tFor(lang, 'pdf.dimensions')} value={`${order.breedte} × ${order.hoogte} mm`} />
+          <Specs label={tFor(lang, 'pdf.numDoors')} value={`${order.aantalDeuren}`} />
+          <Specs label={tFor(lang, 'pdf.hinge')} value={hingeLabel(order, lang)} />
+          <Specs label={tFor(lang, 'pdf.glass')} value={glassLabel(order, lang)} />
+          <Specs label={tFor(lang, 'pdf.system')} value={systemLabel(order, lang)} />
+          <Specs label={tFor(lang, 'pdf.variant')} value={variantLabel(order, lang)} />
+          <Specs label={tFor(lang, 'pdf.softOpenClose')} value={`${order.softOpen ? yes : no} / ${order.softClose ? yes : no}`} />
+          <Specs label={tFor(lang, 'pdf.finishing')} value={finishingLabel(order, lang)} />
+          <Specs
+            label={tFor(lang, 'pdf.handle')}
+            value={`${handleLabel(order, lang)} — ${sideLabel} ${order.handlePosition.heightFromBottom} mm`}
+          />
+          <Specs label={tFor(lang, 'pdf.lock')} value={lockLabel(order, lang)} />
+          <Specs label={tFor(lang, 'pdf.color')} value={ralLabel(order, lang)} />
+          <Specs label={tFor(lang, 'pdf.installationIncluded')} value={order.plaatsingInbegrepen ? yes : no} />
         </View>
 
         <Text style={styles.footer} fixed>
           <Text>MY DOORS · {nr}</Text>
-          <Text>p. 1</Text>
+          <Text>{tFor(lang, 'pdf.page')} 1</Text>
         </Text>
       </Page>
 
       <Page size="A4" style={styles.page}>
         <View style={styles.header}>
           <View>
-            <Text style={styles.h1}>Schets — exacte maten</Text>
+            <Text style={styles.h1}>{tFor(lang, 'pdf.sketchTitle')}</Text>
             <Text style={styles.hSub}>{order.breedte} × {order.hoogte} mm</Text>
           </View>
           <View style={styles.rightHead}>
-            <Text>Nr.: {nr}</Text>
+            <Text>{tFor(lang, 'pdf.no')}: {nr}</Text>
           </View>
         </View>
         <View style={styles.sketchWrap}>
           <SketchPdfBlock order={order} width={480} height={640} />
         </View>
-        <Text style={styles.note}>
-          Maten in millimeter. Verticale lijnen zijn gemeten vanaf de linker rand,
-          horizontale dwarslatten vanaf de onderkant.
-        </Text>
+        <Text style={styles.note}>{tFor(lang, 'pdf.sketchNote')}</Text>
         {order.opmerkingen ? (
           <View style={[styles.block, { marginTop: 18 }]}>
-            <Text style={styles.h2}>Opmerkingen</Text>
+            <Text style={styles.h2}>{tFor(lang, 'pdf.notes')}</Text>
             <Text style={{ fontSize: 10, lineHeight: 1.5 }}>{order.opmerkingen}</Text>
           </View>
         ) : null}
         <Text style={styles.footer} fixed>
           <Text>MY DOORS · {nr}</Text>
-          <Text>p. 2</Text>
+          <Text>{tFor(lang, 'pdf.page')} 2</Text>
         </Text>
       </Page>
 
@@ -133,11 +144,11 @@ export function FabricantOrderPDF({ order, cutFormulas }: Props) {
       <Page size="A4" style={styles.page}>
         <View style={styles.header}>
           <View>
-            <Text style={styles.h1}>Zaaglijst</Text>
-            <Text style={styles.hSub}>{order.datum} · MY DOORS-{order.klantNaam || order.referentie || 'klant'}</Text>
+            <Text style={styles.h1}>{tFor(lang, 'pdf.cutListTitle')}</Text>
+            <Text style={styles.hSub}>{order.datum} · MY DOORS-{order.klantNaam || order.referentie || tFor(lang, 'pdf.fallbackCustomer')}</Text>
           </View>
           <View style={styles.rightHead}>
-            <Text>Nr.: {nr}</Text>
+            <Text>{tFor(lang, 'pdf.no')}: {nr}</Text>
           </View>
         </View>
 
@@ -154,14 +165,14 @@ export function FabricantOrderPDF({ order, cutFormulas }: Props) {
         {order.cutListOverride ? (
           <View style={{ marginTop: 12, padding: 6, borderTop: '0.5 solid #999' }}>
             <Text style={{ fontSize: 8, fontStyle: 'italic', color: '#666' }}>
-              ⚠ Handmatig aangepaste zaaglijst{overrideNote ? ` — ${overrideNote}` : ''}
+              {tFor(lang, 'pdf.cutListOverrideNote')}{overrideNote ? ` — ${overrideNote}` : ''}
             </Text>
           </View>
         ) : null}
 
         <Text style={styles.footer} fixed>
           <Text>MY DOORS · {nr}</Text>
-          <Text>zaaglijst</Text>
+          <Text>{tFor(lang, 'pdf.zaaglijstLabel')}</Text>
         </Text>
       </Page>
 
@@ -169,11 +180,11 @@ export function FabricantOrderPDF({ order, cutFormulas }: Props) {
         <Page size="A4" style={styles.page}>
           <View style={styles.header}>
             <View>
-              <Text style={styles.h1}>Vrije schets — referentie</Text>
-              <Text style={styles.hSub}>illustratief; gebruik p. 2 voor exacte maten</Text>
+              <Text style={styles.h1}>{tFor(lang, 'pdf.freehandTitle')}</Text>
+              <Text style={styles.hSub}>{tFor(lang, 'pdf.freehandSub')}</Text>
             </View>
             <View style={styles.rightHead}>
-              <Text>Nr.: {nr}</Text>
+              <Text>{tFor(lang, 'pdf.no')}: {nr}</Text>
             </View>
           </View>
           <View style={styles.sketchWrap}>
@@ -181,7 +192,7 @@ export function FabricantOrderPDF({ order, cutFormulas }: Props) {
           </View>
           <Text style={styles.footer} fixed>
             <Text>MY DOORS · {nr}</Text>
-            <Text>p. 4</Text>
+            <Text>{tFor(lang, 'pdf.page')} 4</Text>
           </Text>
         </Page>
       ) : null}

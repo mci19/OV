@@ -1,6 +1,7 @@
 import { Document, Page, Text, View, StyleSheet } from '@react-pdf/renderer'
 import type { AppSettings, LineItem, OpportunityWithCustomer } from '../../lib/db'
 import type { OrderData } from '../../lib/types'
+import { tFor, type Lang } from '../../lib/i18n'
 import { SketchPdfBlock } from './SketchPdfBlock'
 
 const styles = StyleSheet.create({
@@ -33,8 +34,9 @@ const styles = StyleSheet.create({
   signCol: { width: '45%', borderTop: '0.5 solid #0A0A0A', paddingTop: 4, fontSize: 9 },
 })
 
-function eur(cents: number) {
-  return new Intl.NumberFormat('nl-BE', { style: 'currency', currency: 'EUR' }).format(cents / 100)
+function eur(cents: number, lang: Lang) {
+  const locale = lang === 'en' ? 'en-IE' : 'nl-BE'
+  return new Intl.NumberFormat(locale, { style: 'currency', currency: 'EUR' }).format(cents / 100)
 }
 
 interface Props {
@@ -45,10 +47,11 @@ interface Props {
   items: LineItem[]
   vatRate: number
   settings?: Partial<AppSettings>
+  lang?: Lang
 }
 
-export function QuotePDF({ opportunity, orderData, reference, validUntil, items, vatRate, settings }: Props) {
-  const companyName = settings?.company_name?.trim() || 'MY DOORS'
+export function QuotePDF({ opportunity, orderData, reference, validUntil, items, vatRate, settings, lang = 'nl' }: Props) {
+  const companyName = settings?.company_name?.trim() || tFor(lang, 'pdf.companyDefault')
   const addrLine = [settings?.company_address_line1, settings?.company_address_postal, settings?.company_address_city].filter(Boolean).join(', ')
   const contactLine = [settings?.company_phone, settings?.company_email].filter(Boolean).join(' · ')
   const subtotal = items.reduce((s, i) => s + i.quantity * i.unit_cents, 0)
@@ -56,50 +59,53 @@ export function QuotePDF({ opportunity, orderData, reference, validUntil, items,
   const total = subtotal + vat
 
   return (
-    <Document title={`Offerte ${reference}`} author="MY DOORS">
+    <Document
+      title={tFor(lang, 'pdf.docTitleQuote', { ref: reference })}
+      author={tFor(lang, 'pdf.author')}
+    >
       <Page size="A4" style={styles.page}>
         <View style={styles.header}>
           <View>
             <Text style={styles.h1}>{companyName}</Text>
             {addrLine ? <Text style={styles.hSub}>{addrLine}</Text> : null}
             {contactLine ? <Text style={styles.hSub}>{contactLine}</Text> : null}
-            {settings?.company_btw ? <Text style={styles.hSub}>BTW: {settings.company_btw}</Text> : null}
+            {settings?.company_btw ? <Text style={styles.hSub}>{tFor(lang, 'pdf.companyVatLabel')}: {settings.company_btw}</Text> : null}
           </View>
           <View style={styles.rightHead}>
-            <Text style={{ fontSize: 11, fontWeight: 'bold', letterSpacing: 1.5 }}>OFFERTE</Text>
+            <Text style={{ fontSize: 11, fontWeight: 'bold', letterSpacing: 1.5 }}>{tFor(lang, 'pdf.quote')}</Text>
             <Text>{reference}</Text>
-            <Text>Datum: {new Date().toISOString().slice(0, 10)}</Text>
-            {validUntil ? <Text>Geldig tot: {validUntil}</Text> : null}
+            <Text>{tFor(lang, 'pdf.date')}: {new Date().toISOString().slice(0, 10)}</Text>
+            {validUntil ? <Text>{tFor(lang, 'pdf.validUntil')}: {validUntil}</Text> : null}
           </View>
         </View>
 
         <View style={styles.block}>
-          <Text style={styles.h2}>Klant</Text>
+          <Text style={styles.h2}>{tFor(lang, 'pdf.customer')}</Text>
           <View style={styles.row}>
-            <Text style={styles.label}>Naam</Text>
+            <Text style={styles.label}>{tFor(lang, 'pdf.name')}</Text>
             <Text style={styles.value}>{opportunity.customer_name ?? '—'}</Text>
           </View>
           {opportunity.customer_email ? (
             <View style={styles.row}>
-              <Text style={styles.label}>E-mail</Text>
+              <Text style={styles.label}>{tFor(lang, 'pdf.email')}</Text>
               <Text style={styles.value}>{opportunity.customer_email}</Text>
             </View>
           ) : null}
           {opportunity.customer_phone ? (
             <View style={styles.row}>
-              <Text style={styles.label}>Telefoon</Text>
+              <Text style={styles.label}>{tFor(lang, 'pdf.phone')}</Text>
               <Text style={styles.value}>{opportunity.customer_phone}</Text>
             </View>
           ) : null}
           <View style={styles.row}>
-            <Text style={styles.label}>Project</Text>
+            <Text style={styles.label}>{tFor(lang, 'pdf.project')}</Text>
             <Text style={styles.value}>{opportunity.title}</Text>
           </View>
         </View>
 
         {orderData ? (
           <View style={styles.block}>
-            <Text style={styles.h2}>Schets ({orderData.breedte} × {orderData.hoogte} mm)</Text>
+            <Text style={styles.h2}>{tFor(lang, 'pdf.sketchHeading', { w: orderData.breedte, h: orderData.hoogte })}</Text>
             <View style={styles.sketchWrap}>
               <SketchPdfBlock order={orderData} width={320} height={420} clientView showDimensions />
             </View>
@@ -107,33 +113,33 @@ export function QuotePDF({ opportunity, orderData, reference, validUntil, items,
         ) : null}
 
         <View style={styles.block}>
-          <Text style={styles.h2}>Prijs</Text>
+          <Text style={styles.h2}>{tFor(lang, 'pdf.priceHeading')}</Text>
           <View style={styles.thead}>
-            <Text style={styles.tdesc}>Omschrijving</Text>
-            <Text style={styles.tqty}>Aantal</Text>
-            <Text style={styles.tunit}>Eenheid</Text>
-            <Text style={styles.ttotal}>Totaal</Text>
+            <Text style={styles.tdesc}>{tFor(lang, 'pdf.quoteDescription')}</Text>
+            <Text style={styles.tqty}>{tFor(lang, 'pdf.colQuantity')}</Text>
+            <Text style={styles.tunit}>{tFor(lang, 'pdf.colUnit')}</Text>
+            <Text style={styles.ttotal}>{tFor(lang, 'pdf.colTotal')}</Text>
           </View>
           {items.map((i) => (
             <View style={styles.trow} key={i.id}>
               <Text style={styles.tdesc}>{i.description || '—'}</Text>
               <Text style={styles.tqty}>{i.quantity}</Text>
-              <Text style={styles.tunit}>{eur(i.unit_cents)}</Text>
-              <Text style={styles.ttotal}>{eur(i.quantity * i.unit_cents)}</Text>
+              <Text style={styles.tunit}>{eur(i.unit_cents, lang)}</Text>
+              <Text style={styles.ttotal}>{eur(i.quantity * i.unit_cents, lang)}</Text>
             </View>
           ))}
 
           <View style={styles.totalsRow}>
-            <Text style={styles.totalsLabel}>Subtotaal</Text>
-            <Text style={styles.totalsVal}>{eur(subtotal)}</Text>
+            <Text style={styles.totalsLabel}>{tFor(lang, 'pdf.totalsSubtotal')}</Text>
+            <Text style={styles.totalsVal}>{eur(subtotal, lang)}</Text>
           </View>
           <View style={styles.totalsRow}>
-            <Text style={styles.totalsLabel}>BTW {vatRate}%</Text>
-            <Text style={styles.totalsVal}>{eur(vat)}</Text>
+            <Text style={styles.totalsLabel}>{tFor(lang, 'pdf.totalsVat', { rate: vatRate })}</Text>
+            <Text style={styles.totalsVal}>{eur(vat, lang)}</Text>
           </View>
           <View style={[styles.totalsRow, styles.finalRow]}>
-            <Text style={[styles.totalsLabel, styles.finalLabel]}>Totaal incl. BTW</Text>
-            <Text style={[styles.totalsVal, styles.finalVal]}>{eur(total)}</Text>
+            <Text style={[styles.totalsLabel, styles.finalLabel]}>{tFor(lang, 'pdf.totalsTotal')}</Text>
+            <Text style={[styles.totalsVal, styles.finalVal]}>{eur(total, lang)}</Text>
           </View>
         </View>
 
@@ -146,13 +152,13 @@ export function QuotePDF({ opportunity, orderData, reference, validUntil, items,
         ) : null}
 
         <View style={styles.signRow}>
-          <Text style={styles.signCol}>Akkoord klant</Text>
+          <Text style={styles.signCol}>{tFor(lang, 'pdf.signClient')}</Text>
           <Text style={styles.signCol}>{companyName}</Text>
         </View>
 
         <Text style={styles.footer} fixed>
           <Text>{companyName} · {reference}</Text>
-          <Text>p. 1</Text>
+          <Text>{tFor(lang, 'pdf.page')} 1</Text>
         </Text>
       </Page>
     </Document>

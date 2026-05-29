@@ -12,7 +12,7 @@ interface Props {
 }
 
 export function ActionBar({ order, hasErrors, onSavedConcept }: Props) {
-  const { t } = useT()
+  const { t, lang } = useT()
   const [busy, setBusy] = useState<string | null>(null)
   const [toast, setToast] = useState<string | null>(null)
   const { data: settings } = useAppSettings()
@@ -30,8 +30,8 @@ export function ActionBar({ order, hasErrors, onSavedConcept }: Props) {
       import('./pdf/ClientConfirmPDF'),
     ])
     const doc = target === 'fabrikant'
-      ? <FabricantOrderPDF order={order} cutFormulas={settings?.cut_formulas} />
-      : <ClientConfirmPDF order={order} />
+      ? <FabricantOrderPDF order={order} cutFormulas={settings?.cut_formulas} lang={lang} />
+      : <ClientConfirmPDF order={order} lang={lang} />
     return pdf(doc).toBlob()
   }
 

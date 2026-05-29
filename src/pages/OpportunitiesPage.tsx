@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState, type FormEvent } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
-import { Plus, Search, LayoutGrid, List } from 'lucide-react'
+import { Plus, Search } from 'lucide-react'
 import { PageContainer, PageHeader } from '../components/Layout'
 import { Chips, Field, FieldRow, SelectField, TextAreaField } from '../components/Field'
 import { Dialog } from '../components/Dialog'
@@ -8,23 +8,21 @@ import { EmptyState } from './HomePage'
 import { formatEur, relativeTime } from '../lib/format'
 import { useCustomers, useOpportunities, useUpsertOpportunity } from '../lib/queries'
 import { STAGE_ORDER, type OpportunityStage } from '../lib/db'
+import type { OpportunityWithCustomer } from '../lib/db'
 import { stageLabel, useT } from '../lib/i18n'
 import { KanbanView } from './KanbanView'
-
-type ViewMode = 'list' | 'kanban'
-
-const VIEW_KEY = 'mydoors:oppview:v1'
+import { DataTable, type DataTableColumn } from '../components/DataTable'
+import { ViewToggle, readViewMode, writeViewMode, type ViewMode } from '../components/ViewToggle'
 
 export function OpportunitiesPage() {
   const { t, lang } = useT()
+  const navigate = useNavigate()
   const [params, setParams] = useSearchParams()
   const [search, setSearch] = useState('')
   const [stageFilter, setStageFilter] = useState<'all' | OpportunityStage>(
     (params.get('stage') as OpportunityStage) || 'all',
   )
-  const [view, setView] = useState<ViewMode>(() => {
-    try { return (localStorage.getItem(VIEW_KEY) as ViewMode) || 'kanban' } catch { return 'kanban' }
-  })
+  const [view, setView] = useState<ViewMode>(() => readViewMode('opportunities', 'kanban'))
   const [editing, setEditing] = useState<{ customer_id?: string } | null>(null)
   const { data: opps = [], isLoading, error } = useOpportunities()
 
@@ -42,7 +40,7 @@ export function OpportunitiesPage() {
 
   function setViewMode(m: ViewMode) {
     setView(m)
-    try { localStorage.setItem(VIEW_KEY, m) } catch { /* */ }
+    writeViewMode('opportunities', m)
   }
 
   const filtered = useMemo(() => {
@@ -59,6 +57,44 @@ export function OpportunitiesPage() {
     return list
   }, [opps, stageFilter, search])
 
+  const tableColumns: DataTableColumn<OpportunityWithCustomer>[] = [
+    {
+      key: 'title',
+      header: t('common.title'),
+      cell: (o) => <span className="font-bold">{o.title}</span>,
+      sortValue: (o) => o.title,
+    },
+    {
+      key: 'customer',
+      header: t('opps.editor.customer'),
+      cell: (o) => o.customer_name ?? '—',
+      sortValue: (o) => o.customer_name ?? '',
+      hideBelow: 640,
+    },
+    {
+      key: 'stage',
+      header: t('opps.editor.stage'),
+      cell: (o) => <span className="stage-pill" data-stage={o.stage}>{stageLabel(o.stage, lang)}</span>,
+      sortValue: (o) => STAGE_ORDER.indexOf(o.stage),
+    },
+    {
+      key: 'value',
+      header: t('common.value'),
+      cell: (o) => o.expected_value_cents ? <span className="font-mono tabular-nums">{formatEur(o.expected_value_cents)}</span> : '—',
+      sortValue: (o) => o.expected_value_cents,
+      align: 'right',
+      hideBelow: 768,
+    },
+    {
+      key: 'updated',
+      header: t('common.updated'),
+      cell: (o) => <span className="font-mono text-[11px] text-[--color-muted]">{relativeTime(o.updated_at, lang)}</span>,
+      sortValue: (o) => o.updated_at,
+      align: 'right',
+      hideBelow: 1024,
+    },
+  ]
+
   return (
     <PageContainer>
       <PageHeader
@@ -66,27 +102,7 @@ export function OpportunitiesPage() {
         subtitle={t('opps.subtitle')}
         actions={
           <>
-            <div className="flex border border-ink">
-              <button
-                className="btn btn-ghost btn-icon"
-                data-active={view === 'kanban' || undefined}
-                aria-label={t('opps.viewKanbanAria')}
-                title={t('opps.viewKanban')}
-                onClick={() => setViewMode('kanban')}
-                style={{ background: view === 'kanban' ? 'var(--color-ink)' : undefined, color: view === 'kanban' ? 'var(--color-paper)' : undefined }}
-              >
-                <LayoutGrid size={16} />
-              </button>
-              <button
-                className="btn btn-ghost btn-icon"
-                aria-label={t('opps.viewListAria')}
-                title={t('opps.viewList')}
-                onClick={() => setViewMode('list')}
-                style={{ background: view === 'list' ? 'var(--color-ink)' : undefined, color: view === 'list' ? 'var(--color-paper)' : undefined }}
-              >
-                <List size={16} />
-              </button>
-            </div>
+            <ViewToggle value={view} onChange={setViewMode} modes={['kanban', 'cards', 'table']} />
             <button className="btn btn-primary" onClick={() => setEditing({})}>
               <Plus size={16} /> {t('opps.new')}
             </button>
@@ -106,7 +122,7 @@ export function OpportunitiesPage() {
         </div>
       </div>
 
-      {view === 'list' ? (
+      {view !== 'kanban' ? (
         <div className="flex gap-2 overflow-x-auto pb-2 mb-4">
           <button className="chip" data-active={stageFilter === 'all'} onClick={() => setStageFilter('all')}>
             {t('opps.all')} ({opps.length})
@@ -136,10 +152,18 @@ export function OpportunitiesPage() {
           subtitle={stageFilter !== 'all' || search ? t('opps.empty.subtitleFiltered') : t('opps.empty.subtitle')}
           cta={<button className="btn btn-primary" onClick={() => setEditing({})}>{t('opps.empty.cta')}</button>}
         />
-      ) : null}
-
-      {view === 'kanban' ? (
+      ) : view === 'kanban' ? (
         <KanbanView opportunities={search.trim() ? filtered : opps} />
+      ) : view === 'table' ? (
+        <DataTable<OpportunityWithCustomer>
+          rows={filtered}
+          columns={tableColumns}
+          rowKey={(o) => o.id}
+          persistKey="opportunities"
+          defaultSort={{ key: 'updated', dir: 'desc' }}
+          onRowClick={(o) => navigate(`/opportunities/${o.id}`)}
+          emptyText={t('opps.empty.title')}
+        />
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
           {filtered.map((o) => (
