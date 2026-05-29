@@ -163,6 +163,53 @@ describe('cutList — top-paneel 300 mm', () => {
   })
 })
 
+describe('cutList — area-bound design-lijnen', () => {
+  it('verticale lijn in paneel-area telt niet mee voor deurblad-segmenten', () => {
+    // 1200 mm deur met rechter-paneel van 400 mm. We zetten 1 verticale
+    // lijn die in de paneel-x-range zou vallen, maar markeren hem als
+    // area='right_panel'. De deurblad-glaskader moet dan GEEN extra
+    // 'design verticaal' item bevatten.
+    const result = generateCutList({
+      ...DEFAULT_ORDER,
+      breedte: 1200,
+      hoogte: 2300,
+      doorConfig: 'side_panel',
+      sidePanels: ['right'],
+      rightPanelWidth: 400,
+      sketch: {
+        ...DEFAULT_ORDER.sketch,
+        verticalLines: [
+          // x in linker deurblad-helft, gemarkeerd als paneel
+          { id: 'v-panel', x: 950, area: 'right_panel' },
+        ],
+        horizontalLines: [],
+      },
+    })
+    const designVerticals = result.items.filter(
+      (i) => i.profiel === '15*15*1.5' && i.aantal === 1 && i.lengte === result.geometry.glassKaderVertGelaste - 30,
+    )
+    expect(designVerticals).toHaveLength(0)
+    expect(result.geometry.verticalsKaderP).toEqual([])
+  })
+
+  it('verticale lijn in deur-area (default area) telt wel mee', () => {
+    const result = generateCutList({
+      ...DEFAULT_ORDER,
+      breedte: 1200,
+      hoogte: 2300,
+      doorConfig: 'single',
+      sidePanels: [],
+      sketch: {
+        ...DEFAULT_ORDER.sketch,
+        // geen area → default 'door'
+        verticalLines: [{ id: 'v1', x: 600 }],
+        horizontalLines: [],
+      },
+    })
+    expect(result.geometry.verticalsKaderP.length).toBe(1)
+  })
+})
+
 describe('cutList — geen panelen (regressie-check)', () => {
   it('877×2446 zonder panels: outer kozijn + deurblad-cuts ongewijzigd', () => {
     const result = generateCutList({

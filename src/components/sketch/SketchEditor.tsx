@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Bookmark, FolderOpen, Sparkles, Trash2 } from 'lucide-react'
-import type { OrderData, SketchData, SketchMode } from '../../lib/types'
+import type { OrderData, SketchArea, SketchData, SketchMode } from '../../lib/types'
+import { computeAreaBounds } from '../../lib/areaGeometry'
 import { applyTemplate } from '../../lib/templates'
 import { sketchFromFreehand, sketchFromText } from '../../lib/ai'
 import { deleteSketchTemplate, instantiateSketch, listSketchTemplates, saveSketchTemplate, type SketchTemplate } from '../../lib/sketchTemplates'
@@ -10,6 +11,8 @@ import { DraggableHandle } from './DraggableHandle'
 import { DimensionLabels } from './DimensionLabels'
 import { FreehandLayer } from './FreehandLayer'
 import { CurveLayer } from './CurveLayer'
+import { CurveItems } from './CurveItems'
+import { areaLabel } from '../../lib/areaGeometry'
 import { CurveEditOverlay } from './CurveEditOverlay'
 import { DragLoupe } from './DragLoupe'
 import { ElementOptionsPanel } from './ElementOptionsPanel'
@@ -29,7 +32,7 @@ const MARGIN = 200 // mm margin around door for dimension labels
 const DETAILS_KEY = 'mydoors:sketch:details'
 
 export function SketchEditor({ order, onChange }: Props) {
-  const { t } = useT()
+  const { t, lang } = useT()
   const [mode, setMode] = useState<SketchMode>('lijnen')
   const [aiPrompt, setAiPrompt] = useState('')
   const [aiBusy, setAiBusy] = useState(false)
@@ -59,7 +62,17 @@ export function SketchEditor({ order, onChange }: Props) {
     | { kind: 'curve'; id: string }
     | null
   >(null)
+  // Welk vlak nieuwe lijnen/curves gaan krijgen. Default 'door'. Gebruiker
+  // wisselt via area-chips wanneer er panelen actief zijn.
+  const [activeArea, setActiveArea] = useState<SketchArea>('door')
   const svgRef = useRef<SVGSVGElement | null>(null)
+
+  // Als het actieve vlak uit-gefased wordt (bv. gebruiker zet rechter
+  // paneel uit terwijl activeArea = 'right_panel'), terugvallen op 'door'.
+  useEffect(() => {
+    const bounds = computeAreaBounds(order)
+    if (!bounds[activeArea].active) setActiveArea('door')
+  }, [order, activeArea])
 
   const { breedte, hoogte, sketch } = order
 
@@ -94,21 +107,30 @@ export function SketchEditor({ order, onChange }: Props) {
 
   function addVertical() {
     setShowDetails(false)
-    const next = breedte / 2
+    // Start de nieuwe lijn in het midden van het actieve vlak — niet
+    // langer per definitie midden-deur — anders verschijnt hij visueel
+    // buiten het paneel waar de gebruiker hem hebben wil.
+    const bounds = computeAreaBounds(order)
+    const b = bounds[activeArea].active ? bounds[activeArea] : bounds.door
+    const next = b.x + b.w / 2
     updateSketch({
       verticalLines: [
         ...sketch.verticalLines,
-        { id: `v-${Date.now().toString(36)}`, x: Math.round(next) },
+        { id: `v-${Date.now().toString(36)}`, x: Math.round(next), area: activeArea },
       ],
     })
   }
   function addHorizontal() {
     setShowDetails(false)
-    const next = hoogte / 2
+    const bounds = computeAreaBounds(order)
+    const b = bounds[activeArea].active ? bounds[activeArea] : bounds.door
+    // Y is "vanaf onder" in onze data; bounds.y is "vanaf boven" in svg-
+    // coords. Convertie: onder = hoogte - (boven + h/2)
+    const next = hoogte - (b.y + b.h / 2)
     updateSketch({
       horizontalLines: [
         ...sketch.horizontalLines,
-        { id: `h-${Date.now().toString(36)}`, y: Math.round(next) },
+        { id: `h-${Date.now().toString(36)}`, y: Math.round(next), area: activeArea },
       ],
     })
   }
@@ -260,6 +282,33 @@ export function SketchEditor({ order, onChange }: Props) {
           ))}
         </div>
         <div className="flex gap-1 items-center flex-wrap">
+          {/* Vlak-kiezer: zichtbaar wanneer er meer dan één actief vlak is
+              (= deur + minstens 1 paneel). Bepaalt waar nieuwe lijnen en
+              curves geplaatst worden. */}
+          {(mode === 'lijnen' || mode === 'curve') && (() => {
+            const bounds = computeAreaBounds(order)
+            const active: SketchArea[] = (['door', 'left_panel', 'right_panel', 'top_panel'] as SketchArea[])
+              .filter((a) => bounds[a].active)
+            if (active.length < 2) return null
+            return (
+              <div className="flex items-center gap-1 pr-1 mr-1 border-r border-soft-2">
+                <span className="font-mono text-[10px] uppercase tracking-widest text-[--color-muted]">
+                  {t('sketch.area')}
+                </span>
+                {active.map((a) => (
+                  <button
+                    key={a}
+                    type="button"
+                    className="chip"
+                    data-active={activeArea === a}
+                    onClick={() => setActiveArea(a)}
+                  >
+                    {areaLabel(a, lang)}
+                  </button>
+                ))}
+              </div>
+            )
+          })()}
           {mode === 'lijnen' ? (
             <>
               <button type="button" className="chip" onClick={addVertical}>
@@ -469,18 +518,17 @@ export function SketchEditor({ order, onChange }: Props) {
               }
             />
 
-            {/* curves (gebogen lijnen via 3-klik bezier) */}
+            {/* curves drawing surface (3-klik bezier). Rendering van bestaande
+                curves gebeurt per-area in het clipPath-blok hieronder. */}
             <CurveLayer
-              curves={sketch.curves ?? []}
               doorWidth={breedte}
               doorHeight={hoogte}
               active={mode === 'curve' && !clientView}
               toUserX={toUserX}
               toUserY={toUserY}
               onAddCurve={(c) =>
-                updateSketch({ curves: [...(sketch.curves ?? []), c] })
+                updateSketch({ curves: [...(sketch.curves ?? []), { ...c, area: activeArea }] })
               }
-              onSelectCurve={(id) => setSelected({ kind: 'curve', id })}
             />
 
             {/* Curve-edit overlay: control-points + body-drag voor de
@@ -505,47 +553,85 @@ export function SketchEditor({ order, onChange }: Props) {
               )
             })() : null}
 
-            {/* verticale lijnen */}
-            {sketch.verticalLines.map((v) => (
-              <DraggableLine
-                key={v.id}
-                orientation="vertical"
-                value={v.x}
-                doorWidth={breedte}
-                doorHeight={hoogte}
-                others={sketch.verticalLines.filter((o) => o.id !== v.id).map((o) => o.x)}
-                snapMode={snapMode}
-                onChange={(nv) => setVertical(v.id, nv)}
-                onCommit={(nv) => setVertical(v.id, nv)}
-                onRequestDelete={() => removeVertical(v.id)}
-                onRequestExact={() => setSelected({ kind: 'vertical', id: v.id })}
-                onDragMove={(pos) => setLoupe(pos)}
-                onDragEnd={() => setLoupe(null)}
-                toUserX={toUserX}
-                toUserY={toUserY}
-              />
-            ))}
+            {/* Lijnen + curves per area renderen binnen een clipPath
+                zodat ze niet doorlopen in andere vlakken. */}
+            {(() => {
+              const bounds = computeAreaBounds(order)
+              const areas: SketchArea[] = ['door', 'left_panel', 'right_panel', 'top_panel']
+              return (
+                <>
+                  <defs>
+                    {areas.map((a) => {
+                      const b = bounds[a]
+                      if (!b.active) return null
+                      return (
+                        <clipPath key={`clip-${a}`} id={`area-clip-${a}`}>
+                          <rect x={b.x} y={b.y} width={b.w} height={b.h} />
+                        </clipPath>
+                      )
+                    })}
+                  </defs>
 
-            {/* horizontale lijnen (y mm vanaf onder) */}
-            {sketch.horizontalLines.map((h) => (
-              <DraggableLine
-                key={h.id}
-                orientation="horizontal"
-                value={h.y}
-                doorWidth={breedte}
-                doorHeight={hoogte}
-                others={sketch.horizontalLines.filter((o) => o.id !== h.id).map((o) => o.y)}
-                snapMode={snapMode}
-                onChange={(nv) => setHorizontal(h.id, nv)}
-                onCommit={(nv) => setHorizontal(h.id, nv)}
-                onRequestDelete={() => removeHorizontal(h.id)}
-                onRequestExact={() => setSelected({ kind: 'horizontal', id: h.id })}
-                onDragMove={(pos) => setLoupe(pos)}
-                onDragEnd={() => setLoupe(null)}
-                toUserX={toUserX}
-                toUserY={toUserYFromBottom}
-              />
-            ))}
+                  {areas.map((a) => {
+                    if (!bounds[a].active) return null
+                    const vLines = sketch.verticalLines.filter((v) => (v.area ?? 'door') === a)
+                    const hLines = sketch.horizontalLines.filter((h) => (h.area ?? 'door') === a)
+                    const aCurves = (sketch.curves ?? []).filter((c) => (c.area ?? 'door') === a)
+                    if (vLines.length === 0 && hLines.length === 0 && aCurves.length === 0) return null
+                    return (
+                      <g key={`area-${a}`} clipPath={`url(#area-clip-${a})`}>
+                        {vLines.map((v) => (
+                          <DraggableLine
+                            key={v.id}
+                            orientation="vertical"
+                            value={v.x}
+                            doorWidth={breedte}
+                            doorHeight={hoogte}
+                            others={vLines.filter((o) => o.id !== v.id).map((o) => o.x)}
+                            snapMode={snapMode}
+                            onChange={(nv) => setVertical(v.id, nv)}
+                            onCommit={(nv) => setVertical(v.id, nv)}
+                            onRequestDelete={() => removeVertical(v.id)}
+                            onRequestExact={() => setSelected({ kind: 'vertical', id: v.id })}
+                            onDragMove={(pos) => setLoupe(pos)}
+                            onDragEnd={() => setLoupe(null)}
+                            toUserX={toUserX}
+                            toUserY={toUserY}
+                          />
+                        ))}
+                        {hLines.map((h) => (
+                          <DraggableLine
+                            key={h.id}
+                            orientation="horizontal"
+                            value={h.y}
+                            doorWidth={breedte}
+                            doorHeight={hoogte}
+                            others={hLines.filter((o) => o.id !== h.id).map((o) => o.y)}
+                            snapMode={snapMode}
+                            onChange={(nv) => setHorizontal(h.id, nv)}
+                            onCommit={(nv) => setHorizontal(h.id, nv)}
+                            onRequestDelete={() => removeHorizontal(h.id)}
+                            onRequestExact={() => setSelected({ kind: 'horizontal', id: h.id })}
+                            onDragMove={(pos) => setLoupe(pos)}
+                            onDragEnd={() => setLoupe(null)}
+                            toUserX={toUserX}
+                            toUserY={toUserYFromBottom}
+                          />
+                        ))}
+                        <CurveItems
+                          curves={aCurves}
+                          onSelectCurve={
+                            mode === 'curve' && !clientView
+                              ? undefined
+                              : (id) => setSelected({ kind: 'curve', id })
+                          }
+                        />
+                      </g>
+                    )
+                  })}
+                </>
+              )
+            })()}
 
             {/* maatvoering — niet in klant-zicht */}
             {!clientView ? <DimensionLabels order={order} /> : null}
@@ -673,17 +759,27 @@ export function SketchEditor({ order, onChange }: Props) {
                 />
               )
             }
+            const availableAreas: SketchArea[] = (() => {
+              const bounds = computeAreaBounds(order)
+              return (['door', 'left_panel', 'right_panel', 'top_panel'] as SketchArea[])
+                .filter((a) => bounds[a].active)
+            })()
             if (selected.kind === 'vertical') {
               const v = sketch.verticalLines.find((vl) => vl.id === selected.id)
               if (!v) { setSelected(null); return null }
               return (
                 <ElementOptionsPanel
-                  selected={{ kind: 'vertical', id: v.id, value: v.x }}
+                  selected={{ kind: 'vertical', id: v.id, value: v.x, area: v.area ?? 'door' }}
                   doorWidth={breedte}
                   doorHeight={hoogte}
+                  availableAreas={availableAreas}
                   onApply={(next) => {
                     if (next.kind !== 'vertical') return
-                    setVertical(v.id, next.value)
+                    updateSketch({
+                      verticalLines: sketch.verticalLines.map((vl) =>
+                        vl.id === v.id ? { ...vl, x: next.value, area: next.area } : vl,
+                      ),
+                    })
                   }}
                   onDelete={() => { removeVertical(v.id); setSelected(null) }}
                   onClose={() => setSelected(null)}
@@ -695,12 +791,17 @@ export function SketchEditor({ order, onChange }: Props) {
               if (!h) { setSelected(null); return null }
               return (
                 <ElementOptionsPanel
-                  selected={{ kind: 'horizontal', id: h.id, value: h.y }}
+                  selected={{ kind: 'horizontal', id: h.id, value: h.y, area: h.area ?? 'door' }}
                   doorWidth={breedte}
                   doorHeight={hoogte}
+                  availableAreas={availableAreas}
                   onApply={(next) => {
                     if (next.kind !== 'horizontal') return
-                    setHorizontal(h.id, next.value)
+                    updateSketch({
+                      horizontalLines: sketch.horizontalLines.map((hl) =>
+                        hl.id === h.id ? { ...hl, y: next.value, area: next.area } : hl,
+                      ),
+                    })
                   }}
                   onDelete={() => { removeHorizontal(h.id); setSelected(null) }}
                   onClose={() => setSelected(null)}
@@ -712,10 +813,18 @@ export function SketchEditor({ order, onChange }: Props) {
             if (!c) { setSelected(null); return null }
             return (
               <ElementOptionsPanel
-                selected={{ kind: 'curve', id: c.id, d: c.d }}
+                selected={{ kind: 'curve', id: c.id, d: c.d, area: c.area ?? 'door' }}
                 doorWidth={breedte}
                 doorHeight={hoogte}
-                onApply={() => { /* curve-edit niet geïmplementeerd */ }}
+                availableAreas={availableAreas}
+                onApply={(next) => {
+                  if (next.kind !== 'curve') return
+                  updateSketch({
+                    curves: (sketch.curves ?? []).map((cu) =>
+                      cu.id === c.id ? { ...cu, area: next.area } : cu,
+                    ),
+                  })
+                }}
                 onDelete={() => {
                   updateSketch({ curves: (sketch.curves ?? []).filter((x) => x.id !== c.id) })
                   setSelected(null)

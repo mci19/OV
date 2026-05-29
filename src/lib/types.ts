@@ -82,13 +82,30 @@ export type ColorKind = 'ral_9005' | 'ral_9010' | 'other'
 
 export type SketchMode = 'snel' | 'lijnen' | 'vrij' | 'curve'
 
+/**
+ * Welk vlak van het kozijn een design-lijn/curve toebehoort. Default
+ * 'door' voor backwards-compat met data uit oudere versies.
+ *  - 'door'        — in het deurblad (default)
+ *  - 'left_panel'  — in het linker zij-paneel
+ *  - 'right_panel' — in het rechter zij-paneel
+ *  - 'top_panel'   — in het boven-paneel
+ *
+ * De coördinaten van een lijn blijven in kozijn-coords (mm vanaf links/
+ * onder). Het area-veld bepaalt waar de lijn wordt gerenderd (gecliprd
+ * op de bounding-box van het vlak) én aan welke kader hij meegerekend
+ * wordt in de zaaglijst.
+ */
+export type SketchArea = 'door' | 'left_panel' | 'right_panel' | 'top_panel'
+
 export interface VerticalLine {
   id: string
   x: number // mm vanaf links
+  area?: SketchArea  // default 'door'
 }
 export interface HorizontalLine {
   id: string
   y: number // mm vanaf onder
+  area?: SketchArea  // default 'door'
 }
 
 export interface FreehandStroke {
@@ -104,6 +121,7 @@ export interface CurveStroke {
   id: string
   d: string
   width: number // lijn-dikte in mm; default 15 = glaslijst-look
+  area?: SketchArea  // default 'door'
 }
 
 export interface SketchData {
@@ -265,13 +283,24 @@ export function sanitizeOrderData(raw: Partial<OrderData>): OrderData {
   }
 
   // Sketch: strip de oude asHandle/handleLengthMm velden uit verticalLines
-  if (merged.sketch?.verticalLines) {
+  // én default area='door' voor legacy lijnen/curves zonder area-veld.
+  if (merged.sketch) {
     merged.sketch = {
       ...merged.sketch,
-      verticalLines: merged.sketch.verticalLines.map((v) => {
-        const { id, x } = v
-        return { id, x }
-      }),
+      verticalLines: (merged.sketch.verticalLines ?? []).map((v) => ({
+        id: v.id,
+        x: v.x,
+        area: v.area ?? 'door',
+      })),
+      horizontalLines: (merged.sketch.horizontalLines ?? []).map((h) => ({
+        id: h.id,
+        y: h.y,
+        area: h.area ?? 'door',
+      })),
+      curves: (merged.sketch.curves ?? []).map((c) => ({
+        ...c,
+        area: c.area ?? 'door',
+      })),
     }
   }
 

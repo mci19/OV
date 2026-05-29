@@ -1,17 +1,22 @@
 import { useEffect, useState } from 'react'
 import { RotateCcw, Trash2, X } from 'lucide-react'
 import { useT } from '../../lib/i18n'
+import type { SketchArea } from '../../lib/types'
+import { areaLabel } from '../../lib/areaGeometry'
 
 export type SelectedElement =
   | { kind: 'handle'; xDefault: number; yDefault: number; xCurrent: number; yCurrent: number; xOverridden: boolean }
-  | { kind: 'vertical'; id: string; value: number }
-  | { kind: 'horizontal'; id: string; value: number }
-  | { kind: 'curve'; id: string; d: string }
+  | { kind: 'vertical'; id: string; value: number; area: SketchArea }
+  | { kind: 'horizontal'; id: string; value: number; area: SketchArea }
+  | { kind: 'curve'; id: string; d: string; area: SketchArea }
 
 interface Props {
   selected: SelectedElement
   doorWidth: number
   doorHeight: number
+  /** Vlakken die nu actief zijn in het kozijn — bepalen welke area-opties
+   *  de gebruiker kan kiezen. Lege array = alleen 'door' beschikbaar. */
+  availableAreas?: SketchArea[]
   onApply: (next: SelectedElement) => void
   onReset?: () => void
   onDelete?: () => void
@@ -29,12 +34,13 @@ export function ElementOptionsPanel({
   selected,
   doorWidth,
   doorHeight,
+  availableAreas,
   onApply,
   onReset,
   onDelete,
   onClose,
 }: Props) {
-  const { t } = useT()
+  const { t, lang } = useT()
 
   // Lokale draft zodat inputs niet bij elke keypress de state pushen
   const [draft, setDraft] = useState<SelectedElement>(selected)
@@ -84,6 +90,28 @@ export function ElementOptionsPanel({
       </div>
 
       <div className="p-3 space-y-3">
+        {/* Area-selector — alleen tonen bij design-elementen (lijn/curve)
+            en wanneer er meer dan één vlak actief is. */}
+        {selected.kind !== 'handle' && availableAreas && availableAreas.length > 1 ? (
+          <label className="block">
+            <span className="field-label">{t('elemOpts.area')}</span>
+            <select
+              className="field-input"
+              value={(draft as { area: SketchArea }).area}
+              onChange={(e) => {
+                const area = e.target.value as SketchArea
+                if (draft.kind === 'vertical') commit({ ...draft, area })
+                else if (draft.kind === 'horizontal') commit({ ...draft, area })
+                else if (draft.kind === 'curve') commit({ ...draft, area })
+              }}
+            >
+              {availableAreas.map((a) => (
+                <option key={a} value={a}>{areaLabel(a, lang)}</option>
+              ))}
+            </select>
+          </label>
+        ) : null}
+
         {selected.kind === 'handle' ? (
           <>
             <label className="block">

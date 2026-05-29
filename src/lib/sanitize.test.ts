@@ -64,12 +64,12 @@ describe('sanitizeOrderData — legacy migrations', () => {
       },
     })
     expect(out.sketch.verticalLines).toEqual([
-      { id: 'v1', x: 400 },
-      { id: 'v2', x: 500 },
+      { id: 'v1', x: 400, area: 'door' },
+      { id: 'v2', x: 500, area: 'door' },
     ])
   })
 
-  it('laat geldige orders ongemoeid', () => {
+  it('laat geldige orders ongemoeid (behalve area-default voor lijnen)', () => {
     const out = sanitizeOrderData({
       ...DEFAULT_ORDER,
       handleKind: 'l_grip',
@@ -79,6 +79,7 @@ describe('sanitizeOrderData — legacy migrations', () => {
       },
     })
     expect(out.handleKind).toBe('l_grip')
-    expect(out.sketch.verticalLines).toEqual([{ id: 'v1', x: 450 }])
+    // Sanitize voegt area='door' als default toe voor legacy lijnen
+    expect(out.sketch.verticalLines).toEqual([{ id: 'v1', x: 450, area: 'door' }])
   })
 })

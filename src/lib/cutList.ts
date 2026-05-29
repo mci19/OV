@@ -106,16 +106,18 @@ export function generateCutList(order: OrderData, formulas: CutFormulas = DEFAUL
   const poederlakKaderBottomY = (hoogte - glassKaderVertPoederlak) / 2 + 24 + (hasTop ? -((th + DIVIDER_W) / 2) : 0)
   // 24 mm = visuele bovenoffset glas; voor de cuts gebruiken we kader-coords
 
-  // Filter design-lijnen: alleen die binnen het deur-blade-x-bereik
-  // tellen mee voor de deurblad-cuts. Lijnen in paneel-x-range worden
-  // (voorlopig) genegeerd — area-bound lijnen-feature komt later.
-  const verticalsK: { x: number }[] = sketch.verticalLines
+  // Filter design-lijnen op area=='door' (default voor legacy data zonder
+  // area). Lijnen in paneel-area krijgen hun eigen segmenten via
+  // addPanelGlaslijst hieronder.
+  const doorVerticals = sketch.verticalLines.filter((v) => (v.area ?? 'door') === 'door')
+  const doorHorizontals = sketch.horizontalLines.filter((h) => (h.area ?? 'door') === 'door')
+  const verticalsK: { x: number }[] = doorVerticals
     .filter((v) => v.x >= doorBladeXStart && v.x <= doorBladeXEnd)
     .map((v) => ({ x: v.x - poederlakKaderLeftX }))
     .filter((v) => v.x > 5 && v.x < glassKaderHorizPoederlak - 5)
     .sort((a, b) => a.x - b.x)
   const verticalsKaderP = verticalsK.map((v) => v.x)
-  const horizontalsKaderP = sketch.horizontalLines
+  const horizontalsKaderP = doorHorizontals
     .map((h) => h.y - poederlakKaderBottomY)
     .filter((y) => y > 5 && y < glassKaderVertPoederlak - 5)
     .sort((a, b) => a - b)
