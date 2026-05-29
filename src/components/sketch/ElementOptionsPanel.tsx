@@ -6,6 +6,7 @@ export type SelectedElement =
   | { kind: 'handle'; xDefault: number; yDefault: number; xCurrent: number; yCurrent: number; xOverridden: boolean }
   | { kind: 'vertical'; id: string; value: number }
   | { kind: 'horizontal'; id: string; value: number }
+  | { kind: 'curve'; id: string; d: string }
 
 interface Props {
   selected: SelectedElement
@@ -68,7 +69,9 @@ export function ElementOptionsPanel({
             ? t('elemOpts.handleTitle')
             : selected.kind === 'vertical'
               ? t('elemOpts.verticalTitle')
-              : t('elemOpts.horizontalTitle')}
+              : selected.kind === 'horizontal'
+                ? t('elemOpts.horizontalTitle')
+                : t('elemOpts.curveTitle')}
         </div>
         <button
           type="button"
@@ -119,6 +122,13 @@ export function ElementOptionsPanel({
               </button>
             ) : null}
           </>
+        ) : selected.kind === 'curve' ? (
+          <div className="font-mono text-[11px] text-[--color-muted] space-y-1">
+            <div>{t('elemOpts.curveInfo')}</div>
+            <code className="block bg-paper/40 p-2 rounded text-[10px] break-all">
+              {(draft as { d: string }).d}
+            </code>
+          </div>
         ) : (
           <label className="block">
             <span className="field-label">

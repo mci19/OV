@@ -46,6 +46,11 @@ export function DraggableHandle({
   const longPressTimer = useRef<number | null>(null)
   const lastSnapped = useRef<string | null>(null)
   const dragStartTime = useRef<number>(0)
+  // Klik-detectie: pointerdown-positie bewaren om bij pointerup te
+  // bepalen of het een klik (geen significante beweging, snel los) of
+  // een drag is. Klik → opent options-panel via onRequestExact.
+  const downPos = useRef<{ x: number; y: number; t: number } | null>(null)
+  const moved = useRef(false)
 
   useEffect(() => {
     return () => {
@@ -84,6 +89,8 @@ export function DraggableHandle({
     setFineMode(false)
     dragStartTime.current = Date.now()
     onDragStart?.()
+    downPos.current = { x: e.clientX, y: e.clientY, t: Date.now() }
+    moved.current = false
     longPressTimer.current = window.setTimeout(() => {
       if (onRequestExact) {
         setDragging(false)
@@ -94,6 +101,12 @@ export function DraggableHandle({
 
   function onPointerMove(e: React.PointerEvent<SVGCircleElement>) {
     if (!dragging) return
+    // Klik-detectie: significante beweging = drag
+    if (downPos.current) {
+      const dx = e.clientX - downPos.current.x
+      const dy = e.clientY - downPos.current.y
+      if (dx * dx + dy * dy > 25) moved.current = true // > 5 px
+    }
     if (longPressTimer.current) {
       window.clearTimeout(longPressTimer.current)
       longPressTimer.current = null
@@ -136,6 +149,13 @@ export function DraggableHandle({
       setFineMode(false)
       lastSnapped.current = null
       onDragEnd?.()
+      // Klik-detectie: snel los EN niet bewogen → open options-panel
+      const elapsed = downPos.current ? Date.now() - downPos.current.t : 999
+      if (!moved.current && elapsed < 250 && onRequestExact) {
+        onRequestExact()
+      }
+      downPos.current = null
+      moved.current = false
     }
   }
 

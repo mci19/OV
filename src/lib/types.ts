@@ -127,6 +127,18 @@ export interface OrderData {
   system: System
   variants: Variant[]      // legacy — wordt door sanitize geremaped naar doorConfig
   doorConfig: DoorConfig
+  /** Welke vaste panelen er rond de deur zijn (alleen relevant als
+   *  doorConfig === 'side_panel'). Lege array = geen panelen. */
+  sidePanels: ('left' | 'right' | 'top')[]
+  /** Breedte links-paneel in mm (default 400 mm). */
+  leftPanelWidth: number
+  /** Breedte rechts-paneel in mm (default 400 mm). */
+  rightPanelWidth: number
+  /** Hoogte van het bovenpaneel in mm (default 300 mm). */
+  topPanelHeight: number
+  /** @deprecated — gebruik left/rightPanelWidth. Hier voor backwards-
+   *  compat met data uit oudere versies. */
+  sidePanelWidth?: number
   softOpen: boolean
   softClose: boolean
   // finishing
@@ -172,6 +184,10 @@ export const DEFAULT_ORDER: OrderData = {
   system: 'hinges',
   variants: ['panel_door'],
   doorConfig: 'single',
+  sidePanels: [],
+  leftPanelWidth: 400,
+  rightPanelWidth: 400,
+  topPanelHeight: 300,
   softOpen: false,
   softClose: false,
 
@@ -263,6 +279,24 @@ export function sanitizeOrderData(raw: Partial<OrderData>): OrderData {
   // opening). Legacy 'door_opening' wordt geremaped.
   if (merged.doorType !== 'production') {
     merged.doorType = 'production'
+  }
+
+  // sidePanels: defaults voor nieuw veld toegevoegd in v5
+  if (!Array.isArray(merged.sidePanels)) merged.sidePanels = []
+  // Per-paneel dimensies — migreer legacy sidePanelWidth naar
+  // left+right indien gezet.
+  const legacyWidth = merged.sidePanelWidth
+  if (!Number.isFinite(merged.leftPanelWidth) || merged.leftPanelWidth <= 0) {
+    merged.leftPanelWidth = Number.isFinite(legacyWidth) && legacyWidth ? legacyWidth : 400
+  }
+  if (!Number.isFinite(merged.rightPanelWidth) || merged.rightPanelWidth <= 0) {
+    merged.rightPanelWidth = Number.isFinite(legacyWidth) && legacyWidth ? legacyWidth : 400
+  }
+  if (!Number.isFinite(merged.topPanelHeight) || merged.topPanelHeight <= 0) merged.topPanelHeight = 300
+  delete merged.sidePanelWidth
+  // Bij side_panel-config zonder gekozen positie → default links
+  if (merged.doorConfig === 'side_panel' && merged.sidePanels.length === 0) {
+    merged.sidePanels = ['left']
   }
 
   return merged

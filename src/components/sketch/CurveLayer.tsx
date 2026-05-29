@@ -8,6 +8,8 @@ interface Props {
   /** Klikken accepteren en nieuwe curves bouwen */
   active: boolean
   onAddCurve: (c: CurveStroke) => void
+  /** Klik op een bestaande curve → selecteer voor opties-panel */
+  onSelectCurve?: (id: string) => void
   toUserX: (clientX: number) => number
   toUserY: (clientY: number) => number
 }
@@ -32,6 +34,7 @@ export function CurveLayer({
   doorHeight,
   active,
   onAddCurve,
+  onSelectCurve,
   toUserX,
   toUserY,
 }: Props) {
@@ -105,18 +108,35 @@ export function CurveLayer({
 
   return (
     <g>
-      {/* Bestaande curves */}
+      {/* Bestaande curves — zichtbaar pad + brede hit-zone voor click */}
       {curves.map((c) => (
-        <path
-          key={c.id}
-          d={c.d}
-          fill="none"
-          stroke="#0A0A0A"
-          strokeWidth={c.width}
-          strokeLinecap="round"
-          vectorEffect="non-scaling-stroke"
-          pointerEvents="none"
-        />
+        <g key={c.id}>
+          <path
+            d={c.d}
+            fill="none"
+            stroke="#0A0A0A"
+            strokeWidth={c.width}
+            strokeLinecap="round"
+            vectorEffect="non-scaling-stroke"
+            pointerEvents="none"
+          />
+          {/* Brede transparante hit-stroke voor selectie. Alleen actief
+              als we NIET aan het tekenen zijn (anders eet hij clicks op). */}
+          {!active && onSelectCurve ? (
+            <path
+              d={c.d}
+              fill="none"
+              stroke="transparent"
+              strokeWidth={40}
+              strokeLinecap="round"
+              style={{ cursor: 'pointer' }}
+              onPointerDown={(e) => {
+                e.stopPropagation()
+                onSelectCurve(c.id)
+              }}
+            />
+          ) : null}
+        </g>
       ))}
 
       {/* Live preview */}

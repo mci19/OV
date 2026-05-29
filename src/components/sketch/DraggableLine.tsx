@@ -43,6 +43,9 @@ export function DraggableLine({
   const [snapLabel, setSnapLabel] = useState<string | null>(null)
   const lastSnapped = useRef<string | null>(null)
   const longPressTimer = useRef<number | null>(null)
+  // Klik-detectie zoals in DraggableHandle
+  const downPos = useRef<{ x: number; y: number; t: number } | null>(null)
+  const moved = useRef(false)
 
   useEffect(() => {
     return () => {
@@ -54,6 +57,8 @@ export function DraggableLine({
     if (e.pointerType === 'pen') return // laat pen-events naar freehand-layer gaan
     e.currentTarget.setPointerCapture(e.pointerId)
     setDragging(true)
+    downPos.current = { x: e.clientX, y: e.clientY, t: Date.now() }
+    moved.current = false
     longPressTimer.current = window.setTimeout(() => {
       if (onRequestExact) onRequestExact()
       setDragging(false)
@@ -62,6 +67,11 @@ export function DraggableLine({
 
   function onPointerMove(e: React.PointerEvent<SVGElement>) {
     if (!dragging) return
+    if (downPos.current) {
+      const dx = e.clientX - downPos.current.x
+      const dy = e.clientY - downPos.current.y
+      if (dx * dx + dy * dy > 25) moved.current = true
+    }
     if (longPressTimer.current) {
       window.clearTimeout(longPressTimer.current)
       longPressTimer.current = null
@@ -102,6 +112,13 @@ export function DraggableLine({
       setSnapLabel(null)
       onCommit(value)
       onDragEnd?.()
+      // Klik (snel los, geen significante beweging) → open options-panel
+      const elapsed = downPos.current ? Date.now() - downPos.current.t : 999
+      if (!moved.current && elapsed < 250 && onRequestExact) {
+        onRequestExact()
+      }
+      downPos.current = null
+      moved.current = false
     }
   }
 

@@ -45,12 +45,40 @@ function glassFill(order: OrderData, clientView: boolean): { fill: string; patte
 
 export function DoorOutline({ order, showGlassFill = true, clientView = false }: Props) {
   const { breedte, hoogte } = order
-  const geo = visualGeometry(order)
-  const bladeX = (breedte - geo.bladeWidth) / 2
-  const bladeY = (hoogte - geo.bladeHeight) / 2
+  const baseGeo = visualGeometry(order)
 
   const frame = frameColors(order)
   const glass = showGlassFill ? glassFill(order, clientView) : { fill: 'none' as const, pattern: undefined as string | undefined }
+
+  // Zij-/bovenpanelen — alleen actief bij doorConfig === 'side_panel'.
+  // De ruimte voor het deurblad wordt gereduceerd zodat de panelen
+  // binnen dezelfde kozijn-buitenmaat passen. KOZIJN_DIV = 8 mm = 2× 40 mm
+  // profiel minus speling; gewoon een visuele scheidings-strook.
+  const isSidePanel = order.doorConfig === 'side_panel'
+  const panels = isSidePanel ? order.sidePanels : []
+  const KOZIJN_DIV = 8
+  const leftPanelWidth = panels.includes('left') ? order.leftPanelWidth : 0
+  const rightPanelWidth = panels.includes('right') ? order.rightPanelWidth : 0
+  const topPanelHeight = panels.includes('top') ? order.topPanelHeight : 0
+
+  // Verklein blade-dimensies om plaats te maken voor panelen
+  const reducedBladeW = Math.max(200, baseGeo.bladeWidth
+    - leftPanelWidth - (leftPanelWidth ? KOZIJN_DIV : 0)
+    - rightPanelWidth - (rightPanelWidth ? KOZIJN_DIV : 0))
+  const reducedBladeH = Math.max(800, baseGeo.bladeHeight
+    - topPanelHeight - (topPanelHeight ? KOZIJN_DIV : 0))
+  const geo: typeof baseGeo = {
+    ...baseGeo,
+    bladeWidth: reducedBladeW,
+    bladeHeight: reducedBladeH,
+    glassWidth: Math.max(0, reducedBladeW - 8),
+    glassHeight: Math.max(0, reducedBladeH - 48),
+  }
+  const baseBladeX = (breedte - baseGeo.bladeWidth) / 2
+  const baseBladeY = (hoogte - baseGeo.bladeHeight) / 2
+  // Schuif blade-X naar rechts als er een linker paneel is
+  const bladeX = baseBladeX + leftPanelWidth + (leftPanelWidth ? KOZIJN_DIV : 0)
+  const bladeY = baseBladeY + topPanelHeight + (topPanelHeight ? KOZIJN_DIV : 0)
 
   const isDouble = order.hingeKind === 'double' || order.variants.includes('double_door')
   const hingeOnLeft = order.handlePosition.side === 'right'
@@ -106,6 +134,31 @@ export function DoorOutline({ order, showGlassFill = true, clientView = false }:
         vectorEffect="non-scaling-stroke"
       />
 
+      {/* Vaste panelen — alleen bij doorConfig=side_panel.
+          Top-paneel staat boven, spant volle binnen-breedte.
+          Zij-panelen staan onder het top-paneel, naast het deurblad. */}
+      {panels.includes('top') ? (
+        <FixedPanel
+          x={baseBladeX} y={baseBladeY}
+          w={baseGeo.bladeWidth} h={topPanelHeight}
+          frame={frame} glass={glass} clientView={clientView} order={order}
+        />
+      ) : null}
+      {panels.includes('left') ? (
+        <FixedPanel
+          x={baseBladeX} y={bladeY}
+          w={leftPanelWidth} h={reducedBladeH}
+          frame={frame} glass={glass} clientView={clientView} order={order}
+        />
+      ) : null}
+      {panels.includes('right') ? (
+        <FixedPanel
+          x={bladeX + reducedBladeW + KOZIJN_DIV} y={bladeY}
+          w={rightPanelWidth} h={reducedBladeH}
+          frame={frame} glass={glass} clientView={clientView} order={order}
+        />
+      ) : null}
+
       {/* Deurblad(en) */}
       {isDouble ? (
         <DoubleLeaves order={order} frame={frame} glass={glass} bladeX={bladeX} bladeY={bladeY} geo={geo} clientView={clientView} />
@@ -125,6 +178,43 @@ export function DoorOutline({ order, showGlassFill = true, clientView = false }:
 }
 
 // ─── Single leaf ───────────────────────────────────────────
+// ─── FixedPanel: vast zij- of bovenpaneel ────────────────────────
+// Wordt buiten het deurblad gerenderd, met eigen kleine kozijn en
+// glas-vulling die overeenkomt met de gekozen glassoort.
+function FixedPanel({
+  x, y, w, h, frame, glass, clientView, order,
+}: {
+  x: number; y: number; w: number; h: number
+  frame: { fill: string; stroke: string; strokeWidth: number }
+  glass: { fill: string; pattern?: string }
+  clientView: boolean
+  order: OrderData
+}) {
+  // Interne 4 mm-glaszone binnen het paneel-frame
+  const inset = 12
+  const gx = x + inset
+  const gy = y + inset
+  const gw = Math.max(0, w - inset * 2)
+  const gh = Math.max(0, h - inset * 2)
+  return (
+    <g>
+      {/* Paneel-frame */}
+      <rect
+        x={x} y={y} width={w} height={h}
+        fill={frame.fill}
+        stroke={frame.stroke}
+        strokeWidth={Math.max(1, frame.strokeWidth - 1)}
+        vectorEffect="non-scaling-stroke"
+      />
+      {/* Glas-vulling */}
+      <GlassPanel
+        x={gx} y={gy} w={gw} h={gh}
+        order={order} glass={glass} clientView={clientView}
+      />
+    </g>
+  )
+}
+
 interface LeafProps {
   order: OrderData
   frame: { fill: string; stroke: string; strokeWidth: number }
@@ -468,49 +558,45 @@ function LockAndHandle({ order, bladeX, bladeY, bladeW, bladeH, hingeOnLeft, cli
       }
 
       case 't_grip': {
-        // T-greep: korte verticale bar hangt VANAF een horizontale top-
-        // cap die op de deur is gemonteerd. T-vorm in vooraanzicht:
-        //   ───────  ← top-cap (horizontaal, breed)
-        //      │
-        //      │     ← verticale bar (hangt naar beneden)
-        //      │
-        const capLen = Math.min(90, len * 0.6) // top-cap ~60% van len
-        const barLen = len // verticale lengte van de bar
-        const top = handleYFromTop
-        const bot = top + barLen
-        // Bar X is centered op handleX, niet offset zoals L-grip
-        const cx = handleX
+        // T-greep liggend: horizontale bar = de grip; korte verticale
+        // mount in het midden gaat door naar de deur:
+        //
+        //   ──────────────   (horizontale bar = grip)
+        //         │           (mount — kort, gaat door naar deur)
+        //
+        // Bar-lengte instelbaar via handleVerticalMm (default 200 mm).
+        const barLen = len
+        const cy = handleYFromTop
+        const mountLen = 24
         return (
           <g>
-            {/* Top-cap horizontaal — staat op de deur */}
+            {/* Verticale mount — van deur naar bar */}
             <rect
-              x={cx - capLen / 2}
-              y={top - 3}
-              width={capLen}
-              height={6}
+              x={handleX - 5}
+              y={cy - mountLen / 2}
+              width={10}
+              height={mountLen}
               fill={stroke}
               stroke={stroke}
               strokeWidth={1}
               rx={2}
               vectorEffect="non-scaling-stroke"
             />
-            {/* Bevestigings-puntjes op de uiteinden van de cap */}
-            <circle cx={cx - capLen / 2 + 5} cy={top} r={2.5} fill="#FFFFFF" stroke={stroke} strokeWidth={1} vectorEffect="non-scaling-stroke" />
-            <circle cx={cx + capLen / 2 - 5} cy={top} r={2.5} fill="#FFFFFF" stroke={stroke} strokeWidth={1} vectorEffect="non-scaling-stroke" />
-            {/* Verticale bar — hangt naar beneden vanaf het midden van de cap */}
+            {/* Horizontale grip-bar — gecentreerd op handleX */}
             <rect
-              x={cx - 5}
-              y={top + 3}
-              width={10}
-              height={barLen}
+              x={handleX - barLen / 2}
+              y={cy - mountLen / 2 - 8}
+              width={barLen}
+              height={10}
               fill={stroke}
               stroke={stroke}
               strokeWidth={1}
               rx={3}
               vectorEffect="non-scaling-stroke"
             />
-            {/* Subtiele ronding onderaan de bar */}
-            <circle cx={cx} cy={bot + 3} r={5} fill={stroke} vectorEffect="non-scaling-stroke" />
+            {/* Afgeronde uiteinden van de bar */}
+            <circle cx={handleX - barLen / 2} cy={cy - mountLen / 2 - 3} r={5} fill={stroke} vectorEffect="non-scaling-stroke" />
+            <circle cx={handleX + barLen / 2} cy={cy - mountLen / 2 - 3} r={5} fill={stroke} vectorEffect="non-scaling-stroke" />
           </g>
         )
       }

@@ -55,6 +55,7 @@ export function SketchEditor({ order, onChange }: Props) {
     | { kind: 'handle' }
     | { kind: 'vertical'; id: string }
     | { kind: 'horizontal'; id: string }
+    | { kind: 'curve'; id: string }
     | null
   >(null)
   const svgRef = useRef<SVGSVGElement | null>(null)
@@ -478,6 +479,7 @@ export function SketchEditor({ order, onChange }: Props) {
               onAddCurve={(c) =>
                 updateSketch({ curves: [...(sketch.curves ?? []), c] })
               }
+              onSelectCurve={(id) => setSelected({ kind: 'curve', id })}
             />
 
             {/* verticale lijnen */}
@@ -665,19 +667,36 @@ export function SketchEditor({ order, onChange }: Props) {
                 />
               )
             }
-            // horizontal
-            const h = sketch.horizontalLines.find((hl) => hl.id === selected.id)
-            if (!h) { setSelected(null); return null }
+            if (selected.kind === 'horizontal') {
+              const h = sketch.horizontalLines.find((hl) => hl.id === selected.id)
+              if (!h) { setSelected(null); return null }
+              return (
+                <ElementOptionsPanel
+                  selected={{ kind: 'horizontal', id: h.id, value: h.y }}
+                  doorWidth={breedte}
+                  doorHeight={hoogte}
+                  onApply={(next) => {
+                    if (next.kind !== 'horizontal') return
+                    setHorizontal(h.id, next.value)
+                  }}
+                  onDelete={() => { removeHorizontal(h.id); setSelected(null) }}
+                  onClose={() => setSelected(null)}
+                />
+              )
+            }
+            // curve
+            const c = (sketch.curves ?? []).find((cu) => cu.id === selected.id)
+            if (!c) { setSelected(null); return null }
             return (
               <ElementOptionsPanel
-                selected={{ kind: 'horizontal', id: h.id, value: h.y }}
+                selected={{ kind: 'curve', id: c.id, d: c.d }}
                 doorWidth={breedte}
                 doorHeight={hoogte}
-                onApply={(next) => {
-                  if (next.kind !== 'horizontal') return
-                  setHorizontal(h.id, next.value)
+                onApply={() => { /* curve-edit niet geïmplementeerd */ }}
+                onDelete={() => {
+                  updateSketch({ curves: (sketch.curves ?? []).filter((x) => x.id !== c.id) })
+                  setSelected(null)
                 }}
-                onDelete={() => { removeHorizontal(h.id); setSelected(null) }}
                 onClose={() => setSelected(null)}
               />
             )

@@ -1,5 +1,5 @@
 import type { OrderData, ValidationIssue } from '../lib/types'
-import { Chips, Field, FieldRow, SelectField } from './Field'
+import { Chips, Field, FieldRow, MultiChips, SelectField } from './Field'
 import { useT } from '../lib/i18n'
 import { useAppSettings, useOptionList } from '../lib/queries'
 import { DEFAULT_CUT_FORMULAS } from '../lib/db'
@@ -174,8 +174,65 @@ export function OrderForm({ order, set, issues }: Props) {
             if (v === 'double') set('hingeKind', 'double')
             else if (v === 'pivot') set('system', 'pivotica')
             else { set('hingeKind', 'single'); set('system', 'hinges') }
+            // Default zij-paneel positie wanneer voor het eerst gekozen
+            if (v === 'side_panel' && order.sidePanels.length === 0) {
+              set('sidePanels', ['left'])
+            }
           }}
         />
+
+        {/* Multi-select positie + breedte/hoogte alleen bij side_panel */}
+        {order.doorConfig === 'side_panel' ? (
+          <div className="mt-3 space-y-3">
+            <MultiChips
+              label={t('order.sidePanels')}
+              values={order.sidePanels}
+              options={[
+                { value: 'left', label: t('order.sidePanelLeft') },
+                { value: 'right', label: t('order.sidePanelRight') },
+                { value: 'top', label: t('order.sidePanelTop') },
+              ]}
+              onChange={(v) => set('sidePanels', v)}
+            />
+            {order.sidePanels.includes('left') ? (
+              <Field
+                label={`${t('order.sidePanelLeft')} — ${t('order.sidePanelWidth')}`}
+                unit="mm"
+                type="number"
+                min={100}
+                max={1200}
+                value={order.leftPanelWidth}
+                onChange={(e) => set('leftPanelWidth', Number(e.target.value))}
+              />
+            ) : null}
+            {order.sidePanels.includes('right') ? (
+              <Field
+                label={`${t('order.sidePanelRight')} — ${t('order.sidePanelWidth')}`}
+                unit="mm"
+                type="number"
+                min={100}
+                max={1200}
+                value={order.rightPanelWidth}
+                onChange={(e) => set('rightPanelWidth', Number(e.target.value))}
+              />
+            ) : null}
+            {order.sidePanels.includes('top') ? (
+              <Field
+                label={`${t('order.sidePanelTop')} — ${t('order.topPanelHeight')}`}
+                unit="mm"
+                type="number"
+                min={100}
+                max={1500}
+                value={order.topPanelHeight}
+                onChange={(e) => set('topPanelHeight', Number(e.target.value))}
+              />
+            ) : null}
+            <div className="font-mono text-xs text-[--color-muted]">
+              {t('order.sidePanelsHint')}
+            </div>
+          </div>
+        ) : null}
+
         <div className="mt-3 flex gap-6 font-mono text-sm">
           <label className="flex items-center gap-2">
             <input
