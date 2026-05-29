@@ -4,34 +4,45 @@ import { buzz } from './SnapHelper'
 interface Props {
   /** Greep-positie vanaf onder, in mm */
   heightFromBottom: number
+  /** Optionele X-positie in door-coords (mm vanaf links). Wanneer
+   *  undefined wordt de standaard 'side+50mm offset' gebruikt. */
+  x?: number
   /** Deur-afmetingen — voor begrenzing en hit-area */
   doorWidth: number
   doorHeight: number
-  /** 'left' of 'right' — bepaalt visuele positie op het blad */
+  /** 'left' of 'right' — bepaalt visuele default-positie op het blad */
   side: 'left' | 'right'
-  onChange: (heightFromBottom: number) => void
+  /** Snap-targets uit de design-lijnen (in mm). Greep snapt naar deze
+   *  posities + naar de deur-randen. */
+  snapXTargets?: number[]   // verticale design-lijnen
+  snapYTargets?: number[]   // horizontale design-lijnen (y vanaf onder)
+  onChange: (next: { heightFromBottom: number; x?: number }) => void
   onRequestExact?: () => void
+  onDragStart?: () => void
+  toUserX: (clientX: number) => number
   toUserY: (clientY: number) => number
 }
 
-const SNAP_MM = 5         // standaard snap stap (5 mm) — schakelbaar
+const SNAP_MM = 5         // standaard snap stap (5 mm)
 const SNAP_FINE_MM = 1    // fine mode = 1 mm
+const SNAP_TARGET_MM = 12 // magneet-snap binnen 12 mm naar lijn/rand
 const HIT_RADIUS = 90     // mm — wide hit zone voor touch
 
 /**
- * Een onzichtbare drag-zone over de greep-positie. Door erop te slepen
- * verzet je de greep met mm-precisie (default snap 5 mm; ingedrukt
- * houden + langzaam slepen = 1 mm fine-mode).
- *
- * Long-press → exact-input dialog voor handmatige mm-waarde.
+ * Drag-zone over de greep. Sleep om greep te verzetten in zowel X als Y.
+ * Standaard snap 5 mm; ingedrukt houden + langzaam slepen = 1 mm fine-
+ * mode. Snapt magnetisch naar deur-randen en design-lijn-posities.
+ * Long-press → exact-input dialog.
  */
 export function DraggableHandle({
-  heightFromBottom, doorWidth, doorHeight, side, onChange, onRequestExact, toUserY,
+  heightFromBottom, x, doorWidth, doorHeight, side,
+  snapXTargets = [], snapYTargets = [],
+  onChange, onRequestExact, onDragStart, toUserX, toUserY,
 }: Props) {
   const [dragging, setDragging] = useState(false)
   const [fineMode, setFineMode] = useState(false)
   const longPressTimer = useRef<number | null>(null)
-  const lastSnapped = useRef<number | null>(null)
+  const lastSnapped = useRef<string | null>(null)
   const dragStartTime = useRef<number>(0)
 
   useEffect(() => {
@@ -41,8 +52,26 @@ export function DraggableHandle({
   }, [])
 
   // Greep-positie in canvas-coords
-  const cx = side === 'left' ? 50 : doorWidth - 50
+  const defaultX = side === 'left' ? 50 : doorWidth - 50
+  const cx = x ?? defaultX
   const cy = doorHeight - heightFromBottom
+
+  // X-snap-targets = deur-randen (op handle-side) + verticale design-lijnen
+  const xTargets = [defaultX, ...snapXTargets]
+  // Y-snap-targets = horizontale design-lijnen
+  const yTargets = snapYTargets
+
+  function snapTo(value: number, targets: number[], step: number): { value: number; tag: string | null } {
+    // 1) Magneet-snap naar targets
+    for (const t of targets) {
+      if (Math.abs(value - t) <= SNAP_TARGET_MM) {
+        return { value: Math.round(t), tag: `target-${Math.round(t)}` }
+      }
+    }
+    // 2) Grid-snap
+    const snapped = Math.round(value / step) * step
+    return { value: snapped, tag: null }
+  }
 
   function onPointerDown(e: React.PointerEvent<SVGCircleElement>) {
     if (e.pointerType === 'pen') return
@@ -50,6 +79,7 @@ export function DraggableHandle({
     setDragging(true)
     setFineMode(false)
     dragStartTime.current = Date.now()
+    onDragStart?.()
     longPressTimer.current = window.setTimeout(() => {
       if (onRequestExact) {
         setDragging(false)
@@ -60,25 +90,34 @@ export function DraggableHandle({
 
   function onPointerMove(e: React.PointerEvent<SVGCircleElement>) {
     if (!dragging) return
-    // Cancel long-press zodra er beweging is
     if (longPressTimer.current) {
       window.clearTimeout(longPressTimer.current)
       longPressTimer.current = null
     }
-    // Fine mode na 800ms vasthouden + langzaam slepen
     const elapsed = Date.now() - dragStartTime.current
     if (elapsed > 800 && !fineMode) setFineMode(true)
 
-    const yUser = toUserY(e.clientY)  // 0 = top, doorHeight = bottom
-    const rawFromBottom = doorHeight - yUser
     const step = fineMode ? SNAP_FINE_MM : SNAP_MM
-    const snapped = Math.round(rawFromBottom / step) * step
-    const clamped = Math.max(50, Math.min(doorHeight - 50, snapped))
-    if (clamped !== lastSnapped.current) {
-      lastSnapped.current = clamped
+
+    const rawX = toUserX(e.clientX)
+    const rawY = toUserY(e.clientY)
+    const rawFromBottom = doorHeight - rawY
+
+    const ySnap = snapTo(rawFromBottom, yTargets, step)
+    const xSnap = snapTo(rawX, xTargets, step)
+
+    const clampedY = Math.max(50, Math.min(doorHeight - 50, ySnap.value))
+    const clampedX = Math.max(20, Math.min(doorWidth - 20, xSnap.value))
+
+    const tag = `${xSnap.tag ?? ''}|${ySnap.tag ?? ''}`
+    if (tag !== lastSnapped.current && (xSnap.tag || ySnap.tag)) {
+      lastSnapped.current = tag
       buzz(fineMode ? 3 : 6)
+    } else if (!xSnap.tag && !ySnap.tag) {
+      lastSnapped.current = null
     }
-    onChange(clamped)
+
+    onChange({ heightFromBottom: clampedY, x: clampedX })
   }
 
   function onPointerUp(e: React.PointerEvent<SVGCircleElement>) {
@@ -96,7 +135,6 @@ export function DraggableHandle({
 
   return (
     <g style={{ touchAction: 'none' }}>
-      {/* Drag hit zone — onzichtbaar transparant, brede cirkel */}
       <circle
         cx={cx}
         cy={cy}
@@ -106,38 +144,68 @@ export function DraggableHandle({
         onPointerMove={onPointerMove}
         onPointerUp={onPointerUp}
         onPointerCancel={onPointerUp}
-        style={{ cursor: 'ns-resize' }}
+        style={{ cursor: 'move' }}
       />
 
-      {/* Visuele drag-affordance — alleen tijdens dragging zichtbaar */}
       {dragging ? (
         <g pointerEvents="none">
-          <circle cx={cx} cy={cy} r={36} fill="rgba(255,92,4,0.15)" stroke="#FF5C00" strokeWidth={1.5} strokeDasharray="4 3" vectorEffect="non-scaling-stroke" />
+          {/* Snap-target hints (deur-randen + design-lijnen) */}
+          {xTargets.map((tx) => (
+            <line key={`xt-${tx}`} x1={tx} y1={0} x2={tx} y2={doorHeight}
+              stroke="#FF5C00" strokeWidth={1} strokeDasharray="3 3" opacity={0.4}
+              vectorEffect="non-scaling-stroke" />
+          ))}
+          {yTargets.map((ty) => {
+            const yCanvas = doorHeight - ty
+            return (
+              <line key={`yt-${ty}`} x1={0} y1={yCanvas} x2={doorWidth} y2={yCanvas}
+                stroke="#FF5C00" strokeWidth={1} strokeDasharray="3 3" opacity={0.4}
+                vectorEffect="non-scaling-stroke" />
+            )
+          })}
+          <circle cx={cx} cy={cy} r={36} fill="rgba(255,92,4,0.15)" stroke="#FF5C00"
+            strokeWidth={1.5} strokeDasharray="4 3" vectorEffect="non-scaling-stroke" />
+          {/* Crosshair-lijnen vanaf de greep */}
+          <line x1={0} y1={cy} x2={doorWidth} y2={cy}
+            stroke="#FF5C00" strokeWidth={1} opacity={0.6} vectorEffect="non-scaling-stroke" />
+          <line x1={cx} y1={0} x2={cx} y2={doorHeight}
+            stroke="#FF5C00" strokeWidth={1} opacity={0.6} vectorEffect="non-scaling-stroke" />
           {/* mm-label */}
           <rect
-            x={cx + (side === 'left' ? 50 : -190)}
-            y={cy - 30}
-            width={140}
-            height={60}
+            x={cx + (cx < doorWidth / 2 ? 50 : -210)}
+            y={cy - 40}
+            width={160}
+            height={80}
             rx={8}
             fill="#0A0A0A"
           />
           <text
-            x={cx + (side === 'left' ? 120 : -120)}
-            y={cy - 4}
+            x={cx + (cx < doorWidth / 2 ? 130 : -130)}
+            y={cy - 14}
             textAnchor="middle"
-            fontSize={26}
+            fontSize={22}
             fill="#FFFFFF"
             fontFamily="ui-monospace, 'IBM Plex Mono', monospace"
             fontWeight="bold"
           >
-            {heightFromBottom} mm
+            x: {Math.round(cx)} mm
           </text>
           <text
-            x={cx + (side === 'left' ? 120 : -120)}
-            y={cy + 22}
+            x={cx + (cx < doorWidth / 2 ? 130 : -130)}
+            y={cy + 12}
             textAnchor="middle"
-            fontSize={16}
+            fontSize={22}
+            fill="#FFFFFF"
+            fontFamily="ui-monospace, 'IBM Plex Mono', monospace"
+            fontWeight="bold"
+          >
+            y: {heightFromBottom} mm
+          </text>
+          <text
+            x={cx + (cx < doorWidth / 2 ? 130 : -130)}
+            y={cy + 32}
+            textAnchor="middle"
+            fontSize={14}
             fill={fineMode ? '#FF5C00' : '#AAAAAA'}
             fontFamily="ui-monospace, 'IBM Plex Mono', monospace"
           >

@@ -97,6 +97,11 @@ export interface SketchData {
 export interface HandlePosition {
   side: 'left' | 'right' // afgeleid van scharnier; overridebaar
   heightFromBottom: number // mm, default 1050
+  /** Optioneel — exacte X-positie in mm vanaf links. Wanneer gezet
+   *  overschrijft dit de afgeleide 'side+offset'-positie. Wordt gebruikt
+   *  wanneer de gebruiker de greep op een specifieke verticale design-
+   *  lijn of een eigen X heeft gezet. */
+  x?: number
 }
 
 // ─── order ──────────────────────────────────────────────────────

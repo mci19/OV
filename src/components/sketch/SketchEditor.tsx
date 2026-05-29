@@ -83,6 +83,7 @@ export function SketchEditor({ order, onChange }: Props) {
   }
 
   function addVertical() {
+    setShowDetails(false)
     const next = breedte / 2
     updateSketch({
       verticalLines: [
@@ -92,6 +93,7 @@ export function SketchEditor({ order, onChange }: Props) {
     })
   }
   function addHorizontal() {
+    setShowDetails(false)
     const next = hoogte / 2
     updateSketch({
       horizontalLines: [
@@ -392,7 +394,11 @@ export function SketchEditor({ order, onChange }: Props) {
           <TemplateGallery order={order} onPick={pickTemplate} />
         </div>
       ) : (
-        <div className="flex-1 min-h-0 overflow-hidden relative" style={{ touchAction: 'none' }}>
+        <div
+          className="flex-1 min-h-0 overflow-hidden relative"
+          style={{ touchAction: 'none' }}
+          onPointerDownCapture={() => setShowDetails(false)}
+        >
           {/* Pulse overlay: remount via key triggert CSS animation opnieuw */}
           <div key={pulseKey} className="door-pulse-overlay" aria-hidden />
           <svg
@@ -492,18 +498,30 @@ export function SketchEditor({ order, onChange }: Props) {
             {/* maatvoering — niet in klant-zicht */}
             {!clientView ? <DimensionLabels order={order} /> : null}
 
-            {/* Draggable greep — alleen interactief in tekening-mode */}
+            {/* Draggable greep — alleen interactief in tekening-mode.
+                Snap-targets: deur-rand (default-side) + alle verticale en
+                horizontale design-lijnen. Greep MOET op ijzer staan (rand
+                of een design-lijn), niet op glas. */}
             {!clientView && order.handleKind !== 'none' ? (
               <DraggableHandle
                 heightFromBottom={order.handlePosition.heightFromBottom}
+                x={order.handlePosition.x}
                 doorWidth={breedte}
                 doorHeight={hoogte}
                 side={order.handlePosition.side}
-                onChange={(h) => onChange({
+                snapXTargets={sketch.verticalLines.map((v) => v.x)}
+                snapYTargets={sketch.horizontalLines.map((h) => h.y)}
+                onChange={(next) => onChange({
                   ...order,
-                  handlePosition: { ...order.handlePosition, heightFromBottom: h },
+                  handlePosition: {
+                    ...order.handlePosition,
+                    heightFromBottom: next.heightFromBottom,
+                    x: next.x,
+                  },
                 })}
                 onRequestExact={() => setHandleExact(true)}
+                onDragStart={() => setShowDetails(false)}
+                toUserX={toUserX}
                 toUserY={toUserY}
               />
             ) : null}
@@ -560,8 +578,11 @@ export function SketchEditor({ order, onChange }: Props) {
         <HandleExactDialog
           order={order}
           onClose={() => setHandleExact(false)}
-          onSave={(h, side) => {
-            onChange({ ...order, handlePosition: { side, heightFromBottom: h } })
+          onSave={(h, side, xMm) => {
+            onChange({
+              ...order,
+              handlePosition: { side, heightFromBottom: h, x: xMm },
+            })
             setHandleExact(false)
           }}
         />
@@ -572,10 +593,14 @@ export function SketchEditor({ order, onChange }: Props) {
 
 function HandleExactDialog({
   order, onClose, onSave,
-}: { order: OrderData; onClose: () => void; onSave: (h: number, side: 'left' | 'right') => void }) {
+}: { order: OrderData; onClose: () => void; onSave: (h: number, side: 'left' | 'right', x?: number) => void }) {
   const { t } = useT()
   const [h, setH] = useState(order.handlePosition.heightFromBottom)
   const [side, setSide] = useState<'left' | 'right'>(order.handlePosition.side)
+  // X is optioneel — leeg = automatisch (side+50mm), getal = expliciete X
+  const [xStr, setXStr] = useState<string>(
+    typeof order.handlePosition.x === 'number' ? String(order.handlePosition.x) : '',
+  )
   return (
     <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4 no-print" onClick={onClose}>
       <div className="bg-white border border-black p-6 w-full max-w-md rounded-lg" onClick={(e) => e.stopPropagation()}>
@@ -594,6 +619,21 @@ function HandleExactDialog({
         <div className="font-mono text-xs text-[--color-muted] mt-2">{t('sketch.handleRange', { min: 50, max: order.hoogte - 50 })}</div>
 
         <div className="mt-4">
+          <label className="block field-label">X-positie (mm vanaf links — leeg = automatisch)</label>
+          <input
+            type="number"
+            min={20}
+            max={order.breedte - 20}
+            step={1}
+            value={xStr}
+            placeholder={side === 'left' ? '50' : String(order.breedte - 50)}
+            onChange={(e) => setXStr(e.target.value)}
+            className="field-input text-lg"
+          />
+          <div className="font-mono text-xs text-[--color-muted] mt-1">20 – {order.breedte - 20} mm</div>
+        </div>
+
+        <div className="mt-4">
           <span className="field-label">{t('sketch.handleSideLabel')}</span>
           <div className="flex gap-2 mt-1">
             <button type="button" className="chip" data-active={side === 'left'} onClick={() => setSide('left')}>{t('order.handleSideLeft')}</button>
@@ -603,7 +643,17 @@ function HandleExactDialog({
 
         <div className="mt-5 flex justify-end gap-2">
           <button type="button" className="chip" onClick={onClose}>{t('common.cancel')}</button>
-          <button type="button" className="chip" data-active onClick={() => onSave(h, side)}>{t('common.confirm')}</button>
+          <button
+            type="button"
+            className="chip"
+            data-active
+            onClick={() => {
+              const xNum = xStr.trim() === '' ? undefined : Math.max(20, Math.min(order.breedte - 20, Number(xStr)))
+              onSave(h, side, xNum)
+            }}
+          >
+            {t('common.confirm')}
+          </button>
         </div>
       </div>
     </div>

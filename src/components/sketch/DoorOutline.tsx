@@ -306,9 +306,11 @@ interface LockHandleProps {
 
 function LockAndHandle({ order, bladeX, bladeY, bladeW, bladeH, hingeOnLeft, clientView }: LockHandleProps) {
   const handleSide: 'left' | 'right' = hingeOnLeft ? 'right' : 'left'
-  const handleX = handleSide === 'left'
-    ? bladeX + 50
-    : bladeX + bladeW - 50
+  // Custom X (door-coord) wint boven side+offset default
+  const defaultX = handleSide === 'left' ? bladeX + 50 : bladeX + bladeW - 50
+  const handleX = typeof order.handlePosition.x === 'number'
+    ? order.handlePosition.x
+    : defaultX
   const handleYFromTop = bladeY + bladeH - order.handlePosition.heightFromBottom
   const stroke = clientView ? '#3A3A35' : '#0A0A0A'
   const fillBg = clientView ? '#1F1F1B' : '#FFFFFF'
