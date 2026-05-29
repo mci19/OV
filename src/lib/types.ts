@@ -37,6 +37,26 @@ export type DoorConfig =
   | 'side_panel'  // Deur met vast zij- of bovenpaneel
   | 'pivot'       // Pivot deur
 
+/**
+ * MY DOORS productie-regels voor welke configuraties bij welke breedte
+ * passen:
+ *   - breedte < 1000 mm  → enkele deur (geen paneel mogelijk)
+ *   - 1000-1500 mm       → enkele deur OF deur met zij-paneel
+ *   - breedte > 1500 mm  → dubbele deur
+ *   - pivot              → altijd toegestaan (klant-keuze)
+ *
+ * Top-paneel valt buiten de breedte-regel: dat is een hoogte-keuze.
+ */
+export function validDoorConfigsFor(breedte: number): DoorConfig[] {
+  if (!Number.isFinite(breedte) || breedte < 1000) {
+    return ['single', 'pivot']
+  }
+  if (breedte > 1500) {
+    return ['double', 'pivot']
+  }
+  return ['single', 'side_panel', 'pivot']
+}
+
 export type Finishing = 'glasslist_10' | 'glasslist_15' | 'soudal_mastiek'
 
 export type HandleKind =

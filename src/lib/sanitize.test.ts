@@ -1,5 +1,27 @@
 import { describe, expect, it } from 'vitest'
-import { DEFAULT_ORDER, sanitizeOrderData } from './types'
+import { DEFAULT_ORDER, sanitizeOrderData, validDoorConfigsFor } from './types'
+
+describe('validDoorConfigsFor — MY DOORS productie-regels', () => {
+  it('< 1000 mm → enkele deur of pivot', () => {
+    expect(validDoorConfigsFor(900)).toEqual(['single', 'pivot'])
+    expect(validDoorConfigsFor(600)).toEqual(['single', 'pivot'])
+  })
+
+  it('1000-1500 mm → enkele deur, paneel of pivot', () => {
+    expect(validDoorConfigsFor(1000)).toEqual(['single', 'side_panel', 'pivot'])
+    expect(validDoorConfigsFor(1200)).toEqual(['single', 'side_panel', 'pivot'])
+    expect(validDoorConfigsFor(1500)).toEqual(['single', 'side_panel', 'pivot'])
+  })
+
+  it('> 1500 mm → dubbele deur of pivot', () => {
+    expect(validDoorConfigsFor(1501)).toEqual(['double', 'pivot'])
+    expect(validDoorConfigsFor(2000)).toEqual(['double', 'pivot'])
+  })
+
+  it('NaN/ongeldig → behandelt als <1000', () => {
+    expect(validDoorConfigsFor(NaN)).toEqual(['single', 'pivot'])
+  })
+})
 
 describe('sanitizeOrderData — legacy migrations', () => {
   it('mapt verwijderde handleKinds naar "other" en zet handleOther', () => {

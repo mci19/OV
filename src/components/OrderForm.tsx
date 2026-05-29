@@ -1,4 +1,4 @@
-import type { OrderData, ValidationIssue } from '../lib/types'
+import { validDoorConfigsFor, type DoorConfig, type OrderData, type ValidationIssue } from '../lib/types'
 import { Chips, Field, FieldRow, MultiChips, SelectField } from './Field'
 import { useT } from '../lib/i18n'
 import { useAppSettings, useOptionList } from '../lib/queries'
@@ -59,8 +59,22 @@ export function OrderForm({ order, set, issues }: Props) {
               type="number"
               value={order.breedte}
               min={600}
-              max={1500}
-              onChange={(e) => set('breedte', Number(e.target.value))}
+              max={2400}
+              onChange={(e) => {
+                const w = Number(e.target.value)
+                set('breedte', w)
+                // MY DOORS productie-regel: doorConfig moet passen bij de
+                // gekozen breedte. Schakel automatisch om als nodig.
+                const valid = validDoorConfigsFor(w)
+                if (!valid.includes(order.doorConfig)) {
+                  const next: DoorConfig = w > 1500 ? 'double' : 'single'
+                  set('doorConfig', next)
+                  if (next === 'double') set('hingeKind', 'double')
+                  else { set('hingeKind', 'single'); set('system', 'hinges') }
+                  // Bij switch weg van side_panel: panelen wissen
+                  if (order.doorConfig === 'side_panel') set('sidePanels', [])
+                }
+              }}
               error={errorFor(issues, 'breedte')}
             />
           </FieldRow>
@@ -159,28 +173,40 @@ export function OrderForm({ order, set, issues }: Props) {
 
       <section>
         <h2 className="section-h">{t('order.section.system')}</h2>
-        <Chips
-          label={t('order.doorConfig')}
-          value={order.doorConfig}
-          options={[
-            { value: 'single', label: t('order.doorConfigSingle') },
-            { value: 'double', label: t('order.doorConfigDouble') },
-            { value: 'side_panel', label: t('order.doorConfigSidePanel') },
-            { value: 'pivot', label: t('order.doorConfigPivot') },
-          ]}
-          onChange={(v) => {
-            // Sync legacy fields zodat ze niet uit elkaar lopen
-            set('doorConfig', v)
-            if (v === 'double') set('hingeKind', 'double')
-            else if (v === 'pivot') set('system', 'pivotica')
-            else { set('hingeKind', 'single'); set('system', 'hinges') }
-            // Default zij-paneel positie wanneer voor het eerst gekozen
-            if (v === 'side_panel' && order.sidePanels.length === 0) {
-              set('sidePanels', ['left'])
-            }
-          }}
-        />
-
+        {(() => {
+          // MY DOORS productie-regel: welke configuraties bij welke breedte
+          const validConfigs = validDoorConfigsFor(order.breedte)
+          const allChips: { value: DoorConfig; labelKey: 'order.doorConfigSingle' | 'order.doorConfigDouble' | 'order.doorConfigSidePanel' | 'order.doorConfigPivot' }[] = [
+            { value: 'single', labelKey: 'order.doorConfigSingle' },
+            { value: 'double', labelKey: 'order.doorConfigDouble' },
+            { value: 'side_panel', labelKey: 'order.doorConfigSidePanel' },
+            { value: 'pivot', labelKey: 'order.doorConfigPivot' },
+          ]
+          return (
+            <>
+              <Chips
+                label={t('order.doorConfig')}
+                value={order.doorConfig}
+                options={allChips
+                  .filter((c) => validConfigs.includes(c.value))
+                  .map((c) => ({ value: c.value, label: t(c.labelKey) }))}
+                onChange={(v) => {
+                  set('doorConfig', v)
+                  if (v === 'double') set('hingeKind', 'double')
+                  else if (v === 'pivot') set('system', 'pivotica')
+                  else { set('hingeKind', 'single'); set('system', 'hinges') }
+                  if (v === 'side_panel' && order.sidePanels.length === 0) {
+                    set('sidePanels', ['left'])
+                  }
+                  if (v !== 'side_panel') set('sidePanels', [])
+                }}
+              />
+              <div className="font-mono text-[11px] text-[--color-muted] mt-2">
+                {t('order.doorConfigRule')}
+              </div>
+            </>
+          )
+        })()}
         {/* Multi-select positie + breedte/hoogte alleen bij side_panel */}
         {order.doorConfig === 'side_panel' ? (
           <div className="mt-3 space-y-3">
