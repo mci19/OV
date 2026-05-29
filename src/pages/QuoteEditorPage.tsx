@@ -10,6 +10,7 @@ import { Dialog } from '../components/Dialog'
 import type { LineItem, QuoteStatus } from '../lib/db'
 import { errorMessage, useToast } from '../components/Toast'
 import { quoteStatusLabel, useT } from '../lib/i18n'
+import { useUnsavedChangesGuard } from '../lib/useUnsavedChangesGuard'
 
 const DEFAULT_LINEITEMS: LineItem[] = [
   { id: 'li-1', description: 'Stalen deur op maat', quantity: 1, unit_cents: 0 },
@@ -38,6 +39,9 @@ export function QuoteEditorPage() {
   const [items, setItems] = useState<LineItem[]>(DEFAULT_LINEITEMS)
   const [pdfBusy, setPdfBusy] = useState(false)
   const [picker, setPicker] = useState(false)
+  // dirty-tracking voor unsaved-changes guard: false na load + save,
+  // true zodra een edit-helper een wijziging doorvoert.
+  const [dirty, setDirty] = useState(false)
 
   useEffect(() => {
     if (existing) {
@@ -46,6 +50,7 @@ export function QuoteEditorPage() {
       setStatus(existing.status)
       setVatRate(Number(existing.vat_rate))
       setItems(existing.line_items)
+      setDirty(false)
     } else if (quoteId === 'new' && opp) {
       const date = new Date()
       const prefix = settings?.quote_reference_prefix?.trim() || 'Q'
@@ -55,8 +60,11 @@ export function QuoteEditorPage() {
       const valid = new Date(Date.now() + validityDays * 24 * 60 * 60 * 1000)
       setValidUntil(valid.toISOString().slice(0, 10))
       setVatRate(Number(settings?.quote_vat_rate ?? 21))
+      setDirty(false)
     }
   }, [existing, opp, quoteId, settings])
+
+  useUnsavedChangesGuard(dirty, t('common.unsavedConfirm'))
 
   const totals = useMemo(() => {
     const subtotal = items.reduce((s, i) => s + i.quantity * i.unit_cents, 0)
@@ -66,6 +74,7 @@ export function QuoteEditorPage() {
 
   function addLine() {
     setItems((arr) => [...arr, { id: `li-${Date.now().toString(36)}`, description: '', quantity: 1, unit_cents: 0 }])
+    setDirty(true)
   }
   function addFromCatalog(picked: Array<{ description: string; unit_cents: number }>) {
     setItems((arr) => [
@@ -77,12 +86,15 @@ export function QuoteEditorPage() {
         unit_cents: p.unit_cents,
       })),
     ])
+    setDirty(true)
   }
   function patchLine(id: string, patch: Partial<LineItem>) {
     setItems((arr) => arr.map((i) => (i.id === id ? { ...i, ...patch } : i)))
+    setDirty(true)
   }
   function removeLine(id: string) {
     setItems((arr) => arr.filter((i) => i.id !== id))
+    setDirty(true)
   }
 
   async function save() {
@@ -98,6 +110,7 @@ export function QuoteEditorPage() {
         valid_until: validUntil || null,
         status,
       })
+      setDirty(false)
       toast.success(t('quote.toast.saved'))
       if (quoteId === 'new') {
         logActivity.mutate({
@@ -185,20 +198,20 @@ export function QuoteEditorPage() {
               <Field
                 label={t('quote.reference')}
                 value={reference}
-                onChange={(e) => setReference(e.target.value)}
+                onChange={(e) => { setReference(e.target.value); setDirty(true) }}
               />
               <Field
                 label={t('quote.validUntil')}
                 type="date"
                 value={validUntil}
-                onChange={(e) => setValidUntil(e.target.value)}
+                onChange={(e) => { setValidUntil(e.target.value); setDirty(true) }}
               />
             </FieldRow>
             <div className="mt-3">
               <SelectField
                 label={t('quote.status')}
                 value={status}
-                onChange={(v) => setStatus(v as QuoteStatus)}
+                onChange={(v) => { setStatus(v as QuoteStatus); setDirty(true) }}
                 options={(['draft', 'sent', 'accepted', 'declined'] as QuoteStatus[]).map((v) => ({ value: v, label: quoteStatusLabel(v, lang) }))}
               />
             </div>
@@ -246,7 +259,7 @@ export function QuoteEditorPage() {
                   type="number"
                   className="w-12 border-b border-ink bg-transparent text-center"
                   value={vatRate}
-                  onChange={(e) => setVatRate(Number(e.target.value))}
+                  onChange={(e) => { setVatRate(Number(e.target.value)); setDirty(true) }}
                 />
                 %
               </span>

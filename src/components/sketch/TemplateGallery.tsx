@@ -1,6 +1,7 @@
 import { TEMPLATES } from '../../lib/templates'
 import type { OrderData } from '../../lib/types'
 import { DoorOutline } from './DoorOutline'
+import { useT } from '../../lib/i18n'
 
 interface Props {
   order: OrderData
@@ -8,10 +9,11 @@ interface Props {
 }
 
 export function TemplateGallery({ order, onPick }: Props) {
+  const { t } = useT()
   return (
     <div className="p-4">
       <p className="text-xs text-zinc-500 font-mono mb-3 uppercase tracking-wider">
-        Kies een verdeling — wordt geladen in &laquo;Lijnen&raquo; voor finetuning
+        {t('templateGallery.hint')}
       </p>
       <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
         {TEMPLATES.map((t) => {

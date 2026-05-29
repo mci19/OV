@@ -12,6 +12,7 @@ import { FreehandLayer } from './FreehandLayer'
 import { TemplateGallery } from './TemplateGallery'
 import { DetailsStrip } from './DetailsStrip'
 import type { SnapMode } from './SnapHelper'
+import { useT } from '../../lib/i18n'
 
 interface Props {
   order: OrderData
@@ -23,6 +24,7 @@ const MARGIN = 200 // mm margin around door for dimension labels
 const DETAILS_KEY = 'mydoors:sketch:details'
 
 export function SketchEditor({ order, onChange }: Props) {
+  const { t } = useT()
   const [mode, setMode] = useState<SketchMode>('lijnen')
   const [aiPrompt, setAiPrompt] = useState('')
   const [aiBusy, setAiBusy] = useState(false)
@@ -133,11 +135,11 @@ export function SketchEditor({ order, onChange }: Props) {
         horizontalLines: result.horizontalLines.map((h, i) => ({ id: `ai-h-${stamp}-${i}`, y: h.y })),
         templateId: undefined,
       })
-      setAiHint(result.explanation || `${result.verticalLines.length}v + ${result.horizontalLines.length}h lijnen toegevoegd`)
+      setAiHint(result.explanation || t('sketch.aiHintLines', { v: result.verticalLines.length, h: result.horizontalLines.length }))
       setAiPrompt('')
       setMode('lijnen')
     } catch (err) {
-      setAiError(err instanceof Error ? err.message : 'AI-fout')
+      setAiError(err instanceof Error ? err.message : t('sketch.aiError'))
     } finally {
       setAiBusy(false)
     }
@@ -166,10 +168,10 @@ export function SketchEditor({ order, onChange }: Props) {
         ],
         freehand: [],
       })
-      setAiHint(result.explanation || `Vrije schets omgezet in ${result.verticalLines.length + result.horizontalLines.length} lijnen`)
+      setAiHint(result.explanation || t('sketch.aiHintFromFree', { n: result.verticalLines.length + result.horizontalLines.length }))
       setMode('lijnen')
     } catch (err) {
-      setAiError(err instanceof Error ? err.message : 'AI-fout')
+      setAiError(err instanceof Error ? err.message : t('sketch.aiError'))
     } finally {
       setAiBusy(false)
     }
@@ -233,7 +235,7 @@ export function SketchEditor({ order, onChange }: Props) {
               data-active={mode === m}
               onClick={() => setMode(m)}
             >
-              {m === 'snel' ? 'Snel' : m === 'lijnen' ? 'Lijnen' : 'Vrij'}
+              {m === 'snel' ? t('sketch.mode.snel') : m === 'lijnen' ? t('sketch.mode.lijnen') : t('sketch.mode.vrij')}
             </button>
           ))}
         </div>
@@ -241,22 +243,22 @@ export function SketchEditor({ order, onChange }: Props) {
           {mode === 'lijnen' ? (
             <>
               <button type="button" className="chip" onClick={addVertical}>
-                + Verticaal
+                {t('sketch.addVertical')}
               </button>
               <button type="button" className="chip" onClick={addHorizontal}>
-                + Horizontaal
+                {t('sketch.addHorizontal')}
               </button>
               <select
                 className="chip cursor-pointer"
                 value={snapMode}
                 onChange={(e) => setSnapMode(e.target.value as SnapMode)}
-                aria-label="Snap-grid voor design-lijnen"
-                title="Snap-grid: lijn-positie klikt vast op veelvouden tijdens slepen. Magneet-snap naar midden/1/3/2/3 werkt altijd binnen 12 mm."
+                aria-label={t('sketch.snapAria')}
+                title={t('sketch.snapTooltip')}
               >
-                <option value="off">Snap uit · vrije positie</option>
-                <option value="10">Snap rooster 10 mm</option>
-                <option value="50">Snap rooster 50 mm</option>
-                <option value="100">Snap rooster 100 mm</option>
+                <option value="off">{t('sketch.snapOff')}</option>
+                <option value="10">{t('sketch.snap10')}</option>
+                <option value="50">{t('sketch.snap50')}</option>
+                <option value="100">{t('sketch.snap100')}</option>
               </select>
             </>
           ) : null}
@@ -267,7 +269,7 @@ export function SketchEditor({ order, onChange }: Props) {
                 className="chip"
                 onClick={() => updateSketch({ freehand: [] })}
               >
-                Wis vrij
+                {t('sketch.clearFree')}
               </button>
               {sketch.freehand.length > 0 ? (
                 <button
@@ -277,7 +279,7 @@ export function SketchEditor({ order, onChange }: Props) {
                     updateSketch({ freehand: sketch.freehand.slice(0, -1) })
                   }
                 >
-                  Ongedaan
+                  {t('sketch.undo')}
                 </button>
               ) : null}
               {sketch.freehand.length > 0 ? (
@@ -287,9 +289,9 @@ export function SketchEditor({ order, onChange }: Props) {
                   data-active
                   onClick={convertFreehandToLines}
                   disabled={aiBusy}
-                  title="Laat AI je vrije schets omzetten naar exacte lijnen"
+                  title={t('sketch.aiConvertTooltip')}
                 >
-                  <Sparkles size={14} /> {aiBusy ? 'AI bezig…' : 'AI: omzet naar lijnen'}
+                  <Sparkles size={14} /> {aiBusy ? t('sketch.aiBusy') : t('sketch.aiConvert')}
                 </button>
               ) : null}
             </>
@@ -299,9 +301,9 @@ export function SketchEditor({ order, onChange }: Props) {
             className="chip"
             data-active={showDetails}
             onClick={() => setShowDetails((v) => !v)}
-            title="Detail-aanzichten onderaan tonen/verbergen"
+            title={t('sketch.detailsTooltip')}
           >
-            Details
+            {t('sketch.details')}
           </button>
           <button
             type="button"
@@ -309,23 +311,23 @@ export function SketchEditor({ order, onChange }: Props) {
             data-active={clientView}
             onClick={() => setClientView((v) => !v)}
           >
-            {clientView ? 'Klant-zicht aan' : 'Klant-zicht'}
+            {clientView ? t('sketch.clientViewOn') : t('sketch.clientView')}
           </button>
           <button
             type="button"
             className="chip"
             onClick={() => setSavingTemplate(true)}
-            title="Bewaar deze schets als sjabloon voor hergebruik"
+            title={t('sketch.saveTooltip')}
           >
-            <Bookmark size={14} /> Bewaar
+            <Bookmark size={14} /> {t('sketch.save')}
           </button>
           <button
             type="button"
             className="chip"
             onClick={() => setBrowsingTemplates(true)}
-            title="Een bewaarde schets toepassen"
+            title={t('sketch.openTooltip')}
           >
-            <FolderOpen size={14} /> Open
+            <FolderOpen size={14} /> {t('sketch.open')}
           </button>
         </div>
       </div>
@@ -335,7 +337,7 @@ export function SketchEditor({ order, onChange }: Props) {
         <Sparkles size={14} className="text-accent shrink-0" />
         <input
           className="field-input !border-soft-2 !py-1 text-sm flex-1 min-w-0"
-          placeholder="Beschrijf de verdeling — bv. '2 dwarslatten onder + verticale lijn in midden'"
+          placeholder={t('sketch.aiPlaceholder')}
           value={aiPrompt}
           onChange={(e) => setAiPrompt(e.target.value)}
           onKeyDown={(e) => {
@@ -353,7 +355,7 @@ export function SketchEditor({ order, onChange }: Props) {
           onClick={runAiFromText}
           disabled={!aiPrompt.trim() || aiBusy}
         >
-          {aiBusy ? '…' : 'Genereer'}
+          {aiBusy ? '…' : t('sketch.aiGenerate')}
         </button>
       </div>
 
@@ -514,7 +516,7 @@ export function SketchEditor({ order, onChange }: Props) {
             updateSketch(instantiateSketch(tpl))
             setBrowsingTemplates(false)
             setMode('lijnen')
-            setAiHint(`Schets "${tpl.name}" toegepast`)
+            setAiHint(t('sketch.templateAppliedHint', { name: tpl.name }))
           }}
         />
       ) : null}
@@ -536,13 +538,14 @@ export function SketchEditor({ order, onChange }: Props) {
 function HandleExactDialog({
   order, onClose, onSave,
 }: { order: OrderData; onClose: () => void; onSave: (h: number, side: 'left' | 'right') => void }) {
+  const { t } = useT()
   const [h, setH] = useState(order.handlePosition.heightFromBottom)
   const [side, setSide] = useState<'left' | 'right'>(order.handlePosition.side)
   return (
     <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4 no-print" onClick={onClose}>
       <div className="bg-white border border-black p-6 w-full max-w-md rounded-lg" onClick={(e) => e.stopPropagation()}>
-        <h3 className="font-mono font-bold uppercase tracking-wider text-sm mb-3">Greep-positie exact</h3>
-        <label className="block field-label">Hoogte vanaf onder</label>
+        <h3 className="font-mono font-bold uppercase tracking-wider text-sm mb-3">{t('sketch.handleExactTitle')}</h3>
+        <label className="block field-label">{t('sketch.handleHeightLabel')}</label>
         <input
           type="number"
           autoFocus
@@ -553,19 +556,19 @@ function HandleExactDialog({
           onChange={(e) => setH(Math.max(50, Math.min(order.hoogte - 50, Number(e.target.value))))}
           className="field-input text-2xl"
         />
-        <div className="font-mono text-xs text-[--color-muted] mt-2">50 – {order.hoogte - 50} mm · stap 1 mm</div>
+        <div className="font-mono text-xs text-[--color-muted] mt-2">{t('sketch.handleRange', { min: 50, max: order.hoogte - 50 })}</div>
 
         <div className="mt-4">
-          <span className="field-label">Zijde</span>
+          <span className="field-label">{t('sketch.handleSideLabel')}</span>
           <div className="flex gap-2 mt-1">
-            <button type="button" className="chip" data-active={side === 'left'} onClick={() => setSide('left')}>Links</button>
-            <button type="button" className="chip" data-active={side === 'right'} onClick={() => setSide('right')}>Rechts</button>
+            <button type="button" className="chip" data-active={side === 'left'} onClick={() => setSide('left')}>{t('order.handleSideLeft')}</button>
+            <button type="button" className="chip" data-active={side === 'right'} onClick={() => setSide('right')}>{t('order.handleSideRight')}</button>
           </div>
         </div>
 
         <div className="mt-5 flex justify-end gap-2">
-          <button type="button" className="chip" onClick={onClose}>Annuleer</button>
-          <button type="button" className="chip" data-active onClick={() => onSave(h, side)}>Bevestig</button>
+          <button type="button" className="chip" onClick={onClose}>{t('common.cancel')}</button>
+          <button type="button" className="chip" data-active onClick={() => onSave(h, side)}>{t('common.confirm')}</button>
         </div>
       </div>
     </div>
@@ -575,6 +578,7 @@ function HandleExactDialog({
 // ─── Sketch-template dialogs ─────────────────────────────
 
 function SaveTemplateDialog({ order, onClose }: { order: OrderData; onClose: () => void }) {
+  const { t } = useT()
   const [name, setName] = useState(`${order.breedte}×${order.hoogte} — ${order.sketch.verticalLines.length}v + ${order.sketch.horizontalLines.length}h`)
   const [description, setDescription] = useState('')
   function save() {
@@ -590,17 +594,17 @@ function SaveTemplateDialog({ order, onClose }: { order: OrderData; onClose: () 
   return (
     <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4 no-print" onClick={onClose}>
       <div className="bg-paper border border-ink w-full max-w-md p-5 rounded-lg" onClick={(e) => e.stopPropagation()}>
-        <h3 className="font-mono font-bold uppercase tracking-widest text-sm mb-3">Schets bewaren</h3>
-        <label className="block field-label">Naam</label>
+        <h3 className="font-mono font-bold uppercase tracking-widest text-sm mb-3">{t('sketch.saveTemplateTitle')}</h3>
+        <label className="block field-label">{t('sketch.templateName')}</label>
         <input className="field-input mb-3" value={name} onChange={(e) => setName(e.target.value)} autoFocus />
-        <label className="block field-label">Omschrijving (optioneel)</label>
-        <textarea className="field-input min-h-[60px] mb-3" value={description} onChange={(e) => setDescription(e.target.value)} placeholder="bv. 'Klassiek 1 dwarslat + verticaal'" />
+        <label className="block field-label">{t('sketch.templateDesc')}</label>
+        <textarea className="field-input min-h-[60px] mb-3" value={description} onChange={(e) => setDescription(e.target.value)} placeholder={t('sketch.templateDescPlaceholder')} />
         <div className="font-mono text-xs text-[--color-muted] mb-4">
-          Wordt lokaal bewaard. Beschikbaar in alle opportunities op dit toestel.
+          {t('sketch.templatesLocalNote')}
         </div>
         <div className="flex justify-end gap-2">
-          <button type="button" className="btn" onClick={onClose}>Annuleer</button>
-          <button type="button" className="btn btn-primary" onClick={save}>Bewaar</button>
+          <button type="button" className="btn" onClick={onClose}>{t('common.cancel')}</button>
+          <button type="button" className="btn btn-primary" onClick={save}>{t('common.save')}</button>
         </div>
       </div>
     </div>
@@ -608,37 +612,39 @@ function SaveTemplateDialog({ order, onClose }: { order: OrderData; onClose: () 
 }
 
 function BrowseTemplatesDialog({ onClose, onApply }: { onClose: () => void; onApply: (t: SketchTemplate) => void }) {
+  const { t, lang } = useT()
   const [templates, setTemplates] = useState<SketchTemplate[]>(() => listSketchTemplates())
   function remove(id: string) {
-    if (!confirm('Schets-sjabloon verwijderen?')) return
+    if (!confirm(t('sketch.templateDeleteConfirm'))) return
     deleteSketchTemplate(id)
     setTemplates(listSketchTemplates())
   }
+  const locale = lang === 'en' ? 'en-GB' : 'nl-BE'
   return (
     <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4 no-print" onClick={onClose}>
       <div className="bg-paper border border-ink w-full max-w-2xl max-h-[80dvh] p-5 rounded-lg flex flex-col" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between mb-3">
-          <h3 className="font-mono font-bold uppercase tracking-widest text-sm">Bewaarde schetsen</h3>
-          <button type="button" className="btn btn-ghost btn-sm" onClick={onClose}>Sluit</button>
+          <h3 className="font-mono font-bold uppercase tracking-widest text-sm">{t('sketch.savedTemplatesTitle')}</h3>
+          <button type="button" className="btn btn-ghost btn-sm" onClick={onClose}>{t('common.close')}</button>
         </div>
         {templates.length === 0 ? (
           <div className="text-[--color-muted] font-mono text-sm py-8 text-center border border-dashed border-soft-2 rounded">
-            Nog geen bewaarde schetsen. Klik "Bewaar" op een schets om er een aan te maken.
+            {t('sketch.savedTemplatesEmpty')}
           </div>
         ) : (
           <div className="flex-1 overflow-y-auto space-y-2">
-            {templates.map((t) => (
-              <div key={t.id} className="border border-soft-2 bg-white p-3 rounded flex items-start justify-between gap-3">
+            {templates.map((tpl) => (
+              <div key={tpl.id} className="border border-soft-2 bg-white p-3 rounded flex items-start justify-between gap-3">
                 <div className="flex-1 min-w-0">
-                  <div className="font-bold text-sm truncate">{t.name}</div>
+                  <div className="font-bold text-sm truncate">{tpl.name}</div>
                   <div className="font-mono text-[11px] text-[--color-muted] mt-1">
-                    {t.doorWidth}×{t.doorHeight} · {t.sketch.verticalLines.length}v + {t.sketch.horizontalLines.length}h{t.sketch.freehand.length ? ` + ${t.sketch.freehand.length} freehand` : ''} · {new Date(t.savedAt).toLocaleDateString('nl-BE')}
+                    {tpl.doorWidth}×{tpl.doorHeight} · {tpl.sketch.verticalLines.length}v + {tpl.sketch.horizontalLines.length}h{tpl.sketch.freehand.length ? t('sketch.templateFreeSuffix', { n: tpl.sketch.freehand.length }) : ''} · {new Date(tpl.savedAt).toLocaleDateString(locale)}
                   </div>
-                  {t.description ? <div className="text-xs text-[--color-muted] mt-1 truncate">{t.description}</div> : null}
+                  {tpl.description ? <div className="text-xs text-[--color-muted] mt-1 truncate">{tpl.description}</div> : null}
                 </div>
                 <div className="flex gap-1 shrink-0">
-                  <button type="button" className="btn btn-primary btn-sm" onClick={() => onApply(t)}>Pas toe</button>
-                  <button type="button" className="btn btn-ghost btn-icon btn-sm" onClick={() => remove(t.id)} aria-label="Verwijder">
+                  <button type="button" className="btn btn-primary btn-sm" onClick={() => onApply(tpl)}>{t('sketch.templateApply')}</button>
+                  <button type="button" className="btn btn-ghost btn-icon btn-sm" onClick={() => remove(tpl.id)} aria-label={t('common.delete')}>
                     <Trash2 size={14} />
                   </button>
                 </div>
@@ -664,42 +670,47 @@ function ExactDialog({
   orientation, value, max,
   onCancel, onConfirm, onDelete,
 }: ExactDialogProps) {
-  const label = orientation === 'vertical' ? 'Verticale lijn vanaf links' : 'Horizontale lijn vanaf onder'
+  const { t } = useT()
+  const label = orientation === 'vertical' ? t('sketch.exactVertical') : t('sketch.exactHorizontal')
+  // useRef i.p.v. document.getElementById: bij concurrent rendering kan
+  // een oude dialog-instance kortstondig tegelijk met een nieuwe in de
+  // DOM bestaan; getElementById('exact-input') zou dan de oude lezen.
+  const inputRef = useRef<HTMLInputElement>(null)
 
   return (
     <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4 no-print">
       <div className="bg-white border border-black p-6 w-full max-w-md rounded-lg">
-        <h3 className="font-mono font-bold uppercase tracking-wider text-sm mb-3">Lijn exact instellen</h3>
+        <h3 className="font-mono font-bold uppercase tracking-wider text-sm mb-3">{t('sketch.exactTitle')}</h3>
         <label className="block field-label">{label}</label>
         <input
+          ref={inputRef}
           type="number"
           autoFocus
           min={0}
           max={max}
           defaultValue={value}
           className="field-input text-2xl"
-          id="exact-input"
         />
-        <div className="font-mono text-xs text-zinc-500 mt-2">0 – {max} mm</div>
+        <div className="font-mono text-xs text-zinc-500 mt-2">{t('sketch.exactRange', { max })}</div>
 
         <div className="mt-5 flex gap-2 justify-between">
           <button type="button" className="chip" onClick={onDelete}>
-            Verwijder lijn
+            {t('sketch.deleteLine')}
           </button>
           <div className="flex gap-2">
             <button type="button" className="chip" onClick={onCancel}>
-              Annuleer
+              {t('common.cancel')}
             </button>
             <button
               type="button"
               className="chip"
               data-active
               onClick={() => {
-                const inp = document.getElementById('exact-input') as HTMLInputElement | null
+                const inp = inputRef.current
                 if (inp) onConfirm(Math.max(0, Math.min(max, Number(inp.value))))
               }}
             >
-              Bevestig
+              {t('common.confirm')}
             </button>
           </div>
         </div>

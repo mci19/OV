@@ -16,6 +16,7 @@ import { ActivityTimeline } from '../components/ActivityTimeline'
 import { CutListEditDialog } from '../components/CutListEditDialog'
 import { useToast, errorMessage } from '../components/Toast'
 import { stageLabel, useT } from '../lib/i18n'
+import { useUnsavedChangesGuard } from '../lib/useUnsavedChangesGuard'
 
 type Tab = 'order' | 'quote' | 'activity'
 type View = 'split' | 'schets' | 'form'
@@ -81,6 +82,9 @@ export function OpportunityDetailPage() {
 
   const issues = useMemo(() => validateOrder(order), [order])
   const hasErrors = issues.some((i) => i.severity === 'error')
+
+  // Beschermt tegen weg-navigeren met ongesaved sketch- of order-edits
+  useUnsavedChangesGuard(dirty, t('common.unsavedConfirm'))
 
   function updateOrder(next: OrderData) {
     setOrder(next)

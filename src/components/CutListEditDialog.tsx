@@ -116,14 +116,14 @@ export function CutListEditDialog({ order, onSave, onClear, onClose }: Props) {
               <input
                 className="field-input"
                 value={it.bewerking ?? ''}
-                placeholder="optioneel"
+                placeholder={t('cutList.colPlaceholderOptional')}
                 onChange={(e) => patch(i, { bewerking: e.target.value || undefined })}
               />
               <button
                 type="button"
                 className="btn btn-ghost btn-icon btn-sm"
                 onClick={() => remove(i)}
-                aria-label="Verwijder rij"
+                aria-label={t('cutList.deleteRowAria')}
               >
                 <Trash2 size={14} />
               </button>
@@ -132,7 +132,7 @@ export function CutListEditDialog({ order, onSave, onClear, onClose }: Props) {
 
           {items.length === 0 ? (
             <div className="text-center text-[--color-muted] font-mono text-sm py-6 border border-dashed border-soft-2 rounded">
-              Lijst is leeg. Klik "+ Rij" om een item toe te voegen.
+              {t('cutList.empty')}
             </div>
           ) : null}
         </div>
@@ -140,16 +140,16 @@ export function CutListEditDialog({ order, onSave, onClear, onClose }: Props) {
         {/* Actions bovenaan footer */}
         <div className="px-4 py-2 border-t border-soft-2 flex flex-wrap items-center gap-2 bg-paper/40">
           <button type="button" className="btn btn-sm" onClick={addNumbered}>
-            <Plus size={14} /> Genummerde rij
+            <Plus size={14} /> {t('cutList.addNumbered')}
           </button>
           <button type="button" className="btn btn-sm" onClick={addExtra}>
-            <Plus size={14} /> Extra (Kampas/Juosta)
+            <Plus size={14} /> {t('cutList.addExtra')}
           </button>
           <button type="button" className="btn btn-sm" onClick={renumber}>
-            Hernummer
+            {t('cutList.renumber')}
           </button>
-          <button type="button" className="btn btn-sm" onClick={resetToComputed} title="Wis alle handmatige wijzigingen en herlaad de berekende lijst">
-            <RotateCcw size={14} /> Reset
+          <button type="button" className="btn btn-sm" onClick={resetToComputed} title={t('cutList.resetTooltip')}>
+            <RotateCcw size={14} /> {t('cutList.reset')}
           </button>
           <div className="flex-1" />
           {hasOverride ? (
@@ -157,31 +157,31 @@ export function CutListEditDialog({ order, onSave, onClear, onClose }: Props) {
               type="button"
               className="btn btn-sm btn-danger"
               onClick={() => {
-                if (!confirm('Override verwijderen? De fabrikant-PDF gebruikt dan weer de automatisch berekende lijst.')) return
+                if (!confirm(t('cutList.clearConfirm'))) return
                 onClear()
               }}
             >
-              Override wissen
+              {t('cutList.clearOverride')}
             </button>
           ) : null}
         </div>
 
         {/* Notitie */}
         <div className="px-4 py-2 border-t border-soft-2">
-          <label className="block field-label">Notitie (optioneel)</label>
+          <label className="block field-label">{t('cutList.noteLabel')}</label>
           <input
             className="field-input"
             value={note}
             onChange={(e) => setNote(e.target.value)}
-            placeholder="bv. extra lat voor afwerking onderaan"
+            placeholder={t('cutList.notePlaceholder')}
           />
         </div>
 
         {/* Footer */}
         <div className="border-t border-soft-2 px-5 py-3 flex justify-end gap-2">
-          <button type="button" className="btn" onClick={onClose}>Annuleer</button>
+          <button type="button" className="btn" onClick={onClose}>{t('common.cancel')}</button>
           <button type="button" className="btn btn-primary" onClick={() => onSave(items, note)}>
-            <Save size={14} /> Bewaar zaaglijst
+            <Save size={14} /> {t('cutList.saveBtn')}
           </button>
         </div>
       </div>

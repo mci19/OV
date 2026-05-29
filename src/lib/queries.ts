@@ -138,8 +138,17 @@ export function useDeleteOpportunity() {
     mutationFn: async (id: string) => {
       const { error } = await supabase.from('opportunities').delete().eq('id', id)
       if (error) throw error
+      return id
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['opportunities'] }),
+    onSuccess: (id) => {
+      qc.invalidateQueries({ queryKey: ['opportunities'] })
+      // Detail-cache wissen zodat back-navigatie de verwijderde opportunity
+      // niet kortstondig nog toont vanuit stale cache.
+      qc.removeQueries({ queryKey: ['opportunity', id] })
+      qc.removeQueries({ queryKey: ['order', id] })
+      qc.removeQueries({ queryKey: ['quotes', id] })
+      qc.removeQueries({ queryKey: ['activities', id] })
+    },
   })
 }
 
@@ -168,9 +177,18 @@ export function useSaveOrder() {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: async (input: { id?: string; opportunity_id: string; data: OrderData }) => {
+      // onConflict op opportunity_id → twee tabs die tegelijk een nieuwe
+      // order proberen op te slaan worden gemerged tot één rij i.p.v.
+      // twee parallelle inserts (die stille dataloss veroorzaakten).
+      // Migratie 0005 voegt de bijhorende unique constraint toe.
+      const payload: { id?: string; opportunity_id: string; data: OrderData } = {
+        opportunity_id: input.opportunity_id,
+        data: input.data,
+      }
+      if (input.id) payload.id = input.id
       const { data, error } = await supabase
         .from('orders')
-        .upsert({ id: input.id, opportunity_id: input.opportunity_id, data: input.data })
+        .upsert(payload, { onConflict: 'opportunity_id' })
         .select()
         .single()
       if (error) throw error
@@ -242,8 +260,12 @@ export function useDeleteQuote() {
     mutationFn: async (id: string) => {
       const { error } = await supabase.from('quotes').delete().eq('id', id)
       if (error) throw error
+      return id
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['quotes'] }),
+    onSuccess: (id) => {
+      qc.invalidateQueries({ queryKey: ['quotes'] })
+      qc.removeQueries({ queryKey: ['quote', id] })
+    },
   })
 }
 

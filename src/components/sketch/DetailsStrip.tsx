@@ -1,6 +1,7 @@
 import { useEffect, useState, type ReactNode } from 'react'
 import { ChevronLeft, ChevronRight, Maximize2, X } from 'lucide-react'
 import type { OrderData } from '../../lib/types'
+import { tFor, useT, type Lang } from '../../lib/i18n'
 
 interface Props {
   order: OrderData
@@ -10,46 +11,46 @@ type DetailKey = 'top' | 'handle' | 'hinge' | 'glass' | 'profile'
 
 interface DetailDef {
   key: DetailKey
-  title: string
-  subtitle: (o: OrderData) => string
-  description: string
+  titleKey: 'details.top.title' | 'details.handle.title' | 'details.hinge.title' | 'details.glass.title' | 'details.profile.title'
+  subtitle: (o: OrderData, lang: Lang) => string
+  descriptionKey: 'details.top.desc' | 'details.handle.desc' | 'details.hinge.desc' | 'details.glass.desc' | 'details.profile.desc'
   render: (o: OrderData) => ReactNode
 }
 
 const DETAILS: DetailDef[] = [
   {
     key: 'top',
-    title: 'Bovenaanzicht',
+    titleKey: 'details.top.title',
     subtitle: topSystemLabel,
-    description: 'De deur van bovenaf met scharnier-positie, pivot-as of sliding-rail en de open-zwaai (dashed boog).',
+    descriptionKey: 'details.top.desc',
     render: (o) => <TopView order={o} />,
   },
   {
     key: 'handle',
-    title: 'Klinker / Greep',
+    titleKey: 'details.handle.title',
     subtitle: handleSubtitle,
-    description: 'Close-up van de greep aan de deurkant: type greep, ergonomische hoogte, eventueel slot-cilinder erboven.',
+    descriptionKey: 'details.handle.desc',
     render: (o) => <HandleDetail order={o} />,
   },
   {
     key: 'hinge',
-    title: 'Scharnier',
+    titleKey: 'details.hinge.title',
     subtitle: systemSubtitle,
-    description: 'Scharnier-segmenten op de pin-as tussen kozijn en deur (of pivot-as / sliding-rail bij die systemen).',
+    descriptionKey: 'details.hinge.desc',
     render: (o) => <HingeDetail order={o} />,
   },
   {
     key: 'glass',
-    title: 'Glaslijst doorsnede',
+    titleKey: 'details.glass.title',
     subtitle: finishingSubtitle,
-    description: 'Horizontale snede door het glaspaneel: kozijn-profiel + glaslijst aan beide kanten klemt het glas.',
+    descriptionKey: 'details.glass.desc',
     render: (o) => <GlassListSection order={o} />,
   },
   {
     key: 'profile',
-    title: 'Profiel 40×20×2',
-    subtitle: () => '40×20×2 staal',
-    description: 'Doorsnede van het stalen kokerprofiel waaruit het frame is opgebouwd. Wand-dikte 2 mm.',
+    titleKey: 'details.profile.title',
+    subtitle: (_o, lang) => tFor(lang, 'details.finishing.profile'),
+    descriptionKey: 'details.profile.desc',
     render: (o) => <FrameProfile order={o} />,
   },
 ]
@@ -60,24 +61,25 @@ const DETAILS: DetailDef[] = [
  * arrow-keys door alle 5 te bladeren.
  */
 export function DetailsStrip({ order }: Props) {
+  const { t, lang } = useT()
   const [selected, setSelected] = useState<DetailKey | null>(null)
 
   return (
     <div className="border-t border-soft-2 bg-paper/40 backdrop-blur no-print">
       <div className="px-4 pt-3 pb-1 flex items-center justify-between">
         <div className="font-mono text-[10px] uppercase tracking-[0.18em] text-[--color-muted]">
-          Detail-aanzichten
+          {t('details.heading')}
         </div>
         <div className="font-mono text-[10px] text-[--color-muted] hidden sm:block">
-          klik voor groot · schematisch · niet op-schaal
+          {t('details.subline')}
         </div>
       </div>
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-2 px-3 pb-3">
         {DETAILS.map((d) => (
           <DetailCard
             key={d.key}
-            title={d.title}
-            subtitle={d.subtitle(order)}
+            title={t(d.titleKey)}
+            subtitle={d.subtitle(order, lang)}
             onClick={() => setSelected(d.key)}
           >
             {d.render(order)}
@@ -102,12 +104,13 @@ function DetailCard({
   children,
   onClick,
 }: { title: string; subtitle?: string; children: ReactNode; onClick: () => void }) {
+  const { t } = useT()
   return (
     <button
       type="button"
       className="bg-white border border-soft-2 rounded-md overflow-hidden flex flex-col text-left hover:border-ink hover:shadow-md transition group"
       onClick={onClick}
-      title={`Open ${title} groot`}
+      title={t('details.openLarge', { title })}
     >
       <div className="px-2.5 py-1.5 border-b border-soft-2 flex items-center justify-between gap-2 min-h-[34px]">
         <div className="font-mono text-[11px] font-bold text-[--color-brand] truncate">{title}</div>
@@ -129,10 +132,14 @@ function DetailModal({
   onClose,
   onChange,
 }: { order: OrderData; selected: DetailKey; onClose: () => void; onChange: (k: DetailKey) => void }) {
+  const { t, lang } = useT()
   const idx = DETAILS.findIndex((d) => d.key === selected)
   const current = DETAILS[idx]
   const prev = DETAILS[(idx - 1 + DETAILS.length) % DETAILS.length]
   const next = DETAILS[(idx + 1) % DETAILS.length]
+  const currentTitle = t(current.titleKey)
+  const prevTitle = t(prev.titleKey)
+  const nextTitle = t(next.titleKey)
 
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
@@ -161,20 +168,20 @@ function DetailModal({
         <div className="flex items-start justify-between gap-3 px-5 py-3 border-b border-soft-2">
           <div className="min-w-0">
             <div className="font-mono text-[10px] uppercase tracking-[0.18em] text-[--color-muted]">
-              Detail {idx + 1} / {DETAILS.length}
+              {t('details.counter', { n: idx + 1, total: DETAILS.length })}
             </div>
             <h2 className="font-bold text-lg leading-tight" style={{ color: 'var(--color-brand)' }}>
-              {current.title}
+              {currentTitle}
             </h2>
             <div className="font-mono text-xs text-[--color-muted] mt-0.5 truncate">
-              {current.subtitle(order)}
+              {current.subtitle(order, lang)}
             </div>
           </div>
           <button
             type="button"
             className="btn btn-ghost btn-icon"
             onClick={onClose}
-            aria-label="Sluit"
+            aria-label={t('common.close')}
           >
             <X size={20} />
           </button>
@@ -186,8 +193,8 @@ function DetailModal({
             type="button"
             className="absolute left-2 top-1/2 -translate-y-1/2 w-11 h-11 rounded-full bg-white border border-soft-2 hover:border-ink shadow-sm grid place-items-center"
             onClick={() => onChange(prev.key)}
-            aria-label="Vorige"
-            title={`← ${prev.title}`}
+            aria-label={t('common.previous')}
+            title={`← ${prevTitle}`}
           >
             <ChevronLeft size={20} />
           </button>
@@ -198,8 +205,8 @@ function DetailModal({
             type="button"
             className="absolute right-2 top-1/2 -translate-y-1/2 w-11 h-11 rounded-full bg-white border border-soft-2 hover:border-ink shadow-sm grid place-items-center"
             onClick={() => onChange(next.key)}
-            aria-label="Volgende"
-            title={`${next.title} →`}
+            aria-label={t('common.next')}
+            title={`${nextTitle} →`}
           >
             <ChevronRight size={20} />
           </button>
@@ -207,22 +214,25 @@ function DetailModal({
 
         {/* Footer — description + dot navigation */}
         <div className="border-t border-soft-2 px-5 py-3 flex items-center justify-between gap-4">
-          <p className="text-sm text-[--color-muted] flex-1">{current.description}</p>
+          <p className="text-sm text-[--color-muted] flex-1">{t(current.descriptionKey)}</p>
           <div className="flex gap-1.5 shrink-0">
-            {DETAILS.map((d) => (
-              <button
-                key={d.key}
-                type="button"
-                className="w-2 h-2 rounded-full transition-all"
-                style={{
-                  background: d.key === current.key ? 'var(--color-brand)' : 'var(--color-soft-2)',
-                  transform: d.key === current.key ? 'scale(1.3)' : 'scale(1)',
-                }}
-                onClick={() => onChange(d.key)}
-                aria-label={d.title}
-                title={d.title}
-              />
-            ))}
+            {DETAILS.map((d) => {
+              const dTitle = t(d.titleKey)
+              return (
+                <button
+                  key={d.key}
+                  type="button"
+                  className="w-2 h-2 rounded-full transition-all"
+                  style={{
+                    background: d.key === current.key ? 'var(--color-brand)' : 'var(--color-soft-2)',
+                    transform: d.key === current.key ? 'scale(1.3)' : 'scale(1)',
+                  }}
+                  onClick={() => onChange(d.key)}
+                  aria-label={dTitle}
+                  title={dTitle}
+                />
+              )
+            })}
           </div>
         </div>
       </div>
@@ -232,25 +242,25 @@ function DetailModal({
 
 // ─── Labels ──────────────────────────────────────────────
 
-function topSystemLabel(o: OrderData): string {
-  if (o.system === 'pivotica') return 'Pivot'
-  if (o.system === 'sliding') return 'Schuif'
-  return o.hingeKind === 'double' ? 'Dubbel' : 'Enkel'
+function topSystemLabel(o: OrderData, lang: Lang): string {
+  if (o.system === 'pivotica') return tFor(lang, 'details.top.pivot')
+  if (o.system === 'sliding') return tFor(lang, 'details.top.sliding')
+  return o.hingeKind === 'double' ? tFor(lang, 'details.top.double') : tFor(lang, 'details.top.single')
 }
-function handleSubtitle(o: OrderData): string {
-  if (o.handleKind === 'none') return 'Geen greep'
-  if (o.handleKind === 'l_grip') return 'L-grip 200 mm'
-  if (o.handleKind === 'l_vertical') return `L-vert ${o.handleVerticalMm} mm`
-  if (o.handleKind === 'horizontal_bar') return 'Horizontale 200 mm'
-  return o.handleOther.trim() || 'Other'
+function handleSubtitle(o: OrderData, lang: Lang): string {
+  if (o.handleKind === 'none') return tFor(lang, 'details.handle.none')
+  if (o.handleKind === 'l_grip') return tFor(lang, 'details.handle.lgrip')
+  if (o.handleKind === 'l_vertical') return tFor(lang, 'details.handle.lvertical', { mm: o.handleVerticalMm })
+  if (o.handleKind === 'horizontal_bar') return tFor(lang, 'details.handle.horizontal')
+  return o.handleOther.trim() || tFor(lang, 'details.handle.other')
 }
-function systemSubtitle(o: OrderData): string {
-  if (o.system === 'hinges') return o.hingeKind === 'double' ? '6× scharnier' : '3× scharnier'
-  if (o.system === 'pivotica') return 'Pivot-as'
-  return 'Sliding-rail'
+function systemSubtitle(o: OrderData, lang: Lang): string {
+  if (o.system === 'hinges') return o.hingeKind === 'double' ? tFor(lang, 'details.hinge.hingesDouble') : tFor(lang, 'details.hinge.hingesSingle')
+  if (o.system === 'pivotica') return tFor(lang, 'details.hinge.pivot')
+  return tFor(lang, 'details.hinge.sliding')
 }
-function finishingSubtitle(o: OrderData): string {
-  if (o.finishing === 'soudal_mastiek') return 'Mastiek'
+function finishingSubtitle(o: OrderData, lang: Lang): string {
+  if (o.finishing === 'soudal_mastiek') return tFor(lang, 'details.finishing.mastiek')
   return o.finishing === 'glasslist_15' ? '15×15' : '10×10'
 }
 

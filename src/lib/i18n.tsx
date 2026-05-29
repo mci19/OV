@@ -37,6 +37,7 @@ const dict = {
     'common.unknownError': 'Onbekende fout',
     'common.offline': 'offline',
     'common.notes': 'Notities',
+    'common.unsavedConfirm': 'Niet-opgeslagen wijzigingen — pagina toch verlaten?',
 
     // ─── Navigation ─────────────────────────────────────────
     'nav.home': 'Dashboard',
@@ -606,6 +607,7 @@ const dict = {
     'common.unknownError': 'Unknown error',
     'common.offline': 'offline',
     'common.notes': 'Notes',
+    'common.unsavedConfirm': 'Unsaved changes — leave the page anyway?',
 
     // ─── Navigation ─────────────────────────────────────────
     'nav.home': 'Dashboard',
