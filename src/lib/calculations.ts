@@ -44,10 +44,17 @@ export function ralLabel(o: OrderData, lang: Lang = 'nl'): string {
 
 export function glassLabel(o: OrderData, lang: Lang = 'nl'): string {
   switch (o.glassType) {
-    case 'clear': return tFor(lang, 'labels.glass.clear')
-    case 'matt': return tFor(lang, 'labels.glass.matt')
-    case 'cathedraal_flute': return tFor(lang, 'labels.glass.cathedraal')
-    case 'other': return o.glassOther.trim() || tFor(lang, 'labels.glass.otherFallback')
+    case 'clear':            return tFor(lang, 'labels.glass.clear')
+    case 'matt':             return tFor(lang, 'labels.glass.matt')
+    case 'flute':            return tFor(lang, 'labels.glass.flute')
+    case 'cathedraal':       return tFor(lang, 'labels.glass.cathedraal')
+    case 'cathedraal_flute': return tFor(lang, 'labels.glass.cathedraal') // legacy
+    case 'smoke':            return tFor(lang, 'labels.glass.smoke')
+    case 'absolut_black':    return tFor(lang, 'labels.glass.absolutBlack')
+    case 'chinchilla':       return tFor(lang, 'labels.glass.chinchilla')
+    case 'crepi':            return tFor(lang, 'labels.glass.crepi')
+    case 'other':            return o.glassOther.trim() || tFor(lang, 'labels.glass.otherFallback')
+    default:                 return tFor(lang, 'labels.glass.otherFallback')
   }
 }
 

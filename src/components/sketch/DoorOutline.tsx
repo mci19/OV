@@ -29,10 +29,17 @@ function frameColors(order: OrderData): { fill: string; stroke: string; strokeWi
 function glassFill(order: OrderData, clientView: boolean): { fill: string; pattern?: string } {
   if (clientView) return { fill: '#DCE7EE' }
   switch (order.glassType) {
-    case 'clear': return { fill: '#EEF3F6' }
-    case 'matt': return { fill: '#E0DED5' }
+    case 'clear':            return { fill: '#EEF3F6' }
+    case 'matt':             return { fill: '#E0DED5' }
+    case 'flute':            return { fill: '#EAE6DA', pattern: 'cathedral' }
+    case 'cathedraal':       return { fill: '#EAE6DA', pattern: 'cathedral' }
     case 'cathedraal_flute': return { fill: '#EAE6DA', pattern: 'cathedral' }
-    case 'other': return { fill: '#E8E5DC' }
+    case 'smoke':            return { fill: '#3A3935' }
+    case 'absolut_black':    return { fill: '#0E0E0E' }
+    case 'chinchilla':       return { fill: '#D8D2C0' }
+    case 'crepi':            return { fill: '#E8E0CE' }
+    case 'other':            return { fill: '#E8E5DC' }
+    default:                 return { fill: '#EEF3F6' }
   }
 }
 

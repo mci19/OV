@@ -11,7 +11,8 @@ import { DimensionLabels } from './DimensionLabels'
 import { FreehandLayer } from './FreehandLayer'
 import { TemplateGallery } from './TemplateGallery'
 import { DetailsStrip } from './DetailsStrip'
-import type { SnapMode } from './SnapHelper'
+// Snap-mode dropdown is verwijderd; we hanteren een vaste 10 mm grid.
+const FIXED_SNAP_MODE = '10' as const
 import { useT } from '../../lib/i18n'
 
 interface Props {
@@ -40,7 +41,7 @@ export function SketchEditor({ order, onChange }: Props) {
   useEffect(() => {
     try { localStorage.setItem(DETAILS_KEY, showDetails ? '1' : '0') } catch { /* */ }
   }, [showDetails])
-  const [snapMode, setSnapMode] = useState<SnapMode>('10')
+  const snapMode = FIXED_SNAP_MODE
   const [clientView, setClientView] = useState(false)
   const [exactInput, setExactInput] = useState<{
     orientation: 'vertical' | 'horizontal'
@@ -248,18 +249,6 @@ export function SketchEditor({ order, onChange }: Props) {
               <button type="button" className="chip" onClick={addHorizontal}>
                 {t('sketch.addHorizontal')}
               </button>
-              <select
-                className="chip cursor-pointer"
-                value={snapMode}
-                onChange={(e) => setSnapMode(e.target.value as SnapMode)}
-                aria-label={t('sketch.snapAria')}
-                title={t('sketch.snapTooltip')}
-              >
-                <option value="off">{t('sketch.snapOff')}</option>
-                <option value="10">{t('sketch.snap10')}</option>
-                <option value="50">{t('sketch.snap50')}</option>
-                <option value="100">{t('sketch.snap100')}</option>
-              </select>
             </>
           ) : null}
           {mode === 'vrij' ? (

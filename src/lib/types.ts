@@ -11,10 +11,31 @@ export type HingeSide =
   | 'double_3'
   | 'double_4'
 
-export type GlassType = 'clear' | 'matt' | 'cathedraal_flute' | 'other'
+export type GlassType =
+  | 'clear'            // Transparant
+  | 'matt'             // Mat
+  | 'flute'            // Flute
+  | 'cathedraal'       // Kathedraal
+  | 'smoke'            // Smoke
+  | 'absolut_black'    // Absolut black
+  | 'chinchilla'       // Chinchilla
+  | 'crepi'            // Crepi
+  | 'cathedraal_flute' // legacy — gemigreerd naar 'cathedraal' via sanitize
+  | 'other'
 
 export type System = 'hinges' | 'pivotica' | 'sliding'
 export type Variant = 'panel_door' | 'double_door' | 'fritsjurgens_3'
+
+/**
+ * Configuratie van de hele deur(opstelling). Vervangt in v5 de oude
+ * variants[]-multi-chip. Bestaande data wordt geremaped via
+ * sanitizeOrderData.
+ */
+export type DoorConfig =
+  | 'single'      // Enkele deur
+  | 'double'      // Dubbele deur
+  | 'side_panel'  // Deur met vast zij- of bovenpaneel
+  | 'pivot'       // Pivot deur
 
 export type Finishing = 'glasslist_10' | 'glasslist_15' | 'soudal_mastiek'
 
@@ -89,7 +110,8 @@ export interface OrderData {
   glassOther: string
   // systeem
   system: System
-  variants: Variant[]
+  variants: Variant[]      // legacy — wordt door sanitize geremaped naar doorConfig
+  doorConfig: DoorConfig
   softOpen: boolean
   softClose: boolean
   // finishing
@@ -134,6 +156,7 @@ export const DEFAULT_ORDER: OrderData = {
 
   system: 'hinges',
   variants: ['panel_door'],
+  doorConfig: 'single',
   softOpen: false,
   softClose: false,
 
@@ -198,6 +221,25 @@ export function sanitizeOrderData(raw: Partial<OrderData>): OrderData {
         return { id, x }
       }),
     }
+  }
+
+  // doorConfig: afleiden uit legacy variants[] + system als nog niet gezet
+  if (!(['single', 'double', 'side_panel', 'pivot'] as DoorConfig[]).includes(merged.doorConfig)) {
+    if (merged.system === 'pivotica') {
+      merged.doorConfig = 'pivot'
+    } else if (merged.variants?.includes('double_door') || merged.hingeKind === 'double') {
+      merged.doorConfig = 'double'
+    } else if (merged.variants?.includes('fritsjurgens_3')) {
+      merged.doorConfig = 'pivot'
+    } else {
+      merged.doorConfig = 'single'
+    }
+  }
+
+  // GlassType: legacy 'cathedraal_flute' splitst nu in 'cathedraal' + 'flute'
+  // — default naar 'cathedraal' (meest voorkomend in de praktijk).
+  if (merged.glassType === 'cathedraal_flute' as GlassType) {
+    merged.glassType = 'cathedraal'
   }
 
   return merged

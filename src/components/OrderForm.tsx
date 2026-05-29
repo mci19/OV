@@ -1,5 +1,5 @@
 import type { OrderData, ValidationIssue } from '../lib/types'
-import { Chips, Field, FieldRow, MultiChips } from './Field'
+import { Chips, Field, FieldRow } from './Field'
 import { useT } from '../lib/i18n'
 import { useAppSettings } from '../lib/queries'
 import { DEFAULT_CUT_FORMULAS } from '../lib/db'
@@ -123,11 +123,16 @@ export function OrderForm({ order, set, issues }: Props) {
         <h2 className="section-h">{t('order.section.glass')}</h2>
         <Chips
           label={t('order.glassType')}
-          value={order.glassType}
+          value={order.glassType === 'cathedraal_flute' ? 'cathedraal' : order.glassType}
           options={[
             { value: 'clear', label: t('order.glassClear') },
             { value: 'matt', label: t('order.glassMatt') },
-            { value: 'cathedraal_flute', label: t('order.glassCathedraal') },
+            { value: 'flute', label: t('order.glassFlute') },
+            { value: 'cathedraal', label: t('order.glassCathedraal') },
+            { value: 'smoke', label: t('order.glassSmoke') },
+            { value: 'absolut_black', label: t('order.glassAbsolutBlack') },
+            { value: 'chinchilla', label: t('order.glassChinchilla') },
+            { value: 'crepi', label: t('order.glassCrepi') },
             { value: 'other', label: t('order.glassOther') },
           ]}
           onChange={(v) => set('glassType', v)}
@@ -146,27 +151,22 @@ export function OrderForm({ order, set, issues }: Props) {
       <section>
         <h2 className="section-h">{t('order.section.system')}</h2>
         <Chips
-          label={t('order.system')}
-          value={order.system}
+          label={t('order.doorConfig')}
+          value={order.doorConfig}
           options={[
-            { value: 'hinges', label: t('order.systemHinges') },
-            { value: 'pivotica', label: t('order.systemPivotica') },
-            { value: 'sliding', label: t('order.systemSliding') },
+            { value: 'single', label: t('order.doorConfigSingle') },
+            { value: 'double', label: t('order.doorConfigDouble') },
+            { value: 'side_panel', label: t('order.doorConfigSidePanel') },
+            { value: 'pivot', label: t('order.doorConfigPivot') },
           ]}
-          onChange={(v) => set('system', v)}
+          onChange={(v) => {
+            // Sync legacy fields zodat ze niet uit elkaar lopen
+            set('doorConfig', v)
+            if (v === 'double') set('hingeKind', 'double')
+            else if (v === 'pivot') set('system', 'pivotica')
+            else { set('hingeKind', 'single'); set('system', 'hinges') }
+          }}
         />
-        <div className="mt-3">
-          <MultiChips
-            label={t('order.variant')}
-            values={order.variants}
-            options={[
-              { value: 'panel_door', label: t('order.variantPanel') },
-              { value: 'double_door', label: t('order.variantDouble') },
-              { value: 'fritsjurgens_3', label: t('order.variantFritsjurgens') },
-            ]}
-            onChange={(v) => set('variants', v)}
-          />
-        </div>
         <div className="mt-3 flex gap-6 font-mono text-sm">
           <label className="flex items-center gap-2">
             <input
@@ -185,20 +185,6 @@ export function OrderForm({ order, set, issues }: Props) {
             {t('order.softClose')}
           </label>
         </div>
-      </section>
-
-      <section>
-        <h2 className="section-h">{t('order.section.finishing')}</h2>
-        <Chips
-          label={t('order.finishing')}
-          value={order.finishing}
-          options={[
-            { value: 'glasslist_10', label: t('order.finishingGlasslist10') },
-            { value: 'glasslist_15', label: t('order.finishingGlasslist15') },
-            { value: 'soudal_mastiek', label: t('order.finishingSoudal') },
-          ]}
-          onChange={(v) => set('finishing', v)}
-        />
       </section>
 
       <section>
