@@ -54,7 +54,9 @@ export function DraggableHandle({
   }, [])
 
   // Greep-positie in canvas-coords
-  const defaultX = side === 'left' ? 50 : doorWidth - 50
+  // Default = blade-rand (= 44 mm vanaf deur-rand: 40mm kozijn + 4mm
+  // speling). Komt overeen met bladeX/bladeX+bladeW in DoorOutline.
+  const defaultX = side === 'left' ? 44 : doorWidth - 44
   const cx = x ?? defaultX
   const cy = doorHeight - heightFromBottom
 

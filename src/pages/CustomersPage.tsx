@@ -83,9 +83,10 @@ export function CustomersPage() {
       />
 
       <div className="mb-4 relative">
-        <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-[--color-muted]" />
+        <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-[--color-muted] pointer-events-none z-10" />
         <input
-          className="field-input pl-9"
+          className="field-input"
+          style={{ paddingLeft: 36 }}
           placeholder={t('customers.searchPlaceholder')}
           value={search}
           onChange={(e) => setSearch(e.target.value)}

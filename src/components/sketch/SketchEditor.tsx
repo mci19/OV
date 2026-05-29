@@ -11,6 +11,7 @@ import { DimensionLabels } from './DimensionLabels'
 import { FreehandLayer } from './FreehandLayer'
 import { CurveLayer } from './CurveLayer'
 import { DragLoupe } from './DragLoupe'
+import { ElementOptionsPanel } from './ElementOptionsPanel'
 import { TemplateGallery } from './TemplateGallery'
 import { DetailsStrip } from './DetailsStrip'
 // Snap-mode dropdown is verwijderd; we hanteren een vaste 10 mm grid.
@@ -38,20 +39,24 @@ export function SketchEditor({ order, onChange }: Props) {
   })
   const [savingTemplate, setSavingTemplate] = useState(false)
   const [browsingTemplates, setBrowsingTemplates] = useState(false)
-  const [handleExact, setHandleExact] = useState(false)
+  // handleExact + exactInput zijn vervangen door 'selected' + ElementOptionsPanel
 
   useEffect(() => {
     try { localStorage.setItem(DETAILS_KEY, showDetails ? '1' : '0') } catch { /* */ }
   }, [showDetails])
   const snapMode = FIXED_SNAP_MODE
   const [clientView, setClientView] = useState(false)
-  const [exactInput, setExactInput] = useState<{
-    orientation: 'vertical' | 'horizontal'
-    id: string
-    value: number
-  } | null>(null)
   // Drag-loupe: toont een 3× gezoomde inset rondom het sleep-punt
   const [loupe, setLoupe] = useState<{ x: number; y: number } | null>(null)
+  // Geselecteerd element → toont ElementOptionsPanel rechtsonder.
+  // null = niets geselecteerd. Klikken op element selecteert; klikken
+  // elders sluit.
+  const [selected, setSelected] = useState<
+    | { kind: 'handle' }
+    | { kind: 'vertical'; id: string }
+    | { kind: 'horizontal'; id: string }
+    | null
+  >(null)
   const svgRef = useRef<SVGSVGElement | null>(null)
 
   const { breedte, hoogte, sketch } = order
@@ -167,7 +172,7 @@ export function SketchEditor({ order, onChange }: Props) {
       const aiCurves = (result.curves ?? []).map((c, i) => ({
         id: `ai-c-${stamp}-${i}`,
         d: c.d,
-        width: 15,
+        width: 6,
       }))
       updateSketch({
         verticalLines: [
@@ -488,9 +493,7 @@ export function SketchEditor({ order, onChange }: Props) {
                 onChange={(nv) => setVertical(v.id, nv)}
                 onCommit={(nv) => setVertical(v.id, nv)}
                 onRequestDelete={() => removeVertical(v.id)}
-                onRequestExact={() =>
-                  setExactInput({ orientation: 'vertical', id: v.id, value: v.x })
-                }
+                onRequestExact={() => setSelected({ kind: 'vertical', id: v.id })}
                 onDragMove={(pos) => setLoupe(pos)}
                 onDragEnd={() => setLoupe(null)}
                 toUserX={toUserX}
@@ -511,9 +514,7 @@ export function SketchEditor({ order, onChange }: Props) {
                 onChange={(nv) => setHorizontal(h.id, nv)}
                 onCommit={(nv) => setHorizontal(h.id, nv)}
                 onRequestDelete={() => removeHorizontal(h.id)}
-                onRequestExact={() =>
-                  setExactInput({ orientation: 'horizontal', id: h.id, value: h.y })
-                }
+                onRequestExact={() => setSelected({ kind: 'horizontal', id: h.id })}
                 onDragMove={(pos) => setLoupe(pos)}
                 onDragEnd={() => setLoupe(null)}
                 toUserX={toUserX}
@@ -545,7 +546,7 @@ export function SketchEditor({ order, onChange }: Props) {
                     x: next.x,
                   },
                 })}
-                onRequestExact={() => setHandleExact(true)}
+                onRequestExact={() => setSelected({ kind: 'handle' })}
                 onDragStart={() => setShowDetails(false)}
                 onDragMove={(pos) => setLoupe(pos)}
                 onDragEnd={() => setLoupe(null)}
@@ -607,6 +608,80 @@ export function SketchEditor({ order, onChange }: Props) {
               ))}
             </DragLoupe>
           ) : null}
+
+          {/* Element-options panel — verschijnt na long-press op een
+              greep of design-lijn. Bevat mm-inputs, Reset-positie
+              (alleen handle) en Verwijder. */}
+          {selected ? (() => {
+            const bladeWidth = Math.max(0, breedte - 88)
+            const bladeX = (breedte - bladeWidth) / 2
+            const handleSide: 'left' | 'right' = order.hingeSide === 'belgisch_links' ? 'right' : 'left'
+            if (selected.kind === 'handle') {
+              const xDefault = handleSide === 'left' ? bladeX + 4 : bladeX + bladeWidth - 4
+              const yDefault = order.handlePosition.heightFromBottom
+              const xCurrent = order.handlePosition.x ?? xDefault
+              const yCurrent = order.handlePosition.heightFromBottom
+              const xOverridden = typeof order.handlePosition.x === 'number'
+              return (
+                <ElementOptionsPanel
+                  selected={{ kind: 'handle', xDefault, yDefault, xCurrent, yCurrent, xOverridden }}
+                  doorWidth={breedte}
+                  doorHeight={hoogte}
+                  onApply={(next) => {
+                    if (next.kind !== 'handle') return
+                    onChange({
+                      ...order,
+                      handlePosition: {
+                        ...order.handlePosition,
+                        x: next.xOverridden ? next.xCurrent : undefined,
+                        heightFromBottom: next.yCurrent,
+                      },
+                    })
+                  }}
+                  onReset={() => {
+                    onChange({
+                      ...order,
+                      handlePosition: { ...order.handlePosition, x: undefined },
+                    })
+                  }}
+                  onClose={() => setSelected(null)}
+                />
+              )
+            }
+            if (selected.kind === 'vertical') {
+              const v = sketch.verticalLines.find((vl) => vl.id === selected.id)
+              if (!v) { setSelected(null); return null }
+              return (
+                <ElementOptionsPanel
+                  selected={{ kind: 'vertical', id: v.id, value: v.x }}
+                  doorWidth={breedte}
+                  doorHeight={hoogte}
+                  onApply={(next) => {
+                    if (next.kind !== 'vertical') return
+                    setVertical(v.id, next.value)
+                  }}
+                  onDelete={() => { removeVertical(v.id); setSelected(null) }}
+                  onClose={() => setSelected(null)}
+                />
+              )
+            }
+            // horizontal
+            const h = sketch.horizontalLines.find((hl) => hl.id === selected.id)
+            if (!h) { setSelected(null); return null }
+            return (
+              <ElementOptionsPanel
+                selected={{ kind: 'horizontal', id: h.id, value: h.y }}
+                doorWidth={breedte}
+                doorHeight={hoogte}
+                onApply={(next) => {
+                  if (next.kind !== 'horizontal') return
+                  setHorizontal(h.id, next.value)
+                }}
+                onDelete={() => { removeHorizontal(h.id); setSelected(null) }}
+                onClose={() => setSelected(null)}
+              />
+            )
+          })() : null}
         </div>
       )}
 
@@ -615,25 +690,6 @@ export function SketchEditor({ order, onChange }: Props) {
         <div className="max-h-[40vh] overflow-y-auto">
           <DetailsStrip order={order} />
         </div>
-      ) : null}
-
-      {exactInput ? (
-        <ExactDialog
-          orientation={exactInput.orientation}
-          value={exactInput.value}
-          max={exactInput.orientation === 'vertical' ? breedte : hoogte}
-          onCancel={() => setExactInput(null)}
-          onConfirm={(nv) => {
-            if (exactInput.orientation === 'vertical') setVertical(exactInput.id, nv)
-            else setHorizontal(exactInput.id, nv)
-            setExactInput(null)
-          }}
-          onDelete={() => {
-            if (exactInput.orientation === 'vertical') removeVertical(exactInput.id)
-            else removeHorizontal(exactInput.id)
-            setExactInput(null)
-          }}
-        />
       ) : null}
 
       {savingTemplate ? (
@@ -654,89 +710,6 @@ export function SketchEditor({ order, onChange }: Props) {
           }}
         />
       ) : null}
-
-      {handleExact ? (
-        <HandleExactDialog
-          order={order}
-          onClose={() => setHandleExact(false)}
-          onSave={(h, side, xMm) => {
-            onChange({
-              ...order,
-              handlePosition: { side, heightFromBottom: h, x: xMm },
-            })
-            setHandleExact(false)
-          }}
-        />
-      ) : null}
-    </div>
-  )
-}
-
-function HandleExactDialog({
-  order, onClose, onSave,
-}: { order: OrderData; onClose: () => void; onSave: (h: number, side: 'left' | 'right', x?: number) => void }) {
-  const { t } = useT()
-  const [h, setH] = useState(order.handlePosition.heightFromBottom)
-  const [side, setSide] = useState<'left' | 'right'>(order.handlePosition.side)
-  // X is optioneel — leeg = automatisch (side+50mm), getal = expliciete X
-  const [xStr, setXStr] = useState<string>(
-    typeof order.handlePosition.x === 'number' ? String(order.handlePosition.x) : '',
-  )
-  return (
-    <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4 no-print" onClick={onClose}>
-      <div className="bg-white border border-black p-6 w-full max-w-md rounded-lg" onClick={(e) => e.stopPropagation()}>
-        <h3 className="font-mono font-bold uppercase tracking-wider text-sm mb-3">{t('sketch.handleExactTitle')}</h3>
-        <label className="block field-label">{t('sketch.handleHeightLabel')}</label>
-        <input
-          type="number"
-          autoFocus
-          min={50}
-          max={order.hoogte - 50}
-          step={1}
-          value={h}
-          onChange={(e) => setH(Math.max(50, Math.min(order.hoogte - 50, Number(e.target.value))))}
-          className="field-input text-2xl"
-        />
-        <div className="font-mono text-xs text-[--color-muted] mt-2">{t('sketch.handleRange', { min: 50, max: order.hoogte - 50 })}</div>
-
-        <div className="mt-4">
-          <label className="block field-label">X-positie (mm vanaf links — leeg = automatisch)</label>
-          <input
-            type="number"
-            min={20}
-            max={order.breedte - 20}
-            step={1}
-            value={xStr}
-            placeholder={side === 'left' ? '50' : String(order.breedte - 50)}
-            onChange={(e) => setXStr(e.target.value)}
-            className="field-input text-lg"
-          />
-          <div className="font-mono text-xs text-[--color-muted] mt-1">20 – {order.breedte - 20} mm</div>
-        </div>
-
-        <div className="mt-4">
-          <span className="field-label">{t('sketch.handleSideLabel')}</span>
-          <div className="flex gap-2 mt-1">
-            <button type="button" className="chip" data-active={side === 'left'} onClick={() => setSide('left')}>{t('order.handleSideLeft')}</button>
-            <button type="button" className="chip" data-active={side === 'right'} onClick={() => setSide('right')}>{t('order.handleSideRight')}</button>
-          </div>
-        </div>
-
-        <div className="mt-5 flex justify-end gap-2">
-          <button type="button" className="chip" onClick={onClose}>{t('common.cancel')}</button>
-          <button
-            type="button"
-            className="chip"
-            data-active
-            onClick={() => {
-              const xNum = xStr.trim() === '' ? undefined : Math.max(20, Math.min(order.breedte - 20, Number(xStr)))
-              onSave(h, side, xNum)
-            }}
-          >
-            {t('common.confirm')}
-          </button>
-        </div>
-      </div>
     </div>
   )
 }
@@ -823,64 +796,3 @@ function BrowseTemplatesDialog({ onClose, onApply }: { onClose: () => void; onAp
   )
 }
 
-interface ExactDialogProps {
-  orientation: 'vertical' | 'horizontal'
-  value: number
-  max: number
-  onCancel: () => void
-  onConfirm: (v: number) => void
-  onDelete: () => void
-}
-
-function ExactDialog({
-  orientation, value, max,
-  onCancel, onConfirm, onDelete,
-}: ExactDialogProps) {
-  const { t } = useT()
-  const label = orientation === 'vertical' ? t('sketch.exactVertical') : t('sketch.exactHorizontal')
-  // useRef i.p.v. document.getElementById: bij concurrent rendering kan
-  // een oude dialog-instance kortstondig tegelijk met een nieuwe in de
-  // DOM bestaan; getElementById('exact-input') zou dan de oude lezen.
-  const inputRef = useRef<HTMLInputElement>(null)
-
-  return (
-    <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4 no-print">
-      <div className="bg-white border border-black p-6 w-full max-w-md rounded-lg">
-        <h3 className="font-mono font-bold uppercase tracking-wider text-sm mb-3">{t('sketch.exactTitle')}</h3>
-        <label className="block field-label">{label}</label>
-        <input
-          ref={inputRef}
-          type="number"
-          autoFocus
-          min={0}
-          max={max}
-          defaultValue={value}
-          className="field-input text-2xl"
-        />
-        <div className="font-mono text-xs text-zinc-500 mt-2">{t('sketch.exactRange', { max })}</div>
-
-        <div className="mt-5 flex gap-2 justify-between">
-          <button type="button" className="chip" onClick={onDelete}>
-            {t('sketch.deleteLine')}
-          </button>
-          <div className="flex gap-2">
-            <button type="button" className="chip" onClick={onCancel}>
-              {t('common.cancel')}
-            </button>
-            <button
-              type="button"
-              className="chip"
-              data-active
-              onClick={() => {
-                const inp = inputRef.current
-                if (inp) onConfirm(Math.max(0, Math.min(max, Number(inp.value))))
-              }}
-            >
-              {t('common.confirm')}
-            </button>
-          </div>
-        </div>
-      </div>
-    </div>
-  )
-}

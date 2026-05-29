@@ -79,7 +79,7 @@ export function CurveLayer({
       onAddCurve({
         id: `c-${Date.now().toString(36)}`,
         d,
-        width: 15,
+        width: 6, // slank, vergelijkbaar met 15×15-glaslijst maar visueel rustiger
       })
       // Reset voor volgende curve
       setStart(null)

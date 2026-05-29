@@ -306,8 +306,11 @@ interface LockHandleProps {
 
 function LockAndHandle({ order, bladeX, bladeY, bladeW, bladeH, hingeOnLeft, clientView }: LockHandleProps) {
   const handleSide: 'left' | 'right' = hingeOnLeft ? 'right' : 'left'
-  // Custom X (door-coord) wint boven side+offset default
-  const defaultX = handleSide === 'left' ? bladeX + 50 : bladeX + bladeW - 50
+  // Default-positie is op de blade-rand (= steel-frame zijde van de
+  // deur). De 4mm-strook tussen blade-edge en glas is technisch waar
+  // de greep gemonteerd wordt. Visueel zit hij dan op het ijzer, niet
+  // op het glas. handleSide.x override (= drag) wint hierover.
+  const defaultX = handleSide === 'left' ? bladeX + 4 : bladeX + bladeW - 4
   const handleX = typeof order.handlePosition.x === 'number'
     ? order.handlePosition.x
     : defaultX
@@ -465,27 +468,49 @@ function LockAndHandle({ order, bladeX, bladeY, bladeW, bladeH, hingeOnLeft, cli
       }
 
       case 't_grip': {
-        // T-greep: korte verticale bar + horizontale top-cap, gemonteerd
-        // op de deurkant. Adjustable via handleVerticalMm.
-        const top = handleYFromTop - len / 2
-        const bot = handleYFromTop + len / 2
-        const barX = handleX + dirSign * 22
-        const capLen = Math.min(60, len * 0.35) // top-cap = ~35% van bar-lengte
+        // T-greep: korte verticale bar hangt VANAF een horizontale top-
+        // cap die op de deur is gemonteerd. T-vorm in vooraanzicht:
+        //   ───────  ← top-cap (horizontaal, breed)
+        //      │
+        //      │     ← verticale bar (hangt naar beneden)
+        //      │
+        const capLen = Math.min(90, len * 0.6) // top-cap ~60% van len
+        const barLen = len // verticale lengte van de bar
+        const top = handleYFromTop
+        const bot = top + barLen
+        // Bar X is centered op handleX, niet offset zoals L-grip
+        const cx = handleX
         return (
           <g>
-            {/* Verticale bar */}
-            <rect x={barX - 4} y={top + 10} width={8} height={len - 20}
-              fill={stroke} stroke={stroke} strokeWidth={1} rx={2}
-              vectorEffect="non-scaling-stroke" />
-            {/* Top horizontale cap */}
-            <rect x={barX - capLen / 2} y={top}
-              width={capLen} height={10}
-              fill={stroke} stroke={stroke} strokeWidth={1} rx={2}
-              vectorEffect="non-scaling-stroke" />
-            {/* Mount onder */}
-            <line x1={handleX} y1={bot - 5} x2={barX} y2={bot - 5}
-              stroke={stroke} strokeWidth={4} strokeLinecap="round"
-              vectorEffect="non-scaling-stroke" />
+            {/* Top-cap horizontaal — staat op de deur */}
+            <rect
+              x={cx - capLen / 2}
+              y={top - 3}
+              width={capLen}
+              height={6}
+              fill={stroke}
+              stroke={stroke}
+              strokeWidth={1}
+              rx={2}
+              vectorEffect="non-scaling-stroke"
+            />
+            {/* Bevestigings-puntjes op de uiteinden van de cap */}
+            <circle cx={cx - capLen / 2 + 5} cy={top} r={2.5} fill="#FFFFFF" stroke={stroke} strokeWidth={1} vectorEffect="non-scaling-stroke" />
+            <circle cx={cx + capLen / 2 - 5} cy={top} r={2.5} fill="#FFFFFF" stroke={stroke} strokeWidth={1} vectorEffect="non-scaling-stroke" />
+            {/* Verticale bar — hangt naar beneden vanaf het midden van de cap */}
+            <rect
+              x={cx - 5}
+              y={top + 3}
+              width={10}
+              height={barLen}
+              fill={stroke}
+              stroke={stroke}
+              strokeWidth={1}
+              rx={3}
+              vectorEffect="non-scaling-stroke"
+            />
+            {/* Subtiele ronding onderaan de bar */}
+            <circle cx={cx} cy={bot + 3} r={5} fill={stroke} vectorEffect="non-scaling-stroke" />
           </g>
         )
       }

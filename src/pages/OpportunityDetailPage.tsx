@@ -101,8 +101,12 @@ export function OpportunityDetailPage() {
     setOrder(next)
     setDirty(true)
   }
+  // Functional update zodat opeenvolgende set()-calls binnen één event-
+  // handler de juiste vorige state zien (anders overschrijven ze elkaar
+  // — bv. setDoorConfig + setHingeKind achter elkaar).
   function set<K extends keyof OrderData>(k: K, v: OrderData[K]) {
-    updateOrder({ ...order, [k]: v })
+    setOrder((prev) => ({ ...prev, [k]: v }))
+    setDirty(true)
   }
 
   async function persist() {
