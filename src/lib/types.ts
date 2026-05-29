@@ -60,7 +60,7 @@ export type ColorKind = 'ral_9005' | 'ral_9010' | 'other'
 
 // ─── sketch ─────────────────────────────────────────────────────
 
-export type SketchMode = 'snel' | 'lijnen' | 'vrij'
+export type SketchMode = 'snel' | 'lijnen' | 'vrij' | 'curve'
 
 export interface VerticalLine {
   id: string
@@ -77,11 +77,21 @@ export interface FreehandStroke {
   width: number // pen breedte in mm
 }
 
+/** Gebogen lijn als kwadratische of kubische bezier. Bewaard als SVG-
+ *  path-data (M x y Q cx cy x2 y2) in mm-coordinaten zodat ze direct
+ *  gerenderd kunnen worden in canvas én PDF. */
+export interface CurveStroke {
+  id: string
+  d: string
+  width: number // lijn-dikte in mm; default 15 = glaslijst-look
+}
+
 export interface SketchData {
   templateId?: string
   verticalLines: VerticalLine[]
   horizontalLines: HorizontalLine[]
   freehand: FreehandStroke[]
+  curves?: CurveStroke[]
 }
 
 export interface HandlePosition {
@@ -181,6 +191,7 @@ export const DEFAULT_ORDER: OrderData = {
     verticalLines: [],
     horizontalLines: [],
     freehand: [],
+    curves: [],
   },
 }
 

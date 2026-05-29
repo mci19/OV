@@ -13,11 +13,11 @@ import { DataTable, type DataTableColumn } from '../components/DataTable'
 import { ViewToggle, readViewMode, writeViewMode, type ViewMode } from '../components/ViewToggle'
 
 export function CustomersPage() {
-  const { t } = useT()
+  const { t, lang } = useT()
   const navigate = useNavigate()
   const [search, setSearch] = useState('')
   const [editing, setEditing] = useState<Customer | 'new' | null>(null)
-  const [view, setView] = useState<ViewMode>(() => readViewMode('customers', 'cards'))
+  const [view, setView] = useState<ViewMode>(() => readViewMode('customers', 'table'))
   const { data: customers = [], isLoading, error } = useCustomers(search)
 
   function setViewMode(m: ViewMode) {
@@ -51,6 +51,18 @@ export function CustomersPage() {
       header: t('customers.editor.city'),
       cell: (c) => c.address_city || '—',
       sortValue: (c) => c.address_city ?? '',
+      hideBelow: 1024,
+    },
+    {
+      key: 'created',
+      header: t('common.created'),
+      cell: (c) => (
+        <span className="font-mono text-[11px] text-[--color-muted]">
+          {new Date(c.created_at).toLocaleDateString(lang === 'en' ? 'en-GB' : 'nl-BE')}
+        </span>
+      ),
+      sortValue: (c) => c.created_at,
+      align: 'right',
       hideBelow: 1024,
     },
   ]
@@ -95,7 +107,7 @@ export function CustomersPage() {
           columns={tableColumns}
           rowKey={(c) => c.id}
           persistKey="customers"
-          defaultSort={{ key: 'name', dir: 'asc' }}
+          defaultSort={{ key: 'created', dir: 'desc' }}
           onRowClick={(c) => navigate(`/customers/${c.id}`)}
           emptyText={t('customers.empty')}
         />

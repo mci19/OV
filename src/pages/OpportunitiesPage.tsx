@@ -22,7 +22,7 @@ export function OpportunitiesPage() {
   const [stageFilter, setStageFilter] = useState<'all' | OpportunityStage>(
     (params.get('stage') as OpportunityStage) || 'all',
   )
-  const [view, setView] = useState<ViewMode>(() => readViewMode('opportunities', 'kanban'))
+  const [view, setView] = useState<ViewMode>(() => readViewMode('opportunities', 'table'))
   const [editing, setEditing] = useState<{ customer_id?: string } | null>(null)
   const { data: opps = [], isLoading, error } = useOpportunities()
 
@@ -86,12 +86,24 @@ export function OpportunitiesPage() {
       hideBelow: 768,
     },
     {
+      key: 'created',
+      header: t('common.created'),
+      cell: (o) => (
+        <span className="font-mono text-[11px] text-[--color-muted]">
+          {new Date(o.created_at).toLocaleDateString(lang === 'en' ? 'en-GB' : 'nl-BE')}
+        </span>
+      ),
+      sortValue: (o) => o.created_at,
+      align: 'right',
+      hideBelow: 1024,
+    },
+    {
       key: 'updated',
       header: t('common.updated'),
       cell: (o) => <span className="font-mono text-[11px] text-[--color-muted]">{relativeTime(o.updated_at, lang)}</span>,
       sortValue: (o) => o.updated_at,
       align: 'right',
-      hideBelow: 1024,
+      hideBelow: 1280,
     },
   ]
 
@@ -160,7 +172,7 @@ export function OpportunitiesPage() {
           columns={tableColumns}
           rowKey={(o) => o.id}
           persistKey="opportunities"
-          defaultSort={{ key: 'updated', dir: 'desc' }}
+          defaultSort={{ key: 'created', dir: 'desc' }}
           onRowClick={(o) => navigate(`/opportunities/${o.id}`)}
           emptyText={t('opps.empty.title')}
         />

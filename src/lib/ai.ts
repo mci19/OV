@@ -4,6 +4,7 @@ import type { FreehandStroke } from './types'
 export interface AiSketchResult {
   verticalLines: { x: number }[]
   horizontalLines: { y: number }[]
+  curves?: { d: string }[]
   explanation: string
 }
 

@@ -14,10 +14,10 @@ import { ViewToggle, readViewMode, writeViewMode, type ViewMode } from '../compo
 const UNITS = ['stuk', 'm', 'm²', 'u', 'set', 'forfait']
 
 export function ProductsPage() {
-  const { t } = useT()
+  const { t, lang } = useT()
   const { data: products = [], isLoading } = useProducts(false)
   const [editing, setEditing] = useState<Product | 'new' | null>(null)
-  const [view, setView] = useState<ViewMode>(() => readViewMode('products', 'cards'))
+  const [view, setView] = useState<ViewMode>(() => readViewMode('products', 'table'))
   const del = useDeleteProduct()
 
   function setViewMode(m: ViewMode) {
@@ -75,6 +75,18 @@ export function ProductsPage() {
       hideBelow: 640,
     },
     {
+      key: 'created',
+      header: t('common.created'),
+      cell: (p) => (
+        <span className="font-mono text-[11px] text-[--color-muted]">
+          {new Date(p.created_at).toLocaleDateString(lang === 'en' ? 'en-GB' : 'nl-BE')}
+        </span>
+      ),
+      sortValue: (p) => p.created_at,
+      align: 'right',
+      hideBelow: 1024,
+    },
+    {
       key: 'actions',
       header: t('common.actions'),
       sortable: false,
@@ -122,7 +134,7 @@ export function ProductsPage() {
           columns={tableColumns}
           rowKey={(p) => p.id}
           persistKey="products"
-          defaultSort={{ key: 'name', dir: 'asc' }}
+          defaultSort={{ key: 'created', dir: 'desc' }}
           onRowClick={(p) => setEditing(p)}
           emptyText={t('products.emptyTitle')}
         />

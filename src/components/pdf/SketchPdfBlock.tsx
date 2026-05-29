@@ -71,6 +71,11 @@ export function SketchPdfBlock({
           <Path key={s.id} d={s.d} stroke="#000" strokeWidth={s.width} fill="none" strokeLinecap="round" />
         ))}
 
+        {/* Curves — bezier-paden uit de 'curve'-mode of door AI gegenereerd */}
+        {(sketch.curves ?? []).map((c) => (
+          <Path key={c.id} d={c.d} stroke="#000" strokeWidth={c.width} fill="none" strokeLinecap="round" />
+        ))}
+
         <Circle cx={handleCx} cy={handleCy} r={32} fill="#FFFFFF" stroke="#000" strokeWidth={4} />
         <Line
           x1={handleCx + (side === 'left' ? 32 : -32)}

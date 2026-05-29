@@ -38,7 +38,11 @@ FREEHAND-INTERPRETATIE:
 Bij vrije strokes: kijk per stroke naar de START en END punten.
 - Als |dx| > |dy| EN het pad is relatief recht → horizontale lijn op gemiddelde y
 - Als |dy| > |dx| EN relatief recht → verticale lijn op gemiddelde x
-- Wiebelig of cirkelvormig → negeer (geen valide grid-lijn)
+- Als de stroke duidelijk een BOOG of CURVE is (start en eind niet recht verbonden, met
+  een duidelijk hoogtepunt of dieptepunt ertussen) → retourneer een 'curves' item met
+  SVG path "M sx sy Q cx cy ex ey", waar (cx, cy) het schatting-control-punt is dat
+  de boog reproduceert. Y-as in coördinaten van BOVEN, NIET vanaf onder.
+- Wiebelig zonder duidelijke vorm → negeer (geen valide design-element)
 - Snap naar logische posities indien dicht bij midden/1/3/2/3 (binnen 30mm).
 
 ALTIJD aanroepen: de tool "set_sketch_lines" met de bepaalde lijnen. Geef
@@ -78,6 +82,21 @@ const SKETCH_TOOL: Anthropic.Tool = {
             },
           },
           required: ['y'],
+        },
+      },
+      curves: {
+        type: 'array',
+        maxItems: 8,
+        description: 'Optionele gebogen lijnen (kwadratische beziers). Gebruik dit voor designs met bogen, halve cirkels, S-curves. Coördinaten in mm; oorsprong linksboven, y van boven (NIET van onder).',
+        items: {
+          type: 'object',
+          properties: {
+            d: {
+              type: 'string',
+              description: 'SVG path data, alleen M en Q toegestaan. Bv. "M 100 200 Q 400 50 700 200" = curve van (100,200) naar (700,200) met controlpunt (400,50).',
+            },
+          },
+          required: ['d'],
         },
       },
       explanation: {
@@ -253,6 +272,7 @@ export const handler: Handler = async (event: HandlerEvent) => {
     const result = toolUse.input as {
       verticalLines: { x: number }[]
       horizontalLines: { y: number }[]
+      curves?: { d: string }[]
       explanation: string
     }
 
@@ -264,10 +284,16 @@ export const handler: Handler = async (event: HandlerEvent) => {
     const safeH = (result.horizontalLines || []).slice(0, 5).map((l) => ({
       y: clamp(Math.round(l.y), 50, doorHeight - 50),
     }))
+    // Curves: alleen M..Q..-paden toelaten, geen rare characters
+    const safeCurves = (result.curves || []).slice(0, 8)
+      .map((c) => (c?.d ?? '').trim())
+      .filter((d) => /^M\s+[-\d.\s]+Q\s+[-\d.\s]+$/i.test(d))
+      .map((d) => ({ d }))
 
     return json(200, {
       verticalLines: safeV,
       horizontalLines: safeH,
+      curves: safeCurves,
       explanation: result.explanation ?? '',
       usage: {
         input_tokens: response.usage.input_tokens,

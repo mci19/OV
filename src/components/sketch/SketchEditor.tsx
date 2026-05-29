@@ -9,6 +9,7 @@ import { DraggableLine } from './DraggableLine'
 import { DraggableHandle } from './DraggableHandle'
 import { DimensionLabels } from './DimensionLabels'
 import { FreehandLayer } from './FreehandLayer'
+import { CurveLayer } from './CurveLayer'
 import { TemplateGallery } from './TemplateGallery'
 import { DetailsStrip } from './DetailsStrip'
 // Snap-mode dropdown is verwijderd; we hanteren een vaste 10 mm grid.
@@ -158,6 +159,11 @@ export function SketchEditor({ order, onChange }: Props) {
         doorHeight: hoogte,
       })
       const stamp = Date.now().toString(36)
+      const aiCurves = (result.curves ?? []).map((c, i) => ({
+        id: `ai-c-${stamp}-${i}`,
+        d: c.d,
+        width: 15,
+      }))
       updateSketch({
         verticalLines: [
           ...sketch.verticalLines,
@@ -167,9 +173,10 @@ export function SketchEditor({ order, onChange }: Props) {
           ...sketch.horizontalLines,
           ...result.horizontalLines.map((h, i) => ({ id: `ai-h-${stamp}-${i}`, y: h.y })),
         ],
+        curves: [...(sketch.curves ?? []), ...aiCurves],
         freehand: [],
       })
-      setAiHint(result.explanation || t('sketch.aiHintFromFree', { n: result.verticalLines.length + result.horizontalLines.length }))
+      setAiHint(result.explanation || t('sketch.aiHintFromFree', { n: result.verticalLines.length + result.horizontalLines.length + aiCurves.length }))
       setMode('lijnen')
     } catch (err) {
       setAiError(err instanceof Error ? err.message : t('sketch.aiError'))
@@ -228,7 +235,7 @@ export function SketchEditor({ order, onChange }: Props) {
     <div className="flex flex-col h-full">
       <div className="no-print border-b border-black/10 bg-paper px-3 py-2 flex items-center justify-between gap-2 flex-wrap">
         <div className="flex gap-1">
-          {(['snel', 'lijnen', 'vrij'] as const).map((m) => (
+          {(['snel', 'lijnen', 'vrij', 'curve'] as const).map((m) => (
             <button
               key={m}
               type="button"
@@ -236,7 +243,7 @@ export function SketchEditor({ order, onChange }: Props) {
               data-active={mode === m}
               onClick={() => setMode(m)}
             >
-              {m === 'snel' ? t('sketch.mode.snel') : m === 'lijnen' ? t('sketch.mode.lijnen') : t('sketch.mode.vrij')}
+              {m === 'snel' ? t('sketch.mode.snel') : m === 'lijnen' ? t('sketch.mode.lijnen') : m === 'vrij' ? t('sketch.mode.vrij') : t('sketch.mode.curve')}
             </button>
           ))}
         </div>
@@ -281,6 +288,26 @@ export function SketchEditor({ order, onChange }: Props) {
                   title={t('sketch.aiConvertTooltip')}
                 >
                   <Sparkles size={14} /> {aiBusy ? t('sketch.aiBusy') : t('sketch.aiConvert')}
+                </button>
+              ) : null}
+            </>
+          ) : null}
+          {mode === 'curve' ? (
+            <>
+              <button
+                type="button"
+                className="chip"
+                onClick={() => updateSketch({ curves: [] })}
+              >
+                {t('sketch.curve.clear')}
+              </button>
+              {(sketch.curves?.length ?? 0) > 0 ? (
+                <button
+                  type="button"
+                  className="chip"
+                  onClick={() => updateSketch({ curves: (sketch.curves ?? []).slice(0, -1) })}
+                >
+                  {t('sketch.curve.undo')}
                 </button>
               ) : null}
             </>
@@ -354,6 +381,12 @@ export function SketchEditor({ order, onChange }: Props) {
         </div>
       ) : null}
 
+      {mode === 'curve' && !clientView ? (
+        <div className="no-print px-3 py-1.5 text-xs font-mono bg-paper/60 border-b border-soft-2 text-[--color-muted]">
+          {t('sketch.curve.hint.start')} → {t('sketch.curve.hint.control')} → {t('sketch.curve.hint.end')}
+        </div>
+      ) : null}
+
       {mode === 'snel' ? (
         <div className="flex-1 overflow-auto">
           <TemplateGallery order={order} onPick={pickTemplate} />
@@ -398,6 +431,19 @@ export function SketchEditor({ order, onChange }: Props) {
               toUserY={toUserY}
               onAddStroke={(s) =>
                 updateSketch({ freehand: [...sketch.freehand, s] })
+              }
+            />
+
+            {/* curves (gebogen lijnen via 3-klik bezier) */}
+            <CurveLayer
+              curves={sketch.curves ?? []}
+              doorWidth={breedte}
+              doorHeight={hoogte}
+              active={mode === 'curve' && !clientView}
+              toUserX={toUserX}
+              toUserY={toUserY}
+              onAddCurve={(c) =>
+                updateSketch({ curves: [...(sketch.curves ?? []), c] })
               }
             />
 
