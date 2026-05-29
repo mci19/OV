@@ -102,10 +102,11 @@ export function FabricantOrderPDF({ order, cutFormulas, lang = 'nl' }: Props) {
           <Specs label={tFor(lang, 'pdf.installationIncluded')} value={order.plaatsingInbegrepen ? yes : no} />
         </View>
 
-        <Text style={styles.footer} fixed>
-          <Text>MY DOORS · {nr}</Text>
-          <Text>{tFor(lang, 'pdf.page')} 1</Text>
-        </Text>
+        <Text
+          style={styles.footer}
+          fixed
+          render={({ pageNumber, totalPages }) => `MY DOORS · ${nr}   ${tFor(lang, 'pdf.page')} ${pageNumber} / ${totalPages}`}
+        />
       </Page>
 
       <Page size="A4" style={styles.page}>
@@ -128,10 +129,11 @@ export function FabricantOrderPDF({ order, cutFormulas, lang = 'nl' }: Props) {
             <Text style={{ fontSize: 10, lineHeight: 1.5 }}>{order.opmerkingen}</Text>
           </View>
         ) : null}
-        <Text style={styles.footer} fixed>
-          <Text>MY DOORS · {nr}</Text>
-          <Text>{tFor(lang, 'pdf.page')} 2</Text>
-        </Text>
+        <Text
+          style={styles.footer}
+          fixed
+          render={({ pageNumber, totalPages }) => `MY DOORS · ${nr}   ${tFor(lang, 'pdf.page')} ${pageNumber} / ${totalPages}`}
+        />
       </Page>
 
       {/* Zaaglijst — exact in MY DOORS productie-format */}
@@ -164,10 +166,11 @@ export function FabricantOrderPDF({ order, cutFormulas, lang = 'nl' }: Props) {
           </View>
         ) : null}
 
-        <Text style={styles.footer} fixed>
-          <Text>MY DOORS · {nr}</Text>
-          <Text>{tFor(lang, 'pdf.zaaglijstLabel')}</Text>
-        </Text>
+        <Text
+          style={styles.footer}
+          fixed
+          render={({ pageNumber, totalPages }) => `MY DOORS · ${nr}   ${tFor(lang, 'pdf.zaaglijstLabel')}   ${tFor(lang, 'pdf.page')} ${pageNumber} / ${totalPages}`}
+        />
       </Page>
 
       {order.sketch.freehand.length > 0 ? (
@@ -184,10 +187,11 @@ export function FabricantOrderPDF({ order, cutFormulas, lang = 'nl' }: Props) {
           <View style={styles.sketchWrap}>
             <SketchPdfBlock order={order} width={480} height={640} showDimensions={false} />
           </View>
-          <Text style={styles.footer} fixed>
-            <Text>MY DOORS · {nr}</Text>
-            <Text>{tFor(lang, 'pdf.page')} 4</Text>
-          </Text>
+          <Text
+            style={styles.footer}
+            fixed
+            render={({ pageNumber, totalPages }) => `MY DOORS · ${nr}   ${tFor(lang, 'pdf.page')} ${pageNumber} / ${totalPages}`}
+          />
         </Page>
       ) : null}
     </Document>

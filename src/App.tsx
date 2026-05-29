@@ -1,5 +1,5 @@
 import { lazy, Suspense } from 'react'
-import { Navigate, Outlet, Route, Routes } from 'react-router-dom'
+import { createBrowserRouter, Navigate, Outlet, RouterProvider } from 'react-router-dom'
 import { useAuth } from './lib/auth'
 import { Layout } from './components/Layout'
 import { LoginPage } from './pages/LoginPage'
@@ -13,26 +13,37 @@ const QuoteEditorPage = lazy(() => import('./pages/QuoteEditorPage').then((m) =>
 const ProductsPage = lazy(() => import('./pages/ProductsPage').then((m) => ({ default: m.ProductsPage })))
 const SettingsPage = lazy(() => import('./pages/SettingsPage').then((m) => ({ default: m.SettingsPage })))
 
+// ─── Data-router setup ─────────────────────────────────────────
+// createBrowserRouter (i.p.v. <BrowserRouter>) is nodig om useBlocker
+// te kunnen gebruiken voor de unsaved-changes guard. SPA-fallback wordt
+// netjes geafgehandeld door de '*' catch-all.
+
+const router = createBrowserRouter([
+  { path: '/login', element: <LoginPage /> },
+  {
+    element: <AuthGate />,
+    children: [
+      {
+        element: <Layout />,
+        children: [
+          { index: true, element: <L><HomePage /></L> },
+          { path: 'customers', element: <L><CustomersPage /></L> },
+          { path: 'customers/:id', element: <L><CustomerDetailPage /></L> },
+          { path: 'opportunities', element: <L><OpportunitiesPage /></L> },
+          { path: 'opportunities/new', element: <Navigate to="/opportunities?new=1" replace /> },
+          { path: 'opportunities/:id', element: <L><OpportunityDetailPage /></L> },
+          { path: 'opportunities/:id/quote/:quoteId', element: <L><QuoteEditorPage /></L> },
+          { path: 'products', element: <L><ProductsPage /></L> },
+          { path: 'settings', element: <L><SettingsPage /></L> },
+        ],
+      },
+    ],
+  },
+  { path: '*', element: <Navigate to="/" replace /> },
+])
+
 export default function App() {
-  return (
-    <Routes>
-      <Route path="/login" element={<LoginPage />} />
-      <Route element={<AuthGate />}>
-        <Route element={<Layout />}>
-          <Route index element={<L><HomePage /></L>} />
-          <Route path="customers" element={<L><CustomersPage /></L>} />
-          <Route path="customers/:id" element={<L><CustomerDetailPage /></L>} />
-          <Route path="opportunities" element={<L><OpportunitiesPage /></L>} />
-          <Route path="opportunities/new" element={<Navigate to="/opportunities?new=1" replace />} />
-          <Route path="opportunities/:id" element={<L><OpportunityDetailPage /></L>} />
-          <Route path="opportunities/:id/quote/:quoteId" element={<L><QuoteEditorPage /></L>} />
-          <Route path="products" element={<L><ProductsPage /></L>} />
-          <Route path="settings" element={<L><SettingsPage /></L>} />
-        </Route>
-      </Route>
-      <Route path="*" element={<Navigate to="/" replace />} />
-    </Routes>
-  )
+  return <RouterProvider router={router} />
 }
 
 function L({ children }: { children: React.ReactNode }) {

@@ -114,14 +114,18 @@ export function QuotePDF({ opportunity, orderData, reference, validUntil, items,
 
         <View style={styles.block}>
           <Text style={styles.h2}>{tFor(lang, 'pdf.priceHeading')}</Text>
-          <View style={styles.thead}>
+          {/* fixed → thead herhaalt op elke pagina waar de tabel doorloopt.
+              Individuele rijen mogen breken (wrap=true is default), maar
+              elke rij blijft op zichzelf intact omdat trow geen sub-pagina
+              brekkende elementen heeft. */}
+          <View style={styles.thead} fixed>
             <Text style={styles.tdesc}>{tFor(lang, 'pdf.quoteDescription')}</Text>
             <Text style={styles.tqty}>{tFor(lang, 'pdf.colQuantity')}</Text>
             <Text style={styles.tunit}>{tFor(lang, 'pdf.colUnit')}</Text>
             <Text style={styles.ttotal}>{tFor(lang, 'pdf.colTotal')}</Text>
           </View>
           {items.map((i) => (
-            <View style={styles.trow} key={i.id}>
+            <View style={styles.trow} key={i.id} wrap={false}>
               <Text style={styles.tdesc}>{i.description || '—'}</Text>
               <Text style={styles.tqty}>{i.quantity}</Text>
               <Text style={styles.tunit}>{eur(i.unit_cents, lang)}</Text>
@@ -129,37 +133,48 @@ export function QuotePDF({ opportunity, orderData, reference, validUntil, items,
             </View>
           ))}
 
-          <View style={styles.totalsRow}>
-            <Text style={styles.totalsLabel}>{tFor(lang, 'pdf.totalsSubtotal')}</Text>
-            <Text style={styles.totalsVal}>{eur(subtotal, lang)}</Text>
-          </View>
-          <View style={styles.totalsRow}>
-            <Text style={styles.totalsLabel}>{tFor(lang, 'pdf.totalsVat', { rate: vatRate })}</Text>
-            <Text style={styles.totalsVal}>{eur(vat, lang)}</Text>
-          </View>
-          <View style={[styles.totalsRow, styles.finalRow]}>
-            <Text style={[styles.totalsLabel, styles.finalLabel]}>{tFor(lang, 'pdf.totalsTotal')}</Text>
-            <Text style={[styles.totalsVal, styles.finalVal]}>{eur(total, lang)}</Text>
+          {/* Totals + finale row blijven ALTIJD samen op één pagina —
+              voorkomt dat "Totaal" verdwaalt op een eenzame pagina 2. */}
+          <View wrap={false}>
+            <View style={styles.totalsRow}>
+              <Text style={styles.totalsLabel}>{tFor(lang, 'pdf.totalsSubtotal')}</Text>
+              <Text style={styles.totalsVal}>{eur(subtotal, lang)}</Text>
+            </View>
+            <View style={styles.totalsRow}>
+              <Text style={styles.totalsLabel}>{tFor(lang, 'pdf.totalsVat', { rate: vatRate })}</Text>
+              <Text style={styles.totalsVal}>{eur(vat, lang)}</Text>
+            </View>
+            <View style={[styles.totalsRow, styles.finalRow]}>
+              <Text style={[styles.totalsLabel, styles.finalLabel]}>{tFor(lang, 'pdf.totalsTotal')}</Text>
+              <Text style={[styles.totalsVal, styles.finalVal]}>{eur(total, lang)}</Text>
+            </View>
           </View>
         </View>
 
-        {settings?.quote_footer_note ? (
-          <View style={{ marginTop: 12 }}>
-            <Text style={{ fontSize: 8, color: '#5b5b53', lineHeight: 1.4 }}>
-              {settings.quote_footer_note}
-            </Text>
-          </View>
-        ) : null}
+        {/* Footer-note + signatures houden we ook samen */}
+        <View wrap={false}>
+          {settings?.quote_footer_note ? (
+            <View style={{ marginTop: 12 }}>
+              <Text style={{ fontSize: 8, color: '#5b5b53', lineHeight: 1.4 }}>
+                {settings.quote_footer_note}
+              </Text>
+            </View>
+          ) : null}
 
-        <View style={styles.signRow}>
-          <Text style={styles.signCol}>{tFor(lang, 'pdf.signClient')}</Text>
-          <Text style={styles.signCol}>{companyName}</Text>
+          <View style={styles.signRow}>
+            <Text style={styles.signCol}>{tFor(lang, 'pdf.signClient')}</Text>
+            <Text style={styles.signCol}>{companyName}</Text>
+          </View>
         </View>
 
-        <Text style={styles.footer} fixed>
-          <Text>{companyName} · {reference}</Text>
-          <Text>{tFor(lang, 'pdf.page')} 1</Text>
-        </Text>
+        {/* Dynamische paginanummering — werkt op elke pagina. */}
+        <Text
+          style={styles.footer}
+          fixed
+          render={({ pageNumber, totalPages }) => (
+            `${companyName} · ${reference}   ${tFor(lang, 'pdf.page')} ${pageNumber} / ${totalPages}`
+          )}
+        />
       </Page>
     </Document>
   )

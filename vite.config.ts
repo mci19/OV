@@ -5,6 +5,27 @@ import tailwindcss from '@tailwindcss/vite'
 import { VitePWA } from 'vite-plugin-pwa'
 
 export default defineConfig({
+  // Split vendor-libraries in eigen chunks zodat ze stabiel cachen
+  // tussen deploys (browser hergebruikt onveranderde vendor-bundles).
+  // De main app-chunk wordt ~250 KB i.p.v. ~620 KB.
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks: (id: string) => {
+          if (!id.includes('node_modules')) return undefined
+          if (id.includes('react-pdf') || id.includes('@react-pdf')) return // → react-pdf.browser (al via dynamic import)
+          if (id.includes('react-router')) return 'vendor-react'
+          if (id.includes('react-dom') || /\/react\//.test(id)) return 'vendor-react'
+          if (id.includes('@supabase')) return 'vendor-supabase'
+          if (id.includes('@tanstack')) return 'vendor-query'
+          if (id.includes('@dnd-kit')) return 'vendor-dnd'
+          if (id.includes('lucide-react')) return 'vendor-lucide'
+          return undefined
+        },
+      },
+    },
+    chunkSizeWarningLimit: 600,
+  },
   plugins: [
     react(),
     tailwindcss(),

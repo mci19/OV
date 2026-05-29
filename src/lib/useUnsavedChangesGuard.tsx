@@ -1,16 +1,33 @@
 import { useEffect } from 'react'
+import { useBlocker } from 'react-router-dom'
 
 /**
  * Beschermt tegen accidenteel weg-navigeren met niet-opgeslagen werk.
  *
- * Beperkt tot `beforeunload` — die vangt tab sluiten, browser refresh en
- * navigeren naar een externe URL af. In-app SPA-navigatie via Link of
- * navigate() wordt momenteel NIET geblokkeerd: react-router-dom's
- * `useBlocker` vereist de data-router API (`createBrowserRouter`), terwijl
- * de app op de classic `<BrowserRouter>` draait. Bij migratie naar de
- * data-router voegen we de in-app blocker hier opnieuw toe.
+ * - In-app navigatie (Link, navigate): react-router-dom `useBlocker`
+ *   onderschept de overgang en toont een confirm. Werkt sinds de
+ *   migratie naar `createBrowserRouter` (data-router API) in App.tsx.
+ * - Browser-native (refresh, tab sluiten, externe link): `beforeunload`
+ *   toont de browser-eigen "Wijzigingen verlaten?"-dialoog.
  */
-export function useUnsavedChangesGuard(dirty: boolean, _message: string): void {
+export function useUnsavedChangesGuard(dirty: boolean, message: string): void {
+  // 1. In-app blocker — onderschept SPA-navigatie binnen react-router
+  const blocker = useBlocker(({ currentLocation, nextLocation }) =>
+    dirty && currentLocation.pathname !== nextLocation.pathname,
+  )
+
+  useEffect(() => {
+    if (blocker.state === 'blocked') {
+      // Synchroon confirm: user kan OK = doorgaan, Cancel = blijven
+      if (window.confirm(message)) {
+        blocker.proceed()
+      } else {
+        blocker.reset()
+      }
+    }
+  }, [blocker, message])
+
+  // 2. Browser-native beforeunload (tab sluiten, refresh, externe link)
   useEffect(() => {
     if (!dirty) return
     function onBeforeUnload(e: BeforeUnloadEvent) {

@@ -37,6 +37,16 @@ export function OpportunityDetailPage() {
 
   const [order, setOrder] = useState<OrderData>(DEFAULT_ORDER)
   const [tab, setTab] = useState<Tab>('order')
+  // isWide volgt de viewport-breedte reactief — tablet draaien of
+  // window-resize past de layout meteen aan i.p.v. alleen bij mount.
+  const [isWide, setIsWide] = useState<boolean>(() =>
+    typeof window !== 'undefined' && window.innerWidth >= 1024,
+  )
+  useEffect(() => {
+    function onResize() { setIsWide(window.innerWidth >= 1024) }
+    window.addEventListener('resize', onResize)
+    return () => window.removeEventListener('resize', onResize)
+  }, [])
   const [view, setView] = useState<View>(() =>
     typeof window !== 'undefined' && window.innerWidth >= 1024 ? 'split' : 'schets',
   )
@@ -238,7 +248,7 @@ export function OpportunityDetailPage() {
             gridTemplateRows: 'minmax(0, 1fr)',
             gridTemplateColumns:
               view === 'split'
-                ? typeof window !== 'undefined' && window.innerWidth >= 1024 ? '420px 1fr' : '1fr'
+                ? isWide ? '420px 1fr' : '1fr'
                 : '1fr',
           }}
         >
