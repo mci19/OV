@@ -11,6 +11,7 @@ import {
 } from '../../lib/calculations'
 import { orderNumber } from '../../lib/orderNumber'
 import { tFor, type Lang } from '../../lib/i18n'
+import { truncate } from '../../lib/format'
 import { SketchPdfBlock } from './SketchPdfBlock'
 
 const styles = StyleSheet.create({
@@ -34,10 +35,10 @@ interface Props {
 
 export function ClientConfirmPDF({ order, lang = 'nl' }: Props) {
   const nr = orderNumber(order)
-  const customerName = order.klantNaam || tFor(lang, 'pdf.clientFallbackName')
+  const customerName = truncate(order.klantNaam, 80) || tFor(lang, 'pdf.clientFallbackName')
   return (
     <Document
-      title={tFor(lang, 'pdf.docTitleCustomer', { name: order.klantNaam })}
+      title={tFor(lang, 'pdf.docTitleCustomer', { name: truncate(order.klantNaam, 60) })}
       author={tFor(lang, 'pdf.author')}
     >
       <Page size="A4" style={styles.page}>

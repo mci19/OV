@@ -29,3 +29,13 @@ export const relativeTimeNl = (iso: string) => relativeTime(iso, 'nl')
 export function formatEur(cents: number): string {
   return new Intl.NumberFormat('nl-BE', { style: 'currency', currency: 'EUR' }).format(cents / 100)
 }
+
+/** Kap lange strings af voor gebruik in PDF-titels, header-velden of
+ *  filenames waar layout-overflow problemen veroorzaakt. Voegt '…' toe
+ *  als gekapt. Strings korter dan max blijven onveranderd. */
+export function truncate(s: string | null | undefined, max = 60): string {
+  if (!s) return ''
+  const trimmed = s.trim()
+  if (trimmed.length <= max) return trimmed
+  return trimmed.slice(0, max - 1).trimEnd() + '…'
+}

@@ -1,5 +1,5 @@
 import type { OrderData, ValidationIssue } from '../lib/types'
-import { Chips, Field, FieldRow } from './Field'
+import { Chips, Field, FieldRow, SelectField } from './Field'
 import { useT } from '../lib/i18n'
 import { useAppSettings, useOptionList } from '../lib/queries'
 import { DEFAULT_CUT_FORMULAS } from '../lib/db'
@@ -22,7 +22,11 @@ export function OrderForm({ order, set, issues }: Props) {
   const { t } = useT()
   const { data: settings } = useAppSettings()
   const { data: ralExtrasList } = useOptionList('ral_extras')
+  const { data: verkopersList } = useOptionList('verkopers')
   const ralExtras = (ralExtrasList?.items ?? []).filter((it) => it.active)
+  const verkopers = (verkopersList?.items ?? [])
+    .filter((it) => it.active)
+    .sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0))
   const formulas = settings?.cut_formulas ?? DEFAULT_CUT_FORMULAS
   const handleDefault = (() => {
     switch (order.handleKind) {
@@ -60,6 +64,29 @@ export function OrderForm({ order, set, issues }: Props) {
               error={errorFor(issues, 'breedte')}
             />
           </FieldRow>
+          {/* Verkoper-veld — opties uit Settings → Optie-lijsten →
+              verkopers. Bij lege lijst valt het terug op een vrij
+              tekstveld. Verschijnt op de fabrikant-PDF. */}
+          <div className="mt-3">
+            {verkopers.length > 0 ? (
+              <SelectField
+                label={t('order.salesperson')}
+                value={order.verkoper}
+                onChange={(v) => set('verkoper', v)}
+                options={[
+                  ...(verkopers.find((vk) => vk.value === order.verkoper) ? [] : [{ value: order.verkoper, label: order.verkoper || `— ${t('order.salesperson')} —` }]),
+                  ...verkopers.map((vk) => ({ value: vk.value, label: vk.label })),
+                ]}
+              />
+            ) : (
+              <Field
+                label={t('order.salesperson')}
+                value={order.verkoper}
+                onChange={(e) => set('verkoper', e.target.value)}
+                hint={t('order.salespersonHint')}
+              />
+            )}
+          </div>
         </div>
       </section>
 

@@ -14,6 +14,7 @@ import {
 import { orderNumber } from '../../lib/orderNumber'
 import { generateCutList } from '../../lib/cutList'
 import { tFor, type Lang } from '../../lib/i18n'
+import { truncate } from '../../lib/format'
 import { SketchPdfBlock } from './SketchPdfBlock'
 import { CutListPdfBlock } from './CutListPdfBlock'
 import { CrossSectionPdf } from './CrossSectionPdf'
@@ -75,11 +76,11 @@ export function FabricantOrderPDF({ order, cutFormulas, lang = 'nl' }: Props) {
           <Text style={styles.h2}>{tFor(lang, 'pdf.customer')}</Text>
           <View style={styles.row}>
             <Text style={styles.label}>{tFor(lang, 'pdf.name')}</Text>
-            <Text style={styles.value}>{order.klantNaam || '—'}</Text>
+            <Text style={styles.value}>{truncate(order.klantNaam, 60) || '—'}</Text>
           </View>
           <View style={styles.row}>
             <Text style={styles.label}>{tFor(lang, 'pdf.reference')}</Text>
-            <Text style={styles.value}>{order.referentie || '—'}</Text>
+            <Text style={styles.value}>{truncate(order.referentie, 60) || '—'}</Text>
           </View>
         </View>
 
@@ -138,7 +139,7 @@ export function FabricantOrderPDF({ order, cutFormulas, lang = 'nl' }: Props) {
         <View style={styles.header}>
           <View>
             <Text style={styles.h1}>{tFor(lang, 'pdf.cutListTitle')}</Text>
-            <Text style={styles.hSub}>{order.datum} · MY DOORS-{order.klantNaam || order.referentie || tFor(lang, 'pdf.fallbackCustomer')}</Text>
+            <Text style={styles.hSub}>{order.datum} · MY DOORS-{truncate(order.klantNaam || order.referentie || tFor(lang, 'pdf.fallbackCustomer'), 50)}</Text>
           </View>
           <View style={styles.rightHead}>
             <Text>{tFor(lang, 'pdf.no')}: {nr}</Text>

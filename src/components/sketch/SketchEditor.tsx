@@ -386,6 +386,25 @@ export function SketchEditor({ order, onChange }: Props) {
         </div>
       ) : null}
 
+      {/* Warning wanneer greep niet op staal staat. Steel-targets =
+          deur-randen (bladeX, bladeX+bladeW) + alle verticale design-
+          lijnen. 30 mm tolerantie zoals in DoorOutline. */}
+      {(() => {
+        if (clientView || order.handleKind === 'none' || order.handleKind === 'veerklink') return null
+        const handleX = order.handlePosition.x
+        if (typeof handleX !== 'number') return null // gebruikt default-side, altijd op staal
+        const bladeWidth = Math.max(0, breedte - 88)
+        const bladeX = (breedte - bladeWidth) / 2
+        const steelTargets = [bladeX, bladeX + bladeWidth, ...sketch.verticalLines.map((v) => v.x)]
+        const minDist = Math.min(...steelTargets.map((t) => Math.abs(handleX - t)))
+        if (minDist <= 30) return null
+        return (
+          <div className="no-print px-3 py-1.5 text-xs font-mono bg-accent text-paper">
+            {t('order.handleOnGlassWarning')}
+          </div>
+        )
+      })()}
+
       {mode === 'curve' && !clientView ? (
         <div className="no-print px-3 py-1.5 text-xs font-mono bg-paper/60 border-b border-soft-2 text-[--color-muted]">
           {t('sketch.curve.hint.start')} → {t('sketch.curve.hint.control')} → {t('sketch.curve.hint.end')}
