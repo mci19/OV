@@ -8,8 +8,10 @@ import { EmptyState } from './HomePage'
 import { useCustomer, useCustomers, useDeleteCustomer, useOpportunities, useUpsertCustomer } from '../lib/queries'
 import type { Customer } from '../lib/db'
 import { errorMessage, useToast } from '../components/Toast'
+import { stageLabel, useT } from '../lib/i18n'
 
 export function CustomersPage() {
+  const { t } = useT()
   const [search, setSearch] = useState('')
   const [editing, setEditing] = useState<Customer | 'new' | null>(null)
   const { data: customers = [], isLoading, error } = useCustomers(search)
@@ -17,11 +19,11 @@ export function CustomersPage() {
   return (
     <PageContainer>
       <PageHeader
-        title="Klanten"
-        subtitle="Klantenbestand voor offertes en orders"
+        title={t('customers.title')}
+        subtitle={t('customers.subtitle')}
         actions={
           <button className="btn btn-primary" onClick={() => setEditing('new')}>
-            <Plus size={16} /> Nieuwe klant
+            <Plus size={16} /> {t('customers.new')}
           </button>
         }
       />
@@ -30,20 +32,20 @@ export function CustomersPage() {
         <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-[--color-muted]" />
         <input
           className="field-input pl-9"
-          placeholder="Zoek op naam, e-mail of telefoon…"
+          placeholder={t('customers.searchPlaceholder')}
           value={search}
           onChange={(e) => setSearch(e.target.value)}
         />
       </div>
 
-      {isLoading ? <div className="text-[--color-muted] font-mono text-sm">Laden…</div> : null}
+      {isLoading ? <div className="text-[--color-muted] font-mono text-sm">{t('common.loading')}</div> : null}
       {error ? <div className="text-accent font-mono text-sm">{(error as Error).message}</div> : null}
 
       {customers.length === 0 && !isLoading ? (
         <EmptyState
-          title="Geen klanten"
-          subtitle={search ? 'Geen resultaat — probeer een andere zoekterm.' : 'Voeg de eerste klant toe.'}
-          cta={!search ? <button className="btn btn-primary" onClick={() => setEditing('new')}>+ Nieuwe klant</button> : null}
+          title={t('customers.empty')}
+          subtitle={search ? t('opps.empty.subtitleFiltered') : undefined}
+          cta={!search ? <button className="btn btn-primary" onClick={() => setEditing('new')}>+ {t('customers.new')}</button> : null}
         />
       ) : null}
 
@@ -80,6 +82,7 @@ function Row({ icon: Icon, children }: { icon: typeof Mail; children: React.Reac
 }
 
 export function CustomerDetailPage() {
+  const { t, lang } = useT()
   const { id } = useParams()
   const navigate = useNavigate()
   const { data: customer, isLoading } = useCustomer(id)
@@ -88,16 +91,16 @@ export function CustomerDetailPage() {
   const del = useDeleteCustomer()
   const toast = useToast()
 
-  if (isLoading) return <PageContainer><div className="text-[--color-muted] font-mono text-sm">Laden…</div></PageContainer>
-  if (!customer) return <PageContainer><EmptyState title="Klant niet gevonden" /></PageContainer>
+  if (isLoading) return <PageContainer><div className="text-[--color-muted] font-mono text-sm">{t('common.loading')}</div></PageContainer>
+  if (!customer) return <PageContainer><EmptyState title={t('customers.notFound')} /></PageContainer>
 
   async function onDelete() {
-    if (!customer || !confirm(`Klant "${customer.name}" verwijderen? Alle opportunities + orders worden ook verwijderd.`)) return
+    if (!customer || !confirm(t('customers.deleteConfirm', { name: customer.name }))) return
     try {
       await del.mutateAsync(customer.id)
       navigate('/customers')
     } catch (err) {
-      toast.error(`Verwijderen mislukt: ${errorMessage(err)}`)
+      toast.error(t('opps.detail.toast.deleteFailed', { error: errorMessage(err) }))
     }
   }
 
@@ -108,9 +111,9 @@ export function CustomerDetailPage() {
         subtitle={[customer.email, customer.phone].filter(Boolean).join(' · ') || undefined}
         actions={
           <>
-            <button className="btn" onClick={() => setEditing(true)}>Bewerken</button>
+            <button className="btn" onClick={() => setEditing(true)}>{t('common.edit')}</button>
             <button className="btn btn-danger" onClick={onDelete}>
-              <Trash2 size={14} /> Verwijderen
+              <Trash2 size={14} /> {t('common.delete')}
             </button>
           </>
         }
@@ -118,21 +121,21 @@ export function CustomerDetailPage() {
 
       <div className="grid grid-cols-1 lg:grid-cols-[1fr_2fr] gap-6">
         <section className="space-y-1 card">
-          <h3 className="section-h">Gegevens</h3>
-          <DetailRow label="E-mail" value={customer.email} />
-          <DetailRow label="Telefoon" value={customer.phone} />
-          <DetailRow label="Adres" value={[customer.address_line1, customer.address_postal, customer.address_city].filter(Boolean).join(', ')} />
-          <DetailRow label="Notities" value={customer.notes} />
+          <h3 className="section-h">{t('customers.details')}</h3>
+          <DetailRow label={t('customers.email')} value={customer.email} />
+          <DetailRow label={t('customers.phone')} value={customer.phone} />
+          <DetailRow label={t('customers.address')} value={[customer.address_line1, customer.address_postal, customer.address_city].filter(Boolean).join(', ')} />
+          <DetailRow label={t('common.notes')} value={customer.notes} />
         </section>
 
         <section>
           <div className="flex items-center justify-between mb-3">
-            <h3 className="section-h !mb-0 !pb-0 !border-0">Opportunities</h3>
+            <h3 className="section-h !mb-0 !pb-0 !border-0">{t('customers.opportunities')}</h3>
             <Link to={`/opportunities?new=1&customer_id=${customer.id}`} className="btn btn-sm">
-              <Plus size={14} /> Nieuw
+              <Plus size={14} /> {t('common.new')}
             </Link>
           </div>
-          {opps.length === 0 ? <EmptyState title="Geen opportunities" /> : (
+          {opps.length === 0 ? <EmptyState title={t('customers.noOpportunities')} /> : (
             <div className="space-y-2">
               {opps.map((o) => (
                 <Link key={o.id} to={`/opportunities/${o.id}`} className="card card-interactive flex items-center justify-between">
@@ -140,7 +143,7 @@ export function CustomerDetailPage() {
                     <div className="font-mono font-bold text-sm">{o.title}</div>
                     <div className="text-xs text-[--color-muted] mt-1">{o.expected_value_cents ? `€ ${(o.expected_value_cents / 100).toFixed(2)}` : '—'}</div>
                   </div>
-                  <span className="stage-pill" data-stage={o.stage}>{STAGE[o.stage]}</span>
+                  <span className="stage-pill" data-stage={o.stage}>{stageLabel(o.stage, lang)}</span>
                 </Link>
               ))}
             </div>
@@ -153,14 +156,6 @@ export function CustomerDetailPage() {
   )
 }
 
-const STAGE = {
-  lead: 'Lead',
-  meeting: 'Afspraak',
-  quote_sent: 'Offerte',
-  won: 'Akkoord',
-  lost: 'Verloren',
-} as const
-
 function DetailRow({ label, value }: { label: string; value: string | null | undefined }) {
   return (
     <div className="flex flex-col py-1.5 border-b border-soft-2 last:border-0">
@@ -171,6 +166,7 @@ function DetailRow({ label, value }: { label: string; value: string | null | und
 }
 
 function CustomerEditor({ customer, onClose }: { customer: Customer | null; onClose: () => void }) {
+  const { t } = useT()
   const [form, setForm] = useState({
     name: customer?.name ?? '',
     email: customer?.email ?? '',
@@ -186,7 +182,7 @@ function CustomerEditor({ customer, onClose }: { customer: Customer | null; onCl
   async function onSubmit(e: FormEvent) {
     e.preventDefault()
     if (!form.name.trim()) {
-      setError('Naam is verplicht')
+      setError(t('customers.editor.nameRequired'))
       return
     }
     try {
@@ -201,38 +197,38 @@ function CustomerEditor({ customer, onClose }: { customer: Customer | null; onCl
     <Dialog
       open
       onClose={onClose}
-      title={customer ? 'Klant bewerken' : 'Nieuwe klant'}
+      title={customer ? t('customers.editor.title.edit') : t('customers.editor.title.new')}
       footer={
         <>
-          <button type="button" className="btn" onClick={onClose}>Annuleer</button>
+          <button type="button" className="btn" onClick={onClose}>{t('common.cancel')}</button>
           <button type="submit" form="customer-form" className="btn btn-primary" disabled={upsert.isPending}>
-            {upsert.isPending ? '…' : 'Bewaar'}
+            {upsert.isPending ? '…' : t('common.save')}
           </button>
         </>
       }
     >
       <form id="customer-form" onSubmit={onSubmit}>
-        <FormSection title="Contact">
-          <Field label="Naam" required value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
+        <FormSection title={t('customers.editor.section.contact')}>
+          <Field label={t('customers.name')} required value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
           <FieldRow>
-            <Field label="E-mail" type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} />
-            <Field label="Telefoon" type="tel" value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} />
+            <Field label={t('customers.email')} type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} />
+            <Field label={t('customers.phone')} type="tel" value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} />
           </FieldRow>
         </FormSection>
 
         <div className="mt-5">
-          <FormSection title="Adres">
-            <Field label="Straat + nr" value={form.address_line1} onChange={(e) => setForm({ ...form, address_line1: e.target.value })} />
+          <FormSection title={t('customers.editor.section.address')}>
+            <Field label={t('customers.editor.street')} value={form.address_line1} onChange={(e) => setForm({ ...form, address_line1: e.target.value })} />
             <FieldRow>
-              <Field label="Postcode" value={form.address_postal} onChange={(e) => setForm({ ...form, address_postal: e.target.value })} />
-              <Field label="Gemeente" value={form.address_city} onChange={(e) => setForm({ ...form, address_city: e.target.value })} />
+              <Field label={t('customers.editor.postal')} value={form.address_postal} onChange={(e) => setForm({ ...form, address_postal: e.target.value })} />
+              <Field label={t('customers.editor.city')} value={form.address_city} onChange={(e) => setForm({ ...form, address_city: e.target.value })} />
             </FieldRow>
           </FormSection>
         </div>
 
         <div className="mt-5">
-          <FormSection title="Extra">
-            <TextAreaField label="Notities" value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} />
+          <FormSection title={t('customers.editor.section.extra')}>
+            <TextAreaField label={t('common.notes')} value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} />
           </FormSection>
         </div>
 

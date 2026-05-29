@@ -3,13 +3,15 @@ import { NavLink, Outlet, useNavigate } from 'react-router-dom'
 import { Home, Users, Briefcase, Package, Settings, LogOut, Menu, X, PanelLeftClose, PanelLeftOpen } from 'lucide-react'
 import { useAuth } from '../lib/auth'
 import { supabaseConfigured } from '../lib/supabase'
+import { useT, type TranslationKey } from '../lib/i18n'
+import { LanguageSwitcher } from './LanguageSwitcher'
 
-const NAV = [
-  { to: '/', icon: Home, label: 'Overzicht', end: true },
-  { to: '/opportunities', icon: Briefcase, label: 'Opportunities' },
-  { to: '/customers', icon: Users, label: 'Klanten' },
-  { to: '/products', icon: Package, label: 'Catalogus' },
-  { to: '/settings', icon: Settings, label: 'Instellingen' },
+const NAV: { to: string; icon: typeof Home; labelKey: TranslationKey; end?: boolean }[] = [
+  { to: '/', icon: Home, labelKey: 'nav.home', end: true },
+  { to: '/opportunities', icon: Briefcase, labelKey: 'nav.opportunities' },
+  { to: '/customers', icon: Users, labelKey: 'nav.customers' },
+  { to: '/products', icon: Package, labelKey: 'nav.products' },
+  { to: '/settings', icon: Settings, labelKey: 'nav.settings' },
 ]
 
 const COLLAPSE_KEY = 'mydoors:sidebar:collapsed'
@@ -17,6 +19,7 @@ const COLLAPSE_KEY = 'mydoors:sidebar:collapsed'
 export function Layout() {
   const { user, signOut } = useAuth()
   const navigate = useNavigate()
+  const { t } = useT()
   const [drawer, setDrawer] = useState(false)
   const [collapsed, setCollapsed] = useState(() => {
     try { return localStorage.getItem(COLLAPSE_KEY) === '1' } catch { return false }
@@ -68,7 +71,7 @@ export function Layout() {
             <aside className="absolute left-0 top-0 bottom-0 w-72 bg-paper border-r border-soft-2 flex flex-col" onClick={(e) => e.stopPropagation()}>
               <div className="flex items-center justify-between p-3 border-b border-soft-2">
                 <div className="brand-mark text-sm">MY DOORS</div>
-                <button className="btn btn-ghost btn-icon" onClick={() => setDrawer(false)} aria-label="Sluit">
+                <button className="btn btn-ghost btn-icon" onClick={() => setDrawer(false)} aria-label={t('common.close')}>
                   <X size={20} />
                 </button>
               </div>
@@ -99,6 +102,7 @@ interface SidebarProps {
 }
 
 function SidebarContent({ onLogout, userEmail, collapsed, onToggle, onNavigate }: SidebarProps) {
+  const { t } = useT()
   return (
     <>
       {/* Brand + collapse-knop */}
@@ -131,8 +135,7 @@ function SidebarContent({ onLogout, userEmail, collapsed, onToggle, onNavigate }
           type="button"
           className="hidden lg:flex absolute -right-3 top-7 w-6 h-6 items-center justify-center rounded-full bg-white border border-soft-2 hover:border-ink shadow-sm z-10"
           onClick={onToggle}
-          aria-label={collapsed ? 'Zijbalk openen' : 'Zijbalk inklappen'}
-          title={collapsed ? 'Open zijbalk' : 'Klap zijbalk in'}
+          aria-label={collapsed ? 'Open sidebar' : 'Collapse sidebar'}
         >
           {collapsed ? <PanelLeftOpen size={13} /> : <PanelLeftClose size={13} />}
         </button>
@@ -142,6 +145,7 @@ function SidebarContent({ onLogout, userEmail, collapsed, onToggle, onNavigate }
       <nav className={`flex-1 flex flex-col ${collapsed ? 'py-3 gap-1' : 'py-2'}`}>
         {NAV.map((n) => {
           const Icon = n.icon
+          const label = t(n.labelKey)
           return (
             <NavLink
               key={n.to}
@@ -149,7 +153,7 @@ function SidebarContent({ onLogout, userEmail, collapsed, onToggle, onNavigate }
               end={n.end}
               className={collapsed ? 'nav-icon-button' : 'nav-link'}
               onClick={onNavigate}
-              title={collapsed ? n.label : undefined}
+              title={collapsed ? label : undefined}
             >
               {({ isActive }) => (
                 collapsed ? (
@@ -159,7 +163,7 @@ function SidebarContent({ onLogout, userEmail, collapsed, onToggle, onNavigate }
                 ) : (
                   <span className="flex items-center gap-3" data-active={isActive || undefined}>
                     <Icon size={18} />
-                    <span style={{ fontWeight: isActive ? 600 : 400 }}>{n.label}</span>
+                    <span style={{ fontWeight: isActive ? 600 : 400 }}>{label}</span>
                   </span>
                 )
               )}
@@ -168,21 +172,22 @@ function SidebarContent({ onLogout, userEmail, collapsed, onToggle, onNavigate }
         })}
       </nav>
 
-      {/* User + logout */}
-      <div className={`border-t border-soft-2 ${collapsed ? 'p-2' : 'p-3'}`}>
+      {/* Language switcher + user + logout */}
+      <div className={`border-t border-soft-2 ${collapsed ? 'p-2 flex flex-col items-center gap-2' : 'p-3 space-y-2'}`}>
+        <LanguageSwitcher compact={collapsed} />
         {!collapsed ? (
           <>
-            <div className="font-mono text-[11px] text-[--color-muted] truncate mb-2">{userEmail}</div>
+            <div className="font-mono text-[11px] text-[--color-muted] truncate">{userEmail}</div>
             <button className="btn btn-ghost w-full justify-start" onClick={onLogout}>
-              <LogOut size={16} /> Uitloggen
+              <LogOut size={16} /> {t('nav.logout')}
             </button>
           </>
         ) : (
           <button
-            className="nav-icon-button mx-auto"
+            className="nav-icon-button"
             onClick={onLogout}
-            title="Uitloggen"
-            aria-label="Uitloggen"
+            title={t('nav.logout')}
+            aria-label={t('nav.logout')}
           >
             <LogOut size={20} />
           </button>
@@ -195,7 +200,7 @@ function SidebarContent({ onLogout, userEmail, collapsed, onToggle, onNavigate }
 function SetupBanner() {
   return (
     <div className="no-print bg-accent text-paper text-center py-2 px-4 font-mono text-xs">
-      Supabase env vars ontbreken — zet <code>VITE_SUPABASE_URL</code> en <code>VITE_SUPABASE_ANON_KEY</code> in <code>.env.local</code> of Netlify.
+      Supabase env vars missing — set <code>VITE_SUPABASE_URL</code> and <code>VITE_SUPABASE_ANON_KEY</code> in <code>.env.local</code> or Netlify.
     </div>
   )
 }

@@ -2,12 +2,13 @@ import { Link } from 'react-router-dom'
 import { Briefcase, Users, ChevronRight } from 'lucide-react'
 import { PageContainer, PageHeader } from '../components/Layout'
 import { useCustomers, useOpportunities } from '../lib/queries'
-import { STAGE_LABELS } from '../lib/db'
-import { formatEur, relativeTimeNl } from '../lib/format'
+import { formatEur, relativeTime } from '../lib/format'
+import { useT, stageLabel } from '../lib/i18n'
 
 export { formatEur } from '../lib/format'
 
 export function HomePage() {
+  const { t, lang } = useT()
   const opps = useOpportunities()
   const cust = useCustomers()
 
@@ -20,15 +21,15 @@ export function HomePage() {
   return (
     <PageContainer>
       <PageHeader
-        title="Overzicht"
-        subtitle="Recente activiteit en pipeline-status"
+        title={t('home.title')}
+        subtitle={t('home.subtitle')}
       />
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-8">
-        <Stat label="Open opportunities" value={String(open.length)} tone="brand" />
-        <Stat label="Open waarde" value={formatEur(openValue)} tone="accent" />
-        <Stat label="Gewonnen waarde" value={formatEur(wonValue)} tone="success" />
-        <Stat label="Klanten" value={String((cust.data ?? []).length)} tone="info" />
+        <Stat label={t('opps.title')} value={String(open.length)} tone="brand" />
+        <Stat label={t('home.openValue')} value={formatEur(openValue)} tone="accent" />
+        <Stat label={t('home.wonThisMonth')} value={formatEur(wonValue)} tone="success" />
+        <Stat label={t('customers.title')} value={String((cust.data ?? []).length)} tone="info" />
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
@@ -38,8 +39,8 @@ export function HomePage() {
               <Briefcase size={20} />
             </div>
             <div>
-              <div className="font-bold text-sm">Opportunities</div>
-              <div className="text-xs text-[--color-muted]">Pipeline beheren</div>
+              <div className="font-bold text-sm">{t('opps.title')}</div>
+              <div className="text-xs text-[--color-muted]">{t('opps.subtitle')}</div>
             </div>
           </div>
           <ChevronRight size={18} className="text-[--color-muted]" />
@@ -50,22 +51,22 @@ export function HomePage() {
               <Users size={20} />
             </div>
             <div>
-              <div className="font-bold text-sm">Klanten</div>
-              <div className="text-xs text-[--color-muted]">Klantenbestand</div>
+              <div className="font-bold text-sm">{t('customers.title')}</div>
+              <div className="text-xs text-[--color-muted]">{t('customers.subtitle')}</div>
             </div>
           </div>
           <ChevronRight size={18} className="text-[--color-muted]" />
         </Link>
       </div>
 
-      <h2 className="section-h mt-10">Recente opportunities</h2>
-      {opps.isLoading ? <div className="text-[--color-muted] font-mono text-sm">Laden…</div> : null}
+      <h2 className="section-h mt-10">{t('home.recentOpportunities')}</h2>
+      {opps.isLoading ? <div className="text-[--color-muted] font-mono text-sm">{t('common.loading')}</div> : null}
       {opps.error ? <div className="text-accent font-mono text-sm">{(opps.error as Error).message}</div> : null}
       {recent.length === 0 && !opps.isLoading ? (
         <EmptyState
-          title="Nog geen opportunities"
-          subtitle="Voeg een klant toe en start een opportunity om hier overzicht te zien."
-          cta={<Link to="/opportunities/new" className="btn btn-primary">+ Nieuwe opportunity</Link>}
+          title={t('opps.empty.title')}
+          subtitle={t('opps.empty.subtitle')}
+          cta={<Link to="/opportunities?new=1" className="btn btn-primary">{t('opps.empty.cta')}</Link>}
         />
       ) : null}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -73,14 +74,14 @@ export function HomePage() {
           <Link key={o.id} to={`/opportunities/${o.id}`} className="card card-interactive">
             <div className="flex items-center justify-between gap-2 mb-2">
               <div className="font-bold text-sm truncate">{o.title}</div>
-              <span className="stage-pill" data-stage={o.stage}>{STAGE_LABELS[o.stage]}</span>
+              <span className="stage-pill" data-stage={o.stage}>{stageLabel(o.stage, lang)}</span>
             </div>
             <div className="text-xs text-[--color-muted] truncate">{o.customer_name ?? '—'}</div>
             <div className="flex items-end justify-between mt-3 gap-2">
               {o.expected_value_cents ? (
                 <div className="font-mono text-sm tabular-nums">{formatEur(o.expected_value_cents)}</div>
               ) : <div />}
-              <div className="font-mono text-[10px] text-[--color-muted]">{relativeTimeNl(o.updated_at)}</div>
+              <div className="font-mono text-[10px] text-[--color-muted]">{relativeTime(o.updated_at, lang)}</div>
             </div>
           </Link>
         ))}

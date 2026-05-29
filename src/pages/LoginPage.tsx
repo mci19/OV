@@ -2,7 +2,9 @@ import { useState, type FormEvent } from 'react'
 import { Navigate, useNavigate } from 'react-router-dom'
 import { useAuth } from '../lib/auth'
 import { Field } from '../components/Field'
+import { LanguageSwitcher } from '../components/LanguageSwitcher'
 import { supabaseConfigured } from '../lib/supabase'
+import { useT } from '../lib/i18n'
 
 // Self-signup is uitgeschakeld voor productie — accounts worden door de
 // admin aangemaakt in de Supabase dashboard om tenant-leakage te
@@ -12,6 +14,7 @@ const SELF_SIGNUP_ENABLED = import.meta.env.VITE_ALLOW_SIGNUP === 'true'
 export function LoginPage() {
   const { user, signIn, signUp, loading } = useAuth()
   const navigate = useNavigate()
+  const { t } = useT()
   const [mode, setMode] = useState<'signin' | 'signup'>('signin')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -20,7 +23,7 @@ export function LoginPage() {
   const [info, setInfo] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
 
-  if (loading) return <div className="min-h-[100dvh] grid place-items-center font-mono text-sm text-[--color-muted]">Laden…</div>
+  if (loading) return <div className="min-h-[100dvh] grid place-items-center font-mono text-sm text-[--color-muted]">{t('common.loading')}</div>
   if (user) return <Navigate to="/" replace />
 
   async function onSubmit(e: FormEvent) {
@@ -37,12 +40,15 @@ export function LoginPage() {
       navigate('/')
     } else {
       setMode('signin')
-      setInfo('Account aangemaakt — log nu in.')
+      setInfo(t('login.accountCreated'))
     }
   }
 
   return (
     <div className="min-h-[100dvh] grid place-items-center p-4">
+      <div className="absolute top-4 right-4">
+        <LanguageSwitcher />
+      </div>
       <div className="w-full max-w-md">
         <div className="mb-10 text-center">
           <div className="inline-flex items-center justify-center mb-4">
@@ -56,22 +62,22 @@ export function LoginPage() {
               </svg>
             </div>
           </div>
-          <div className="brand-mark text-3xl">MY DOORS</div>
-          <div className="font-mono text-[11px] uppercase tracking-[0.25em] text-[--color-muted] mt-2">CRM · STALEN BINNENDEUREN</div>
+          <div className="brand-mark text-3xl">{t('login.title')}</div>
+          <div className="font-mono text-[11px] uppercase tracking-[0.25em] text-[--color-muted] mt-2">{t('login.subtitle')}</div>
         </div>
 
         <div className="card p-7">
 
         {!supabaseConfigured ? (
           <div className="mb-4 p-3 border border-accent bg-[--color-accent-soft] text-accent text-xs rounded-md">
-            Supabase niet geconfigureerd. Zet <code>VITE_SUPABASE_URL</code> en <code>VITE_SUPABASE_ANON_KEY</code>.
+            {t('login.supabaseNotConfigured')}
           </div>
         ) : null}
 
         <form onSubmit={onSubmit} className="space-y-4">
           {mode === 'signup' ? (
             <Field
-              label="Volledige naam"
+              label={t('login.fullName')}
               type="text"
               value={fullName}
               onChange={(e) => setFullName(e.target.value)}
@@ -80,7 +86,7 @@ export function LoginPage() {
             />
           ) : null}
           <Field
-            label="E-mail"
+            label={t('login.email')}
             type="email"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
@@ -89,7 +95,7 @@ export function LoginPage() {
             autoFocus
           />
           <Field
-            label="Wachtwoord"
+            label={t('login.password')}
             type="password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
@@ -106,7 +112,7 @@ export function LoginPage() {
           ) : null}
 
           <button type="submit" className="btn btn-primary btn-lg w-full" disabled={busy}>
-            {busy ? '…' : mode === 'signin' ? 'Inloggen' : 'Account aanmaken'}
+            {busy ? '…' : mode === 'signin' ? t('login.signin') : t('login.signup')}
           </button>
         </form>
 
@@ -117,12 +123,12 @@ export function LoginPage() {
               className="btn btn-ghost btn-sm"
               onClick={() => { setMode(mode === 'signin' ? 'signup' : 'signin'); setError(null); setInfo(null) }}
             >
-              {mode === 'signin' ? 'Nieuw account aanmaken' : 'Heb al een account — inloggen'}
+              {mode === 'signin' ? t('login.toSignup') : t('login.toSignin')}
             </button>
           </div>
         ) : (
           <div className="mt-5 text-center font-mono text-[11px] text-[--color-muted]">
-            Account nodig? Neem contact op met de beheerder.
+            {t('login.contactAdmin')}
           </div>
         )}
         </div>
