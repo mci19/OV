@@ -483,14 +483,16 @@ export interface ProfileWithEmail {
   email: string | null
 }
 
-/** Lijst alle profielen — door RLS enkel zichtbaar voor admins. */
+/** Lijst alle profielen — door RLS enkel zichtbaar voor admins. Sales-
+ *  users zien hier alleen hun eigen profiel terug. Sinds migratie 0008
+ *  staat email rechtstreeks op de profiles-tabel; geen view nodig. */
 export function useAllProfiles() {
   return useQuery({
     queryKey: ['profiles'],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from('profiles_with_email')
-        .select('*')
+        .from('profiles')
+        .select('id, full_name, role, email, created_at')
         .order('created_at', { ascending: true })
       if (error) throw error
       return (data ?? []) as ProfileWithEmail[]

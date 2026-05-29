@@ -1,42 +1,22 @@
 import { useEffect } from 'react'
-import { useBlocker } from 'react-router-dom'
 
 /**
  * Beschermt tegen accidenteel weg-navigeren met niet-opgeslagen werk.
  *
- * - In-app navigatie (Link/navigate): react-router-dom `useBlocker`
- *   onderschept de overgang en toont een confirm. Bij OK gaat-ie door,
- *   bij Cancel blijft de gebruiker op de huidige pagina.
- * - Hard refresh / tab sluiten / extern volgen van link: `beforeunload`
- *   toont de browser-native dialoog.
- *
- * Gebruik:
- *   const dirty = ...
- *   useUnsavedChangesGuard(dirty, t('common.unsavedConfirm'))
+ * Beperkt tot `beforeunload` — die vangt tab sluiten, browser refresh en
+ * navigeren naar een externe URL af. In-app SPA-navigatie via Link of
+ * navigate() wordt momenteel NIET geblokkeerd: react-router-dom's
+ * `useBlocker` vereist de data-router API (`createBrowserRouter`), terwijl
+ * de app op de classic `<BrowserRouter>` draait. Bij migratie naar de
+ * data-router voegen we de in-app blocker hier opnieuw toe.
  */
-export function useUnsavedChangesGuard(dirty: boolean, message: string): void {
-  // 1. In-app navigatie blokkeren wanneer dirty
-  const blocker = useBlocker(({ currentLocation, nextLocation }) =>
-    dirty && currentLocation.pathname !== nextLocation.pathname,
-  )
-
-  useEffect(() => {
-    if (blocker.state === 'blocked') {
-      if (window.confirm(message)) {
-        blocker.proceed()
-      } else {
-        blocker.reset()
-      }
-    }
-  }, [blocker, message])
-
-  // 2. Browser-native beforeunload voor tab-sluiten / refresh
+export function useUnsavedChangesGuard(dirty: boolean, _message: string): void {
   useEffect(() => {
     if (!dirty) return
     function onBeforeUnload(e: BeforeUnloadEvent) {
       e.preventDefault()
-      // Moderne browsers tonen hun eigen string; setReturnValue is nog
-      // nodig voor Safari/oude Chromium-versies.
+      // Moderne browsers tonen hun eigen string; setReturnValue blijft
+      // nodig voor Safari + oudere Chromium-versies.
       e.returnValue = ''
     }
     window.addEventListener('beforeunload', onBeforeUnload)
