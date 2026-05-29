@@ -10,6 +10,7 @@ import { DraggableHandle } from './DraggableHandle'
 import { DimensionLabels } from './DimensionLabels'
 import { FreehandLayer } from './FreehandLayer'
 import { CurveLayer } from './CurveLayer'
+import { CurveEditOverlay } from './CurveEditOverlay'
 import { DragLoupe } from './DragLoupe'
 import { ElementOptionsPanel } from './ElementOptionsPanel'
 import { TemplateGallery } from './TemplateGallery'
@@ -481,6 +482,28 @@ export function SketchEditor({ order, onChange }: Props) {
               }
               onSelectCurve={(id) => setSelected({ kind: 'curve', id })}
             />
+
+            {/* Curve-edit overlay: control-points + body-drag voor de
+                geselecteerde curve. Toont alleen wanneer er een curve
+                is geselecteerd in het options-panel. */}
+            {selected?.kind === 'curve' ? (() => {
+              const c = (sketch.curves ?? []).find((x) => x.id === selected.id)
+              if (!c) return null
+              return (
+                <CurveEditOverlay
+                  curve={c}
+                  doorWidth={breedte}
+                  doorHeight={hoogte}
+                  toUserX={toUserX}
+                  toUserY={toUserY}
+                  onChange={(next) => {
+                    updateSketch({
+                      curves: (sketch.curves ?? []).map((x) => x.id === next.id ? next : x),
+                    })
+                  }}
+                />
+              )
+            })() : null}
 
             {/* verticale lijnen */}
             {sketch.verticalLines.map((v) => (
