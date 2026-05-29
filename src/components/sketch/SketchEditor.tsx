@@ -10,6 +10,7 @@ import { DraggableHandle } from './DraggableHandle'
 import { DimensionLabels } from './DimensionLabels'
 import { FreehandLayer } from './FreehandLayer'
 import { CurveLayer } from './CurveLayer'
+import { DragLoupe } from './DragLoupe'
 import { TemplateGallery } from './TemplateGallery'
 import { DetailsStrip } from './DetailsStrip'
 // Snap-mode dropdown is verwijderd; we hanteren een vaste 10 mm grid.
@@ -49,6 +50,8 @@ export function SketchEditor({ order, onChange }: Props) {
     id: string
     value: number
   } | null>(null)
+  // Drag-loupe: toont een 3× gezoomde inset rondom het sleep-punt
+  const [loupe, setLoupe] = useState<{ x: number; y: number } | null>(null)
   const svgRef = useRef<SVGSVGElement | null>(null)
 
   const { breedte, hoogte, sketch } = order
@@ -469,6 +472,8 @@ export function SketchEditor({ order, onChange }: Props) {
                 onRequestExact={() =>
                   setExactInput({ orientation: 'vertical', id: v.id, value: v.x })
                 }
+                onDragMove={(pos) => setLoupe(pos)}
+                onDragEnd={() => setLoupe(null)}
                 toUserX={toUserX}
                 toUserY={toUserY}
               />
@@ -490,6 +495,8 @@ export function SketchEditor({ order, onChange }: Props) {
                 onRequestExact={() =>
                   setExactInput({ orientation: 'horizontal', id: h.id, value: h.y })
                 }
+                onDragMove={(pos) => setLoupe(pos)}
+                onDragEnd={() => setLoupe(null)}
                 toUserX={toUserX}
                 toUserY={toUserYFromBottom}
               />
@@ -521,11 +528,66 @@ export function SketchEditor({ order, onChange }: Props) {
                 })}
                 onRequestExact={() => setHandleExact(true)}
                 onDragStart={() => setShowDetails(false)}
+                onDragMove={(pos) => setLoupe(pos)}
+                onDragEnd={() => setLoupe(null)}
                 toUserX={toUserX}
                 toUserY={toUserY}
               />
             ) : null}
           </svg>
+
+          {/* Drag-loupe overlay — verschijnt rechtsboven tijdens drag */}
+          {loupe ? (
+            <DragLoupe
+              focusX={loupe.x}
+              focusY={loupe.y}
+              doorWidth={breedte}
+              doorHeight={hoogte}
+            >
+              {/* Mini-content: deur-rand + glas-zone + lijnen + handle */}
+              <rect x={0} y={0} width={breedte} height={hoogte}
+                fill="#FAFAF7" stroke="#0A0A0A" strokeWidth={1.5}
+                vectorEffect="non-scaling-stroke" />
+              {/* Glas-zone — toont waar de greep NIET op mag staan */}
+              {(() => {
+                const bladeW = Math.max(0, breedte - 88)
+                const bladeH = Math.max(0, hoogte - 30)
+                const bladeX = (breedte - bladeW) / 2
+                const bladeY = (hoogte - bladeH) / 2
+                const glassW = Math.max(0, bladeW - 8)
+                const glassH = Math.max(0, bladeH - 48)
+                const glassX = bladeX + (bladeW - glassW) / 2
+                const glassY = bladeY + 24
+                return (
+                  <>
+                    <rect x={bladeX} y={bladeY} width={bladeW} height={bladeH}
+                      fill="none" stroke="#0A0A0A" strokeWidth={1}
+                      vectorEffect="non-scaling-stroke" />
+                    <rect x={glassX} y={glassY} width={glassW} height={glassH}
+                      fill="#DCE7EE" stroke="#9BB3C8" strokeWidth={0.5}
+                      vectorEffect="non-scaling-stroke" />
+                  </>
+                )
+              })()}
+              {/* Design lijnen */}
+              {sketch.verticalLines.map((v) => (
+                <line key={`l-v-${v.id}`} x1={v.x} y1={0} x2={v.x} y2={hoogte}
+                  stroke="#0A0A0A" strokeWidth={1.5} vectorEffect="non-scaling-stroke" />
+              ))}
+              {sketch.horizontalLines.map((h) => {
+                const y = hoogte - h.y
+                return (
+                  <line key={`l-h-${h.id}`} x1={0} y1={y} x2={breedte} y2={y}
+                    stroke="#0A0A0A" strokeWidth={1.5} vectorEffect="non-scaling-stroke" />
+                )
+              })}
+              {/* Curves */}
+              {(sketch.curves ?? []).map((c) => (
+                <path key={c.id} d={c.d} fill="none" stroke="#0A0A0A"
+                  strokeWidth={c.width} vectorEffect="non-scaling-stroke" />
+              ))}
+            </DragLoupe>
+          ) : null}
         </div>
       )}
 

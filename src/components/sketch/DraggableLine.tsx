@@ -14,6 +14,8 @@ interface Props {
   onCommit: (v: number) => void
   onRequestDelete?: () => void
   onRequestExact?: () => void
+  onDragMove?: (pos: { x: number; y: number }) => void
+  onDragEnd?: () => void
   toUserX: (clientX: number) => number
   toUserY: (clientY: number) => number
 }
@@ -32,6 +34,8 @@ export function DraggableLine({
   onCommit,
   onRequestDelete,
   onRequestExact,
+  onDragMove,
+  onDragEnd,
   toUserX,
   toUserY,
 }: Props) {
@@ -79,6 +83,12 @@ export function DraggableLine({
     }
     setSnapLabel(r.snappedTo)
     onChange(r.value)
+    // Loupe-focus volgt het sleep-punt
+    if (orientation === 'vertical') {
+      onDragMove?.({ x: r.value, y: toUserY(e.clientY) })
+    } else {
+      onDragMove?.({ x: toUserX(e.clientX), y: doorHeight - r.value })
+    }
   }
 
   function onPointerUp(e: React.PointerEvent<SVGElement>) {
@@ -91,6 +101,7 @@ export function DraggableLine({
       setDragging(false)
       setSnapLabel(null)
       onCommit(value)
+      onDragEnd?.()
     }
   }
 

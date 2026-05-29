@@ -19,6 +19,8 @@ interface Props {
   onChange: (next: { heightFromBottom: number; x?: number }) => void
   onRequestExact?: () => void
   onDragStart?: () => void
+  onDragMove?: (pos: { x: number; y: number }) => void
+  onDragEnd?: () => void
   toUserX: (clientX: number) => number
   toUserY: (clientY: number) => number
 }
@@ -37,7 +39,7 @@ const HIT_RADIUS = 90     // mm — wide hit zone voor touch
 export function DraggableHandle({
   heightFromBottom, x, doorWidth, doorHeight, side,
   snapXTargets = [], snapYTargets = [],
-  onChange, onRequestExact, onDragStart, toUserX, toUserY,
+  onChange, onRequestExact, onDragStart, onDragMove, onDragEnd, toUserX, toUserY,
 }: Props) {
   const [dragging, setDragging] = useState(false)
   const [fineMode, setFineMode] = useState(false)
@@ -118,6 +120,7 @@ export function DraggableHandle({
     }
 
     onChange({ heightFromBottom: clampedY, x: clampedX })
+    onDragMove?.({ x: clampedX, y: doorHeight - clampedY })
   }
 
   function onPointerUp(e: React.PointerEvent<SVGCircleElement>) {
@@ -130,6 +133,7 @@ export function DraggableHandle({
       setDragging(false)
       setFineMode(false)
       lastSnapped.current = null
+      onDragEnd?.()
     }
   }
 

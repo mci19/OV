@@ -316,49 +316,72 @@ function LockAndHandle({ order, bladeX, bladeY, bladeW, bladeH, hingeOnLeft, cli
   const fillBg = clientView ? '#1F1F1B' : '#FFFFFF'
   const dirSign = handleSide === 'left' ? 1 : -1
 
-  // Lock visuals — verschillend per type
+  // Lock-cylinder MOET op staal staan, NOOIT op glas. Snap de cylinder
+  // naar de dichtstbijzijnde steel-support: deur-rand of een verticale
+  // design-lijn die de gebruiker getekend heeft.
+  const steelTargets = [
+    bladeX,                                    // linker deur-rand
+    bladeX + bladeW,                           // rechter deur-rand
+    ...order.sketch.verticalLines.map((v) => v.x), // design-lijnen (steel-profielen)
+  ]
+  let lockX = handleX
+  let lockOnSteel = false
+  let nearestSteelDist = Infinity
+  for (const t of steelTargets) {
+    const dist = Math.abs(handleX - t)
+    if (dist < nearestSteelDist) {
+      nearestSteelDist = dist
+      lockX = t
+    }
+  }
+  // Tolerantie 30 mm: binnen dat bereik snapt lock naar dat steel-target.
+  // Daarbuiten geeft het visuele warning-tint (lock-rendering toont
+  // rode rand i.p.v. zwart).
+  lockOnSteel = nearestSteelDist <= 30
+  const lockStroke = lockOnSteel ? stroke : '#E85D04' // accent-oranje = warning
+
+  // Lock visuals — gebruikt lockX (gesnapt naar staal), niet handleX,
+  // zodat de cylinder altijd op een steel-support staat (deur-rand of
+  // design-lijn). Wanneer geen staal binnen 30 mm → warning-tint (oranje).
   function renderLock() {
     if (order.lockKind === 'no_cilinder') return null
     if (order.lockKind === 'magnetic') {
-      // Magneetslot: kleine staaf op de kant van het blad
       return (
         <rect
-          x={handleX - 4} y={handleYFromTop - 90}
+          x={lockX - 4} y={handleYFromTop - 90}
           width={8} height={32}
-          fill="#FFFFFF" stroke={stroke} strokeWidth={1.2}
+          fill="#FFFFFF" stroke={lockStroke} strokeWidth={1.2}
           vectorEffect="non-scaling-stroke"
         />
       )
     }
     if (order.lockKind === 'electronic') {
-      // Elektronisch: keypad-vierkant
       return (
         <g>
-          <rect x={handleX - 14} y={handleYFromTop - 95} width={28} height={32} rx={3}
-            fill="#FFFFFF" stroke={stroke} strokeWidth={1.2} vectorEffect="non-scaling-stroke" />
+          <rect x={lockX - 14} y={handleYFromTop - 95} width={28} height={32} rx={3}
+            fill="#FFFFFF" stroke={lockStroke} strokeWidth={1.2} vectorEffect="non-scaling-stroke" />
           {[0,1,2].map((r) => [0,1,2].map((c) => (
-            <circle key={`${r}-${c}`} cx={handleX - 8 + c * 8} cy={handleYFromTop - 87 + r * 8} r={1.4} fill={stroke} />
+            <circle key={`${r}-${c}`} cx={lockX - 8 + c * 8} cy={handleYFromTop - 87 + r * 8} r={1.4} fill={lockStroke} />
           )))}
         </g>
       )
     }
     if (order.lockKind === 'keyhole_only') {
-      // Alleen sleutelgat: enkele dot zonder cilinder-disc
       return (
         <g>
-          <circle cx={handleX} cy={handleYFromTop - 60} r={3.5} fill={stroke} />
-          <rect x={handleX - 1} y={handleYFromTop - 59} width={2} height={9} fill={stroke} />
+          <circle cx={lockX} cy={handleYFromTop - 60} r={3.5} fill={lockStroke} />
+          <rect x={lockX - 1} y={handleYFromTop - 59} width={2} height={9} fill={lockStroke} />
         </g>
       )
     }
     // cilinder_litto + other: cilinder-disc
     return (
       <g>
-        <circle cx={handleX} cy={handleYFromTop - 70} r={10}
-          fill="#FFFFFF" stroke={stroke} strokeWidth={1.4}
+        <circle cx={lockX} cy={handleYFromTop - 70} r={10}
+          fill="#FFFFFF" stroke={lockStroke} strokeWidth={1.4}
           vectorEffect="non-scaling-stroke" />
-        <circle cx={handleX} cy={handleYFromTop - 72} r={2.6} fill={stroke} />
-        <rect x={handleX - 1} y={handleYFromTop - 71} width={2} height={6} fill={stroke} />
+        <circle cx={lockX} cy={handleYFromTop - 72} r={2.6} fill={lockStroke} />
+        <rect x={lockX - 1} y={handleYFromTop - 71} width={2} height={6} fill={lockStroke} />
       </g>
     )
   }
