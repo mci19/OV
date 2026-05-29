@@ -80,7 +80,9 @@ export function DoorOutline({ order, showGlassFill = true, clientView = false }:
   const bladeX = baseBladeX + leftPanelWidth + (leftPanelWidth ? KOZIJN_DIV : 0)
   const bladeY = baseBladeY + topPanelHeight + (topPanelHeight ? KOZIJN_DIV : 0)
 
-  const isDouble = order.hingeKind === 'double' || order.variants.includes('double_door')
+  // doorConfig is sinds v5 de canonieke bron. Legacy variants/hingeKind
+  // tellen alleen mee als doorConfig nog niet gezet is (oude data).
+  const isDouble = order.doorConfig === 'double'
   const hingeOnLeft = order.handlePosition.side === 'right'
 
   return (
