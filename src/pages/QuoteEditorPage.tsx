@@ -252,12 +252,14 @@ export function QuoteEditorPage() {
           </div>
         </div>
 
-        {/* Totalen */}
-        <aside className="space-y-3 lg:sticky lg:top-4 h-fit">
+        {/* Totalen — sticky aside op lg+, op mobiel klapt-ie naar de
+            sticky bottom-bar onder de pagina (zie verderop) zodat de
+            gebruiker nooit naar boven hoeft te scrollen om te saven. */}
+        <aside className="space-y-3 lg:sticky lg:top-4 h-fit hidden lg:block">
           <div className="card space-y-2">
             <div className="flex justify-between font-mono text-sm">
               <span>{t('quote.subtotal')}</span>
-              <span className="tabular-nums">{formatEur(totals.subtotal)}</span>
+              <span className="tabular-nums">{formatEur(totals.subtotal, lang)}</span>
             </div>
             <div className="flex justify-between items-center font-mono text-sm">
               <span>
@@ -270,14 +272,45 @@ export function QuoteEditorPage() {
                 />
                 %
               </span>
-              <span className="tabular-nums">{formatEur(totals.vat)}</span>
+              <span className="tabular-nums">{formatEur(totals.vat, lang)}</span>
             </div>
             <div className="border-t border-ink pt-2 flex justify-between font-mono font-bold">
               <span>{t('quote.total')}</span>
-              <span className="tabular-nums">{formatEur(totals.total)}</span>
+              <span className="tabular-nums">{formatEur(totals.total, lang)}</span>
+            </div>
+            <div className="flex flex-col gap-2 pt-2 border-t border-soft-2">
+              <button className="btn btn-primary w-full justify-center" onClick={save} disabled={upsert.isPending || !dirty}>
+                {upsert.isPending ? '…' : dirty ? t('common.save') : t('common.saved')}
+              </button>
+              <button className="btn w-full justify-center" onClick={downloadPdf} disabled={pdfBusy}>
+                <Download size={14} /> {pdfBusy ? '…' : t('quote.pdf')}
+              </button>
             </div>
           </div>
         </aside>
+      </div>
+
+      {/* Sticky bottom-bar voor mobiel — totalen + Save altijd in beeld.
+          Onder de viewport-rand zit ook de mobile bottom-nav, dus we
+          plaatsen deze net daarboven (bottom-14 ≈ 56 px). */}
+      <div
+        className="lg:hidden fixed left-0 right-0 z-20 bg-paper/95 backdrop-blur border-t border-soft-2 no-print"
+        style={{ bottom: 'calc(3.5rem + env(safe-area-inset-bottom, 0px))' }}
+      >
+        <div className="px-3 py-2 flex items-center justify-between gap-2">
+          <div className="min-w-0">
+            <div className="font-mono text-[10px] uppercase tracking-wider text-[--color-muted]">{t('quote.total')}</div>
+            <div className="font-mono text-base font-bold tabular-nums">{formatEur(totals.total, lang)}</div>
+          </div>
+          <div className="flex gap-2 shrink-0">
+            <button className="btn btn-sm" onClick={downloadPdf} disabled={pdfBusy} aria-label={t('quote.pdf')}>
+              <Download size={14} />
+            </button>
+            <button className="btn btn-primary btn-sm" onClick={save} disabled={upsert.isPending || !dirty}>
+              {upsert.isPending ? '…' : dirty ? t('common.save') : t('common.saved')}
+            </button>
+          </div>
+        </div>
       </div>
 
       {picker ? (

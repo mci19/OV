@@ -94,13 +94,56 @@ export function Layout() {
           </div>
         ) : null}
 
-        <main className="overflow-y-auto min-h-0">
+        <main className="overflow-y-auto min-h-0 pb-16 lg:pb-0">
           <Outlet />
         </main>
       </div>
 
+      {/* Mobile bottom-nav — alleen op kleine schermen (lg-breakpoint).
+          Vervangt het sidebar-drawer-gedoe voor de meest voorkomende
+          navigatie. De drawer blijft bestaan voor profile + logout. */}
+      <MobileBottomNav isAdmin={isAdmin} />
+
       {profileOpen ? <ProfileDialog onClose={() => setProfileOpen(false)} /> : null}
     </div>
+  )
+}
+
+function MobileBottomNav({ isAdmin }: { isAdmin: boolean }) {
+  const { t } = useT()
+  const items = NAV.filter((n) => !n.adminOnly || isAdmin)
+  return (
+    <nav
+      className="lg:hidden fixed bottom-0 inset-x-0 z-20 bg-paper/95 backdrop-blur border-t border-soft-2 flex justify-around items-stretch h-14 no-print"
+      // safe-area-inset voor iOS notch / home indicator
+      style={{ paddingBottom: 'env(safe-area-inset-bottom, 0)' }}
+      aria-label="Primary"
+    >
+      {items.map((n) => {
+        const Icon = n.icon
+        return (
+          <NavLink
+            key={n.to}
+            to={n.to}
+            end={n.end}
+            className="flex-1 flex flex-col items-center justify-center gap-0.5 text-[--color-muted] data-[active=true]:text-ink"
+          >
+            {({ isActive }) => (
+              <span
+                data-active={isActive || undefined}
+                className="flex flex-col items-center justify-center gap-0.5 px-1 py-1"
+                style={{ color: isActive ? 'var(--color-ink)' : 'var(--color-muted)' }}
+              >
+                <Icon size={20} strokeWidth={isActive ? 2.2 : 1.7} />
+                <span className="font-mono text-[9px] uppercase tracking-wider" style={{ fontWeight: isActive ? 600 : 400 }}>
+                  {t(n.labelKey)}
+                </span>
+              </span>
+            )}
+          </NavLink>
+        )
+      })}
+    </nav>
   )
 }
 

@@ -38,6 +38,7 @@ export function SketchEditor({ order, onChange }: Props) {
   const [aiBusy, setAiBusy] = useState(false)
   const [aiError, setAiError] = useState<string | null>(null)
   const [aiHint, setAiHint] = useState<string | null>(null)
+  const [aiOpen, setAiOpen] = useState(false)
   const [showDetails, setShowDetails] = useState<boolean>(() => {
     try { return localStorage.getItem(DETAILS_KEY) !== '0' } catch { return true }
   })
@@ -400,6 +401,15 @@ export function SketchEditor({ order, onChange }: Props) {
         <button
           type="button"
           className="chip"
+          data-active={aiOpen}
+          onClick={() => setAiOpen((v) => !v)}
+          title={t('sketch.aiToggleTooltip')}
+        >
+          <Sparkles size={14} /> {t('sketch.aiToggle')}
+        </button>
+        <button
+          type="button"
+          className="chip"
           data-active={showDetails}
           onClick={() => setShowDetails((v) => !v)}
           title={t('sketch.detailsTooltip')}
@@ -434,32 +444,36 @@ export function SketchEditor({ order, onChange }: Props) {
         </div>
       </div>
 
-      {/* AI-prompt row — beschrijf de gewenste verdeling in tekst */}
-      <div className="no-print border-b border-black/10 bg-paper/60 px-3 py-2 flex items-center gap-2">
-        <Sparkles size={14} className="text-accent shrink-0" />
-        <input
-          className="field-input !border-soft-2 !py-1 text-sm flex-1 min-w-0"
-          placeholder={t('sketch.aiPlaceholder')}
-          value={aiPrompt}
-          onChange={(e) => setAiPrompt(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter') {
-              e.preventDefault()
-              runAiFromText()
-            }
-          }}
-          disabled={aiBusy}
-        />
-        <button
-          type="button"
-          className="chip"
-          data-active
-          onClick={runAiFromText}
-          disabled={!aiPrompt.trim() || aiBusy}
-        >
-          {aiBusy ? '…' : t('sketch.aiGenerate')}
-        </button>
-      </div>
+      {/* AI-prompt row — alleen tonen wanneer de gebruiker de AI-chip
+          openzet, anders eet 50px verticale ruimte van het canvas. */}
+      {aiOpen ? (
+        <div className="no-print border-b border-black/10 bg-paper/60 px-3 py-2 flex items-center gap-2">
+          <Sparkles size={14} className="text-accent shrink-0" />
+          <input
+            className="field-input !border-soft-2 !py-1 text-sm flex-1 min-w-0"
+            placeholder={t('sketch.aiPlaceholder')}
+            value={aiPrompt}
+            onChange={(e) => setAiPrompt(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') {
+                e.preventDefault()
+                runAiFromText()
+              }
+            }}
+            disabled={aiBusy}
+            autoFocus
+          />
+          <button
+            type="button"
+            className="chip"
+            data-active
+            onClick={runAiFromText}
+            disabled={!aiPrompt.trim() || aiBusy}
+          >
+            {aiBusy ? '…' : t('sketch.aiGenerate')}
+          </button>
+        </div>
+      ) : null}
 
       {aiError || aiHint ? (
         <div className={`no-print px-3 py-1.5 text-xs font-mono ${aiError ? 'bg-accent text-paper' : 'bg-soft text-ink'}`}>
