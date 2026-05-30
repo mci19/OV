@@ -348,5 +348,20 @@ export function sanitizeOrderData(raw: Partial<OrderData>): OrderData {
     merged.sidePanels = ['left']
   }
 
+  // hingeSide → handlePosition.side correctie. Eerder draaide dit als
+  // een useEffect in OpportunityDetailPage, wat een race veroorzaakte
+  // met de load-effect (Page liet `dirty=false` terwijl `order` al
+  // gewijzigd was → save-knop bleef disabled). Doen we hier in
+  // sanitize, dan ziet de page altijd consistente input.
+  // Voor 'double_*' hingeSides laten we de side ongemoeid (gebruiker
+  // mag hem manueel kiezen op dubbele deuren).
+  if (merged.handlePosition) {
+    if (merged.hingeSide === 'belgisch_links' && merged.handlePosition.side !== 'right') {
+      merged.handlePosition = { ...merged.handlePosition, side: 'right' }
+    } else if (merged.hingeSide === 'belgisch_rechts' && merged.handlePosition.side !== 'left') {
+      merged.handlePosition = { ...merged.handlePosition, side: 'left' }
+    }
+  }
+
   return merged
 }

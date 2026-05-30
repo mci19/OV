@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { ChevronLeft, Save, Trash2, Plus, FileText, Pencil, Scissors, Copy } from 'lucide-react'
 import { PageContainer } from '../components/Layout'
@@ -82,11 +82,21 @@ export function OpportunityDetailPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [existingOrder?.id, opp?.id])
 
-  // hingeSide → handle.side
+  // hingeSide → handle.side. De LOAD-correctie zit nu in sanitizeOrderData
+  // (voorkomt race met de load-effect die `dirty=false` zet). Deze
+  // useEffect dekt LIVE edits af: als de gebruiker de hingeSide flipt
+  // in de UI, moet de handle ook flippen — en de save-knop moet dan
+  // wél dirty zijn. We bewaken op een ref of de wijziging vanuit
+  // sanitize (load) of vanuit een echte user-edit komt om dubbele
+  // setOrder-cycles te voorkomen.
+  const lastHingeSideRef = useRef(order.hingeSide)
   useEffect(() => {
+    if (lastHingeSideRef.current === order.hingeSide) return
+    lastHingeSideRef.current = order.hingeSide
     const desired: 'left' | 'right' = order.hingeSide === 'belgisch_links' ? 'right' : 'left'
     if (order.handlePosition.side !== desired && (order.hingeSide === 'belgisch_links' || order.hingeSide === 'belgisch_rechts')) {
       setOrder((o) => ({ ...o, handlePosition: { ...o.handlePosition, side: desired } }))
+      setDirty(true)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [order.hingeSide])

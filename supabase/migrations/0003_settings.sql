@@ -3,7 +3,7 @@
 
 -- ─── App-settings (single-row) ────────────────────────────
 -- Bedrijfsgegevens + standaardwaarden voor offertes + orders.
-create table public.app_settings (
+create table if not exists public.app_settings (
   id                       boolean primary key default true,
   -- Bedrijf
   company_name             text    not null default 'MY DOORS',
@@ -35,6 +35,7 @@ create table public.app_settings (
 -- Default row — wordt door de UI geupsert maar handig voor migrations.
 insert into public.app_settings (id) values (true) on conflict do nothing;
 
+drop trigger if exists app_settings_touch on public.app_settings;
 create trigger app_settings_touch
   before update on public.app_settings
   for each row execute function public.touch_updated_at();
@@ -44,7 +45,7 @@ create trigger app_settings_touch
 -- glas-types, lock-types, handle-types. Items als jsonb-array:
 --   [{ "value": "...", "label": "...", "sort_order": 10, "active": true,
 --      "meta": { ... optional extra fields ... } }]
-create table public.option_lists (
+create table if not exists public.option_lists (
   id           uuid primary key default gen_random_uuid(),
   list_key     text unique not null,         -- bv. 'verkopers', 'ral_colors'
   description  text,
@@ -53,6 +54,7 @@ create table public.option_lists (
   updated_at   timestamptz not null default now()
 );
 
+drop trigger if exists option_lists_touch on public.option_lists;
 create trigger option_lists_touch
   before update on public.option_lists
   for each row execute function public.touch_updated_at();
@@ -84,8 +86,11 @@ insert into public.option_lists (list_key, description, items) values
 alter table public.app_settings enable row level security;
 alter table public.option_lists enable row level security;
 
+drop policy if exists "app_settings: read"  on public.app_settings;
+drop policy if exists "app_settings: write" on public.app_settings;
 create policy "app_settings: read"  on public.app_settings for select to authenticated using (true);
 create policy "app_settings: write" on public.app_settings for update to authenticated using (true) with check (true);
 -- Geen insert nodig (single row bestaat al via seed).
 
+drop policy if exists "option_lists: rw" on public.option_lists;
 create policy "option_lists: rw" on public.option_lists for all to authenticated using (true) with check (true);

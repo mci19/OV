@@ -6,7 +6,7 @@
 create extension if not exists "pgcrypto";
 
 -- ─── Profiles (1-op-1 met auth.users) ─────────────────────────
-create table public.profiles (
+create table if not exists public.profiles (
   id           uuid primary key references auth.users(id) on delete cascade,
   full_name    text not null default '',
   role         text not null default 'sales',  -- 'sales' | 'admin'
@@ -33,7 +33,7 @@ create trigger on_auth_user_created
   for each row execute function public.handle_new_user();
 
 -- ─── Customers ─────────────────────────────────────────────────
-create table public.customers (
+create table if not exists public.customers (
   id            uuid primary key default gen_random_uuid(),
   name          text not null,
   email         text,
@@ -47,13 +47,19 @@ create table public.customers (
   updated_at    timestamptz not null default now()
 );
 
-create index customers_name_idx on public.customers (lower(name));
-create index customers_created_by_idx on public.customers (created_by);
+create index if not exists customers_name_idx on public.customers (lower(name));
+create index if not exists customers_created_by_idx on public.customers (created_by);
 
 -- ─── Opportunities ────────────────────────────────────────────
-create type opportunity_stage as enum ('lead', 'meeting', 'quote_sent', 'won', 'lost');
+-- CREATE TYPE heeft geen IF NOT EXISTS; we wrappen in een DO block
+-- zodat de migratie idempotent is.
+do $$ begin
+  if not exists (select 1 from pg_type where typname = 'opportunity_stage') then
+    create type opportunity_stage as enum ('lead', 'meeting', 'quote_sent', 'won', 'lost');
+  end if;
+end $$;
 
-create table public.opportunities (
+create table if not exists public.opportunities (
   id                  uuid primary key default gen_random_uuid(),
   customer_id         uuid not null references public.customers(id) on delete cascade,
   title               text not null,
@@ -65,11 +71,11 @@ create table public.opportunities (
   updated_at          timestamptz not null default now()
 );
 
-create index opportunities_customer_idx on public.opportunities (customer_id);
-create index opportunities_stage_idx on public.opportunities (stage);
+create index if not exists opportunities_customer_idx on public.opportunities (customer_id);
+create index if not exists opportunities_stage_idx on public.opportunities (stage);
 
 -- ─── Orders (de schets + formulier-data) ─────────────────────
-create table public.orders (
+create table if not exists public.orders (
   id             uuid primary key default gen_random_uuid(),
   opportunity_id uuid not null references public.opportunities(id) on delete cascade,
   data           jsonb not null,  -- volledige OrderData (sketch + formulier)
@@ -78,12 +84,16 @@ create table public.orders (
   updated_at     timestamptz not null default now()
 );
 
-create index orders_opportunity_idx on public.orders (opportunity_id);
+create index if not exists orders_opportunity_idx on public.orders (opportunity_id);
 
 -- ─── Quotes ───────────────────────────────────────────────────
-create type quote_status as enum ('draft', 'sent', 'accepted', 'declined');
+do $$ begin
+  if not exists (select 1 from pg_type where typname = 'quote_status') then
+    create type quote_status as enum ('draft', 'sent', 'accepted', 'declined');
+  end if;
+end $$;
 
-create table public.quotes (
+create table if not exists public.quotes (
   id             uuid primary key default gen_random_uuid(),
   opportunity_id uuid not null references public.opportunities(id) on delete cascade,
   order_id       uuid references public.orders(id) on delete set null,
@@ -101,8 +111,8 @@ create table public.quotes (
   updated_at     timestamptz not null default now()
 );
 
-create index quotes_opportunity_idx on public.quotes (opportunity_id);
-create unique index quotes_reference_idx on public.quotes (reference);
+create index if not exists quotes_opportunity_idx on public.quotes (opportunity_id);
+create unique index if not exists quotes_reference_idx on public.quotes (reference);
 
 -- ─── updated_at trigger ──────────────────────────────────────
 create or replace function public.touch_updated_at()
@@ -115,18 +125,22 @@ begin
 end;
 $$;
 
+drop trigger if exists customers_touch on public.customers;
 create trigger customers_touch
   before update on public.customers
   for each row execute function public.touch_updated_at();
 
+drop trigger if exists opportunities_touch on public.opportunities;
 create trigger opportunities_touch
   before update on public.opportunities
   for each row execute function public.touch_updated_at();
 
+drop trigger if exists orders_touch on public.orders;
 create trigger orders_touch
   before update on public.orders
   for each row execute function public.touch_updated_at();
 
+drop trigger if exists quotes_touch on public.quotes;
 create trigger quotes_touch
   before update on public.quotes
   for each row execute function public.touch_updated_at();
@@ -141,9 +155,15 @@ alter table public.opportunities enable row level security;
 alter table public.orders        enable row level security;
 alter table public.quotes        enable row level security;
 
+drop policy if exists "profiles: read all"     on public.profiles;
+drop policy if exists "profiles: update self"  on public.profiles;
 create policy "profiles: read all"     on public.profiles      for select to authenticated using (true);
 create policy "profiles: update self"  on public.profiles      for update to authenticated using (id = auth.uid()) with check (id = auth.uid());
 
+drop policy if exists "customers: rw"          on public.customers;
+drop policy if exists "opportunities: rw"      on public.opportunities;
+drop policy if exists "orders: rw"             on public.orders;
+drop policy if exists "quotes: rw"             on public.quotes;
 create policy "customers: rw"          on public.customers     for all    to authenticated using (true) with check (true);
 create policy "opportunities: rw"      on public.opportunities for all    to authenticated using (true) with check (true);
 create policy "orders: rw"             on public.orders        for all    to authenticated using (true) with check (true);

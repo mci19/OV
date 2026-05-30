@@ -2,7 +2,7 @@
 -- Run in Supabase SQL Editor na 0001_init.sql.
 
 -- ─── Products ─────────────────────────────────────────────────
-create table public.products (
+create table if not exists public.products (
   id              uuid primary key default gen_random_uuid(),
   name            text not null,
   description     text,
@@ -16,18 +16,25 @@ create table public.products (
   updated_at      timestamptz not null default now()
 );
 
-create index products_active_idx on public.products (active, sort_order);
-create index products_category_idx on public.products (category);
+create index if not exists products_active_idx on public.products (active, sort_order);
+create index if not exists products_category_idx on public.products (category);
 
+drop trigger if exists products_touch on public.products;
 create trigger products_touch
   before update on public.products
   for each row execute function public.touch_updated_at();
 
 alter table public.products enable row level security;
+drop policy if exists "products: rw" on public.products;
 create policy "products: rw" on public.products for all to authenticated using (true) with check (true);
 
--- Wat seed-data zodat verkopers direct iets hebben om uit te kiezen
-insert into public.products (name, description, category, unit, default_price_cents, sort_order) values
+-- Wat seed-data zodat verkopers direct iets hebben om uit te kiezen.
+-- LET OP: 0010 deactiveert deze items en 0011 wist + reseedt; deze
+-- waarden zijn alleen relevant als je 0002 standalone op een lege DB
+-- draait. Idempotent gemaakt via WHERE NOT EXISTS zodat re-run niet
+-- dupliceert (products heeft pas in 0010 een unique-index op name).
+insert into public.products (name, description, category, unit, default_price_cents, sort_order)
+select * from (values
   ('Staal frame 40×20', 'Stalen kozijn op maat, RAL standaard', 'Frame', 'stuk', 0, 10),
   ('Glas helder', 'Helder veiligheidsglas, conform schets', 'Glas', 'stuk', 0, 20),
   ('Glas mat',    'Matglas, conform schets',                 'Glas', 'stuk', 0, 21),
@@ -39,10 +46,12 @@ insert into public.products (name, description, category, unit, default_price_ce
   ('Soft close',         'Soft close optie', 'Systeem', 'stuk', 0, 51),
   ('Plaatsing standaard','Plaatsing inclusief afregeling',    'Plaatsing', 'u', 0, 90),
   ('Afwerking poederlak','Poederlak in gekozen RAL',          'Afwerking', 'stuk', 0, 60),
-  ('Transport',          'Transportkosten naar werf',          'Logistiek', 'stuk', 0, 80);
+  ('Transport',          'Transportkosten naar werf',          'Logistiek', 'stuk', 0, 80)
+) as v(name, description, category, unit, default_price_cents, sort_order)
+where not exists (select 1 from public.products);
 
 -- ─── Activities (timeline per opportunity) ────────────────────
-create table public.activities (
+create table if not exists public.activities (
   id              uuid primary key default gen_random_uuid(),
   opportunity_id  uuid not null references public.opportunities(id) on delete cascade,
   kind            text not null,                    -- 'stage_change', 'note', 'order_saved', 'quote_sent', etc.
@@ -52,9 +61,10 @@ create table public.activities (
   created_at      timestamptz not null default now()
 );
 
-create index activities_opp_idx on public.activities (opportunity_id, created_at desc);
+create index if not exists activities_opp_idx on public.activities (opportunity_id, created_at desc);
 
 alter table public.activities enable row level security;
+drop policy if exists "activities: rw" on public.activities;
 create policy "activities: rw" on public.activities for all to authenticated using (true) with check (true);
 
 -- Auto-log stage change op opportunities

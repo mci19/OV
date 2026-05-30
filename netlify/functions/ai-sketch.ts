@@ -238,9 +238,24 @@ export const handler: Handler = async (event: HandlerEvent) => {
     return json(401, { error: 'Authorization header ontbreekt' }, origin)
   }
   const token = auth.slice(7).trim()
-  const authOk = await verifySupabaseJwt(token)
-  if (!authOk) {
+  const userId = await verifySupabaseJwt(token)
+  if (!userId) {
     return json(401, { error: 'Ongeldige of verlopen sessie' }, origin)
+  }
+
+  // Soft rate-limit: per-user dagelijkse cap zodat 1 sales-user niet
+  // ongelimiteerd Anthropic-credits kan opmaken. Limiet instelbaar via
+  // Netlify env AI_DAILY_LIMIT (default 50/dag/user). We tellen vóór
+  // het Anthropic-aanroepen op zodat 429-pieken op onze rekening blijven
+  // en niet als billable-call doorgaan.
+  const limit = Number(process.env.AI_DAILY_LIMIT) || 50
+  const newCount = await incrementAiUsage(userId)
+  if (newCount !== null && newCount > limit) {
+    return json(429, {
+      error: `Dagelijkse AI-limiet bereikt (${limit}). Probeer morgen opnieuw of vraag een verhoging aan je beheerder.`,
+      limit,
+      used: newCount,
+    }, origin)
   }
 
   let body: unknown
@@ -335,17 +350,17 @@ function clamp(v: number, lo: number, hi: number): number {
 /**
  * Verifieer een Supabase JWT door /auth/v1/user te raadplegen. Geen JWT-
  * library nodig — Supabase doet zelf de cryptografische validatie en
- * retourneert 401 voor verlopen of vervalste tokens. Cached zou kunnen
- * via een KV-store maar voor deze low-volume function is een directe
- * fetch per call snel genoeg.
+ * retourneert 401 voor verlopen of vervalste tokens.
+ *
+ * Returnt het user-id zodat de caller per-user kan rate-limiten;
+ * null = ongeldige of verlopen token.
  */
-async function verifySupabaseJwt(token: string): Promise<boolean> {
+async function verifySupabaseJwt(token: string): Promise<string | null> {
   const url = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL
   const anonKey = process.env.SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY
   if (!url || !anonKey) {
-    // Server is mis-geconfigureerd → weiger requests in plaats van stilletjes door te laten
     console.error('verifySupabaseJwt: SUPABASE_URL of SUPABASE_ANON_KEY ontbreekt op de server')
-    return false
+    return null
   }
   try {
     const res = await fetch(`${url}/auth/v1/user`, {
@@ -354,10 +369,48 @@ async function verifySupabaseJwt(token: string): Promise<boolean> {
         Authorization: `Bearer ${token}`,
       },
     })
-    return res.ok
+    if (!res.ok) return null
+    const body = (await res.json()) as { id?: string }
+    return body.id ?? null
   } catch (err) {
     console.error('verifySupabaseJwt fetch failed:', err)
-    return false
+    return null
+  }
+}
+
+/**
+ * Atomische +1 op de ai_usage-teller. Retourneert de NIEUWE count voor
+ * vandaag, of null bij een server-fout. Gebruikt de service-role key
+ * (niet de anon key) zodat de RPC-call de increment_ai_usage functie
+ * mag aanroepen ondanks de revoke-policy.
+ */
+async function incrementAiUsage(userId: string): Promise<number | null> {
+  const url = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL
+  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
+  if (!url || !serviceKey) {
+    console.error('incrementAiUsage: SUPABASE_SERVICE_ROLE_KEY ontbreekt')
+    return null
+  }
+  try {
+    const res = await fetch(`${url}/rest/v1/rpc/increment_ai_usage`, {
+      method: 'POST',
+      headers: {
+        apikey: serviceKey,
+        Authorization: `Bearer ${serviceKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ p_user_id: userId }),
+    })
+    if (!res.ok) {
+      const text = await res.text()
+      console.error('incrementAiUsage RPC failed:', res.status, text)
+      return null
+    }
+    const rows = (await res.json()) as Array<{ new_count?: number }>
+    return rows[0]?.new_count ?? null
+  } catch (err) {
+    console.error('incrementAiUsage fetch failed:', err)
+    return null
   }
 }
 

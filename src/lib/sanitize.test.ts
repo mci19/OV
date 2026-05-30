@@ -69,6 +69,33 @@ describe('sanitizeOrderData — legacy migrations', () => {
     ])
   })
 
+  it('corrigeert handlePosition.side bij belgisch_links → right', () => {
+    const out = sanitizeOrderData({
+      ...DEFAULT_ORDER,
+      hingeSide: 'belgisch_links',
+      handlePosition: { side: 'left', heightFromBottom: 1050 },
+    })
+    expect(out.handlePosition.side).toBe('right')
+  })
+
+  it('corrigeert handlePosition.side bij belgisch_rechts → left', () => {
+    const out = sanitizeOrderData({
+      ...DEFAULT_ORDER,
+      hingeSide: 'belgisch_rechts',
+      handlePosition: { side: 'right', heightFromBottom: 1050 },
+    })
+    expect(out.handlePosition.side).toBe('left')
+  })
+
+  it('laat handlePosition.side ongemoeid voor dubbele deur hingeSide', () => {
+    const out = sanitizeOrderData({
+      ...DEFAULT_ORDER,
+      hingeSide: 'double_1',
+      handlePosition: { side: 'left', heightFromBottom: 1050 },
+    })
+    expect(out.handlePosition.side).toBe('left')
+  })
+
   it('laat geldige orders ongemoeid (behalve area-default voor lijnen)', () => {
     const out = sanitizeOrderData({
       ...DEFAULT_ORDER,
