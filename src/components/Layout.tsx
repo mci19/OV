@@ -114,7 +114,7 @@ function MobileBottomNav({ isAdmin }: { isAdmin: boolean }) {
   const items = NAV.filter((n) => !n.adminOnly || isAdmin)
   return (
     <nav
-      className="lg:hidden fixed bottom-0 inset-x-0 z-20 bg-paper/95 backdrop-blur border-t border-soft-2 flex justify-around items-stretch h-14 no-print"
+      className="mobile-bottom-nav lg:hidden fixed bottom-0 inset-x-0 z-20 bg-paper/95 backdrop-blur border-t border-soft-2 flex justify-around items-stretch h-14 no-print"
       // safe-area-inset voor iOS notch / home indicator
       style={{ paddingBottom: 'env(safe-area-inset-bottom, 0)' }}
       aria-label="Primary"

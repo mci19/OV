@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
-import { ChevronLeft, Save, Trash2, Plus, FileText, Pencil, Scissors, Copy } from 'lucide-react'
+import { ChevronLeft, Save, Trash2, Plus, FileText, Pencil, Scissors, Copy, Maximize2 } from 'lucide-react'
 import { PageContainer } from '../components/Layout'
 import { Chips } from '../components/Field'
 import { OrderForm } from '../components/OrderForm'
@@ -37,6 +37,20 @@ export function OpportunityDetailPage() {
 
   const [order, setOrder] = useState<OrderData>(DEFAULT_ORDER)
   const [tab, setTab] = useState<Tab>('order')
+  // Fullscreen-sketch mode voor mobiel: strip alle chrome (sub-header,
+  // tabs, action-bar, layout bottom-nav) zodat het canvas de volle
+  // viewport krijgt. Toggleable via knop op mobiel; persistent in
+  // localStorage zodat hij open blijft bij navigeren tussen opps.
+  const [fullscreenSketch, setFullscreenSketch] = useState<boolean>(() => {
+    try { return localStorage.getItem('mydoors:sketch:fullscreen') === '1' } catch { return false }
+  })
+  useEffect(() => {
+    try { localStorage.setItem('mydoors:sketch:fullscreen', fullscreenSketch ? '1' : '0') } catch { /* */ }
+    // Body-data attribuut zodat Layout's bottom-nav weet dat we
+    // immersive zijn (zie Layout.tsx — verbergt zichzelf in deze modus).
+    document.body.dataset.sketchImmersive = fullscreenSketch ? '1' : '0'
+    return () => { delete document.body.dataset.sketchImmersive }
+  }, [fullscreenSketch])
   // isWide volgt de viewport-breedte reactief — tablet draaien of
   // window-resize past de layout meteen aan i.p.v. alleen bij mount.
   // isXl = ≥1280px → derde pane (activity + quotes mini) verschijnt
@@ -182,6 +196,55 @@ export function OpportunityDetailPage() {
   if (isLoading) return <PageContainer><div className="text-[--color-muted] font-mono text-sm">{t('common.loading')}</div></PageContainer>
   if (!opp) return <PageContainer><EmptyState title={t('opps.notFound')} /></PageContainer>
 
+  // Mobiel-immersive: render alleen de sketch + een mini-top-bar voor
+  // back/save. Alle andere chrome (sub-header, tabs, action-bar, bottom-
+  // nav) wordt overgeslagen zodat het canvas de volle viewport krijgt.
+  if (fullscreenSketch && tab === 'order') {
+    return (
+      <div className="fixed inset-0 z-40 bg-paper flex flex-col">
+        <div className="border-b border-soft-2 bg-paper/95 backdrop-blur px-2 py-1.5 flex items-center gap-2">
+          <button
+            type="button"
+            className="btn btn-ghost btn-icon btn-sm"
+            onClick={() => setFullscreenSketch(false)}
+            aria-label={t('opps.detail.exitFullscreen')}
+            title={t('opps.detail.exitFullscreen')}
+          >
+            <ChevronLeft size={18} />
+          </button>
+          <div className="flex-1 min-w-0">
+            <div className="font-bold text-sm truncate">{opp.title}</div>
+            <div className="font-mono text-[10px] text-[--color-muted] truncate">
+              {opp.customer_name} · {stageLabel(opp.stage, lang)}
+            </div>
+          </div>
+          <button
+            type="button"
+            className="btn btn-primary btn-sm"
+            onClick={persist}
+            disabled={!dirty || saveOrder.isPending}
+          >
+            <Save size={14} /> {saveOrder.isPending ? '…' : dirty ? t('common.save') : t('common.saved')}
+          </button>
+        </div>
+        <div className="flex-1 min-h-0 overflow-hidden">
+          <SketchEditor order={order} onChange={updateOrder} />
+        </div>
+        {editingCutList ? (
+          <CutListEditDialog
+            order={order}
+            onSave={(items, note) => {
+              updateOrder({ ...order, cutListOverride: { items, note: note || undefined, updatedAt: new Date().toISOString() } })
+              setEditingCutList(false)
+            }}
+            onClear={() => { updateOrder({ ...order, cutListOverride: undefined }); setEditingCutList(false) }}
+            onClose={() => setEditingCutList(false)}
+          />
+        ) : null}
+      </div>
+    )
+  }
+
   return (
     <div className="h-[100dvh] flex flex-col">
       {/* Sub-header voor opportunity context */}
@@ -242,6 +305,16 @@ export function OpportunityDetailPage() {
               ]}
               onChange={(v) => setView(v)}
             />
+            {/* Mobiel-only: maximaliseer-knop. Op desktop/tablet (lg+)
+                is er ruimte genoeg, daar niet nodig. */}
+            <button
+              type="button"
+              className="chip lg:hidden"
+              onClick={() => setFullscreenSketch(true)}
+              title={t('opps.detail.enterFullscreen')}
+            >
+              <Maximize2 size={14} /> {t('opps.detail.enterFullscreen')}
+            </button>
             {/* Rail-toggle alleen tonen op xl+ in split-view; daarop draait
                 het 3-pane-design (form/sketch/context). Onder xl draaien
                 gebruikers automatisch terug naar tabs voor activity/quotes. */}

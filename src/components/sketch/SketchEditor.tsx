@@ -40,7 +40,16 @@ export function SketchEditor({ order, onChange }: Props) {
   const [aiHint, setAiHint] = useState<string | null>(null)
   const [aiOpen, setAiOpen] = useState(false)
   const [showDetails, setShowDetails] = useState<boolean>(() => {
-    try { return localStorage.getItem(DETAILS_KEY) !== '0' } catch { return true }
+    // Default OFF op mobiel (DetailsStrip eet 40vh — gewoon te veel op
+    // een phone-scherm). Op desktop/tablet default ON tenzij eerder
+    // expliciet uitgezet via de toolbar.
+    const isMobile = typeof window !== 'undefined' && window.innerWidth < 1024
+    try {
+      const stored = localStorage.getItem(DETAILS_KEY)
+      if (stored === '1') return true
+      if (stored === '0') return false
+      return !isMobile
+    } catch { return !isMobile }
   })
   const [savingTemplate, setSavingTemplate] = useState(false)
   const [browsingTemplates, setBrowsingTemplates] = useState(false)

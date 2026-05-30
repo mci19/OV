@@ -483,6 +483,12 @@ textarea.field-input { font-family: var(--font-sans); resize: vertical; min-heig
   100% { opacity: 0; }
 }
 
+/* ─── Sketch immersive mode (mobile) ────────────────────── */
+/* OpportunityDetailPage zet body[data-sketch-immersive='1'] zodra de
+   gebruiker fullscreen-sketch aanzet. We verbergen dan de mobile
+   bottom-nav zodat het canvas de volle viewport krijgt. */
+body[data-sketch-immersive="1"] .mobile-bottom-nav { display: none !important; }
+
 /* ─── Print ──────────────────────────────────────────────── */
 @media print {
   @page { size: A4 portrait; margin: 12mm; }
