@@ -42,7 +42,19 @@ export function OpportunityDetailPage() {
   // viewport krijgt. Toggleable via knop op mobiel; persistent in
   // localStorage zodat hij open blijft bij navigeren tussen opps.
   const [fullscreenSketch, setFullscreenSketch] = useState<boolean>(() => {
-    try { return localStorage.getItem('mydoors:sketch:fullscreen') === '1' } catch { return false }
+    // Default AAN op mobiel zodat eerste-keer-gebruikers niet door een
+    // toolbar-stapel hoeven om de schets te zien. Op desktop/tablet
+    // (≥lg) altijd uit tenzij ze hem explicit aanzetten. localStorage
+    // overrules zodra de gebruiker een keuze maakt ('0' = expliciet uit).
+    try {
+      const stored = localStorage.getItem('mydoors:sketch:fullscreen')
+      if (stored === '1') return true
+      if (stored === '0') return false
+      // Geen voorkeur opgeslagen: kies op basis van viewport.
+      return typeof window !== 'undefined' && window.innerWidth < 1024
+    } catch {
+      return typeof window !== 'undefined' && window.innerWidth < 1024
+    }
   })
   useEffect(() => {
     try { localStorage.setItem('mydoors:sketch:fullscreen', fullscreenSketch ? '1' : '0') } catch { /* */ }

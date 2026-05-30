@@ -300,9 +300,9 @@ export function SketchEditor({ order, onChange }: Props) {
     <div className="flex flex-col h-full">
       {/* ── Rij 1 — modus + vlak-kiezer (centraal, altijd zichtbaar voor
               lijnen/curve zodat de gebruiker niet vastloopt). ── */}
-      <div className="no-print border-b border-black/10 bg-paper px-3 py-2 flex items-center justify-between gap-2 flex-wrap">
+      <div className="no-print border-b border-black/10 bg-paper px-2 sm:px-3 py-1.5 sm:py-2 flex items-center justify-between gap-2 flex-wrap">
         <div className="flex items-center gap-1 flex-wrap">
-          <span className="font-mono text-[10px] uppercase tracking-widest text-[--color-muted] mr-1">
+          <span className="hidden sm:inline font-mono text-[10px] uppercase tracking-widest text-[--color-muted] mr-1">
             {t('sketch.modeLabel')}
           </span>
           {(['snel', 'lijnen', 'vrij', 'curve'] as const).map((m) => (
@@ -319,7 +319,7 @@ export function SketchEditor({ order, onChange }: Props) {
         </div>
         {(mode === 'lijnen' || mode === 'curve') && activeAreasList.length > 1 ? (
           <div className="flex items-center gap-1 flex-wrap">
-            <span className="font-mono text-[10px] uppercase tracking-widest text-[--color-muted] mr-1">
+            <span className="hidden sm:inline font-mono text-[10px] uppercase tracking-widest text-[--color-muted] mr-1">
               {t('sketch.area')}
             </span>
             {activeAreasList.map((a) => (
@@ -340,8 +340,8 @@ export function SketchEditor({ order, onChange }: Props) {
       {/* ── Rij 2 — acties binnen het geselecteerde modus. Alleen zichtbaar
               wanneer er iets te kiezen valt (anders blijft de toolbar leeg). ── */}
       {(mode === 'lijnen' || mode === 'vrij' || mode === 'curve') ? (
-        <div className="no-print border-b border-black/10 bg-paper/60 px-3 py-1.5 flex items-center gap-1 flex-wrap">
-          <span className="font-mono text-[10px] uppercase tracking-widest text-[--color-muted] mr-1">
+        <div className="no-print border-b border-black/10 bg-paper/60 px-2 sm:px-3 py-1.5 flex items-center gap-1 flex-wrap">
+          <span className="hidden sm:inline font-mono text-[10px] uppercase tracking-widest text-[--color-muted] mr-1">
             {t('sketch.actionsLabel')}
           </span>
           {mode === 'lijnen' ? (
@@ -403,8 +403,8 @@ export function SketchEditor({ order, onChange }: Props) {
 
       {/* ── Rij 3 — view-opties + templates. Stabiel, altijd op dezelfde
               positie zodat ze niet door modus-wisselingen verschuiven. ── */}
-      <div className="no-print border-b border-black/10 bg-paper/40 px-3 py-1.5 flex items-center gap-1 flex-wrap">
-        <span className="font-mono text-[10px] uppercase tracking-widest text-[--color-muted] mr-1">
+      <div className="no-print border-b border-black/10 bg-paper/40 px-2 sm:px-3 py-1.5 flex items-center gap-1 flex-wrap">
+        <span className="hidden sm:inline font-mono text-[10px] uppercase tracking-widest text-[--color-muted] mr-1">
           {t('sketch.viewLabel')}
         </span>
         <button
@@ -433,7 +433,10 @@ export function SketchEditor({ order, onChange }: Props) {
         >
           {clientView ? t('sketch.clientViewOn') : t('sketch.clientView')}
         </button>
-        <div className="ml-auto flex items-center gap-1">
+        {/* Templates — alleen op desktop/tablet (sm+). Op mobiel
+            verstoppen we ze omdat ze zelden gebruikt worden en
+            anders een extra wrap-rij forceren. */}
+        <div className="ml-auto hidden sm:flex items-center gap-1">
           <button
             type="button"
             className="chip"
