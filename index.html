@@ -2,7 +2,13 @@
 <html lang="nl">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <!-- viewport-fit=cover voor iOS notch safe-areas. maximum-scale=1
+         + user-scalable=no zodat iOS Safari niet onbedoeld inzoomt
+         (b.v. dubbeltap, of zoom bij focus op input): de mini top-bar
+         in mobile-immersive blijft anders niet meer aan de viewport-
+         rand kleven. De SketchEditor en PDF-viewer regelen hun eigen
+         zoom intern. -->
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
     <title>MY DOORS — Deur Configurator</title>
   </head>
   <body>

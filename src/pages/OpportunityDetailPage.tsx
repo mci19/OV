@@ -229,6 +229,16 @@ export function OpportunityDetailPage() {
           </button>
           <button
             type="button"
+            className="btn btn-sm btn-icon"
+            onClick={() => setEditingCutList(true)}
+            aria-label={t('opps.detail.cutListBtn')}
+            title={t('opps.detail.cutListTitle')}
+          >
+            <Scissors size={14} />
+            {order.cutListOverride ? <span className="ml-0.5 text-[--color-accent] text-xs leading-none">●</span> : null}
+          </button>
+          <button
+            type="button"
             className="btn btn-primary btn-sm"
             onClick={persist}
             disabled={!dirty || saveOrder.isPending}
