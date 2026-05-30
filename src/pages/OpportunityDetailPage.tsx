@@ -38,10 +38,11 @@ export function OpportunityDetailPage() {
   const [order, setOrder] = useState<OrderData>(DEFAULT_ORDER)
   const [tab, setTab] = useState<Tab>('order')
   // Mobiel-only mini-view binnen de immersive container: 'sketch'
-  // (canvas full-screen) of 'form' (OrderForm full-screen). Geen
-  // tabs, geen secondary toolbar — alleen deze twee modi. Desktop
-  // gebruikt de normale split-view en negeert deze state.
-  const [mobileView, setMobileView] = useState<'sketch' | 'form'>('sketch')
+  // (canvas full-screen) of 'form' (OrderForm full-screen). Default
+  // 'form' zodat sales-reps eerst de klant-info kunnen invullen voor
+  // ze in de schets duiken. Toggle via knop in de top-bar OF de CTA
+  // onderaan het formulier.
+  const [mobileView, setMobileView] = useState<'sketch' | 'form'>('form')
   // isWide volgt de viewport-breedte reactief — tablet draaien of
   // window-resize past de layout meteen aan i.p.v. alleen bij mount.
   // isXl = ≥1280px → derde pane (activity + quotes mini) verschijnt
@@ -250,8 +251,18 @@ export function OpportunityDetailPage() {
           {showingSketch ? (
             <SketchEditor order={order} onChange={updateOrder} />
           ) : (
-            <div className="h-full overflow-y-auto p-4">
+            <div className="h-full overflow-y-auto p-4 space-y-4">
               <OrderForm order={order} set={set} issues={issues} />
+              {/* Mobiele CTA — onderaan het formulier zodat de gebruiker
+                  na het invullen direct door kan naar de schets zonder
+                  terug omhoog te scrollen naar de top-bar-toggle. */}
+              <button
+                type="button"
+                className="btn btn-primary btn-lg w-full justify-center mt-6"
+                onClick={() => setMobileView('sketch')}
+              >
+                {t('opps.detail.view.sketch')} →
+              </button>
             </div>
           )}
         </div>
