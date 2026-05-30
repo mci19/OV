@@ -19,6 +19,9 @@ interface AuthState {
   loading: boolean
   signIn: (email: string, password: string) => Promise<{ error?: string }>
   signUp: (email: string, password: string, fullName: string) => Promise<{ error?: string }>
+  /** Vraag een password-reset email aan voor `email`. Supabase verstuurt
+   *  een magic link. */
+  resetPassword: (email: string) => Promise<{ error?: string }>
   signOut: () => Promise<void>
   /** Forceer een refresh van het profiel — bv. na rol-wijziging door admin. */
   refreshProfile: () => Promise<void>
@@ -84,6 +87,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     })
     return { error: error?.message }
   }
+  const resetPassword: AuthState['resetPassword'] = async (email) => {
+    // redirectTo wijst naar /login zodat we na de magic-link gewoon
+    // terug op de inlog-flow landen. Supabase voegt automatisch het
+    // recovery-token toe aan de URL.
+    const { error } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: `${window.location.origin}/login`,
+    })
+    return { error: error?.message }
+  }
   const signOut: AuthState['signOut'] = async () => {
     await supabase.auth.signOut()
   }
@@ -101,6 +113,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     loading,
     signIn,
     signUp,
+    resetPassword,
     signOut,
     refreshProfile,
   }

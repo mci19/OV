@@ -21,8 +21,12 @@ describe('validateOrder', () => {
   })
 
   it('weigert breedte buiten bereik', () => {
+    // < 600 mm = niet toegestaan
     expect(validateOrder({ ...DEFAULT_ORDER, breedte: 400 }).some((i) => i.severity === 'error')).toBe(true)
-    expect(validateOrder({ ...DEFAULT_ORDER, breedte: 1600 }).some((i) => i.severity === 'error')).toBe(true)
+    // > 2400 mm = niet toegestaan (cap was 1500 maar dubbele deuren mogen tot 2400)
+    expect(validateOrder({ ...DEFAULT_ORDER, breedte: 2500 }).some((i) => i.severity === 'error')).toBe(true)
+    // 1800 mm = OK (dubbele deur range)
+    expect(validateOrder({ ...DEFAULT_ORDER, breedte: 1800, doorConfig: 'double' }).some((i) => i.field === 'breedte' && i.severity === 'error')).toBe(false)
   })
 
   it('waarschuwt voor ontbrekende klantnaam', () => {

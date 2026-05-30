@@ -62,7 +62,13 @@ export function QuoteEditorPage() {
       setVatRate(Number(settings?.quote_vat_rate ?? 21))
       setDirty(false)
     }
-  }, [existing, opp, quoteId, settings])
+    // Bewust GEEN `settings` in de deps. Bij elke react-query refetch van
+    // settings (focus, window-blur, periodieke poll) zou anders deze
+    // effect re-runnen en de in-flight edits van de gebruiker wegblazen.
+    // De `new`-tak heeft settings alleen nodig op de eerste mount —
+    // daarna leest de gebruiker zelf, niet meer de settings.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [existing?.id, opp?.id, quoteId])
 
   useUnsavedChangesGuard(dirty, t('common.unsavedConfirm'))
 

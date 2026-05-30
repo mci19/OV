@@ -97,8 +97,11 @@ const dict = {
     'users.create.success': 'Gebruiker aangemaakt',
     'users.create.failed': 'Aanmaken mislukt: {error}',
     'users.create.credentialsTitle': 'Inloggegevens (eenmalig getoond)',
-    'users.create.credentialsNote': 'Deel deze gegevens met de gebruiker via een veilig kanaal. Het wachtwoord wordt nergens bewaard.',
+    'users.create.credentialsNote': 'Deel deze reset-link met de gebruiker via een veilig kanaal. Hij is eenmalig en stelt zijn eigen wachtwoord in.',
     'users.create.copyPassword': 'Kopieer wachtwoord',
+    'users.create.copyLink': 'Kopieer link',
+    'users.create.resetLinkLabel': 'Reset-link',
+    'users.create.resetLinkUnavailable': 'Reset-link niet beschikbaar — vraag de gebruiker om "Wachtwoord vergeten" te gebruiken op de login.',
     'users.create.copied': 'Gekopieerd',
     'users.create.done': 'Klaar',
 
@@ -123,6 +126,10 @@ const dict = {
     'login.toSignin': 'Heb al een account — inloggen',
     'login.accountCreated': 'Account aangemaakt — log nu in.',
     'login.contactAdmin': 'Account nodig? Neem contact op met de beheerder.',
+    'login.forgot': 'Wachtwoord vergeten?',
+    'login.resetSubmit': 'Stuur reset-link',
+    'login.resetSent': 'Reset-link verzonden — controleer je inbox.',
+    'login.backToSignin': 'Terug naar inloggen',
     'login.supabaseNotConfigured': 'Supabase niet geconfigureerd. Zet VITE_SUPABASE_URL en VITE_SUPABASE_ANON_KEY.',
 
     // ─── Home ───────────────────────────────────────────────
@@ -618,6 +625,7 @@ const dict = {
     'activity.notePlaceholder': "Notitie toevoegen — bv. 'Klant belt morgen terug'",
     'activity.post': 'Plaats',
     'activity.emptyDashed': 'Nog geen activiteit.',
+    'activity.stageChange': 'Stage gewijzigd: {from} → {to}',
 
     // ─── Order form — chip options ──────────────────────────
     'order.hingeSingle': 'Single',
@@ -851,8 +859,11 @@ const dict = {
     'users.create.success': 'User created',
     'users.create.failed': 'Creation failed: {error}',
     'users.create.credentialsTitle': 'Credentials (shown once)',
-    'users.create.credentialsNote': 'Share these credentials with the user via a secure channel. The password is not stored anywhere.',
+    'users.create.credentialsNote': 'Share this reset link with the user via a secure channel. It is single-use and lets them set their own password.',
     'users.create.copyPassword': 'Copy password',
+    'users.create.copyLink': 'Copy link',
+    'users.create.resetLinkLabel': 'Reset link',
+    'users.create.resetLinkUnavailable': 'Reset link unavailable — ask the user to use "Forgot password" on the login screen.',
     'users.create.copied': 'Copied',
     'users.create.done': 'Done',
 
@@ -877,6 +888,10 @@ const dict = {
     'login.toSignin': 'Already have an account — sign in',
     'login.accountCreated': 'Account created — sign in now.',
     'login.contactAdmin': 'Need an account? Contact the administrator.',
+    'login.forgot': 'Forgot your password?',
+    'login.resetSubmit': 'Send reset link',
+    'login.resetSent': 'Reset link sent — check your inbox.',
+    'login.backToSignin': 'Back to sign in',
     'login.supabaseNotConfigured': 'Supabase not configured. Set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY.',
 
     // ─── Home ───────────────────────────────────────────────
@@ -1372,6 +1387,7 @@ const dict = {
     'activity.notePlaceholder': "Add a note — e.g. 'Customer calls back tomorrow'",
     'activity.post': 'Post',
     'activity.emptyDashed': 'No activity yet.',
+    'activity.stageChange': 'Stage changed: {from} → {to}',
 
     // ─── Order form — chip options ──────────────────────────
     'order.hingeSingle': 'Single',

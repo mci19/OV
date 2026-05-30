@@ -233,22 +233,31 @@ export function SketchEditor({ order, onChange }: Props) {
     return lines
   }, [mode, breedte, hoogte, clientView])
 
-  // beperk Apple Pencil naar freehand mode automatisch
+  // beperk Apple Pencil naar freehand mode automatisch.
+  // We registreren de listener exact ÉÉN keer op mount (deps = []) en
+  // lezen de actuele mode via een ref. Eerder stond `mode` in de deps,
+  // waardoor we na elke mode-switch een nieuwe {once:true} listener
+  // toevoegden — de gebruiker werd dan na elke modus-wissel opnieuw
+  // naar 'vrij' geforceerd zodra hij de stylus aanraakte.
+  const modeRef = useRef<SketchMode>(mode)
+  useEffect(() => { modeRef.current = mode }, [mode])
   useEffect(() => {
     function onPointer(e: PointerEvent) {
-      if (e.pointerType === 'pen' && mode !== 'vrij') {
+      if (e.pointerType === 'pen' && modeRef.current !== 'vrij') {
         setMode('vrij')
       }
     }
     window.addEventListener('pointerdown', onPointer, { capture: true, once: true })
     return () => window.removeEventListener('pointerdown', onPointer, { capture: true })
-  }, [mode])
+  }, [])
 
   // Pulse-feedback: elke configuratie-wijziging triggert een korte glow
   // op de tekening zodat de gebruiker zichtbare bevestiging krijgt.
   // Hash van alle "visueel relevante" opties; wijzigt → React remount
   // van de overlay-div → CSS animation start opnieuw.
   const pulseKey = useMemo(() => {
+    // Hash POSITIES (niet alleen .length) zodat het slepen of wijzigen
+    // van een bestaande lijn ook een pulse triggert.
     return [
       order.colorKind, order.colorOther,
       order.glassType, order.glassOther,
@@ -258,10 +267,14 @@ export function SketchEditor({ order, onChange }: Props) {
       order.handlePosition.side, order.handlePosition.heightFromBottom,
       order.hingeKind, order.hingeSide,
       order.breedte, order.hoogte,
-      sketch.verticalLines.length, sketch.horizontalLines.length,
+      order.doorConfig, order.sidePanels.join(','),
+      order.leftPanelWidth, order.rightPanelWidth, order.topPanelHeight,
+      sketch.verticalLines.map((v) => `${v.x}:${v.area ?? 'door'}`).join(','),
+      sketch.horizontalLines.map((h) => `${h.y}:${h.area ?? 'door'}`).join(','),
+      (sketch.curves ?? []).map((c) => `${c.d}:${c.area ?? 'door'}`).join('|'),
       sketch.freehand.length,
     ].join('|')
-  }, [order, sketch.verticalLines.length, sketch.horizontalLines.length, sketch.freehand.length])
+  }, [order, sketch])
 
   const viewBox = `${-MARGIN} ${-MARGIN} ${breedte + 2 * MARGIN} ${hoogte + 2 * MARGIN}`
 

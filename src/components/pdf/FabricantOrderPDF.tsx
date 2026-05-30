@@ -17,7 +17,6 @@ import { tFor, type Lang } from '../../lib/i18n'
 import { truncate } from '../../lib/format'
 import { SketchPdfBlock } from './SketchPdfBlock'
 import { CutListPdfBlock } from './CutListPdfBlock'
-import { CrossSectionPdf } from './CrossSectionPdf'
 
 const styles = StyleSheet.create({
   page: { padding: 36, fontFamily: 'Helvetica', fontSize: 10, color: '#0A0A0A' },
@@ -146,11 +145,6 @@ export function FabricantOrderPDF({ order, cutFormulas, lang = 'nl' }: Props) {
           <View style={styles.rightHead}>
             <Text>{tFor(lang, 'pdf.no')}: {nr}</Text>
           </View>
-        </View>
-
-        {/* Profiel-doorsnede bovenaan */}
-        <View style={{ alignItems: 'center', marginVertical: 10 }}>
-          <CrossSectionPdf width={420} height={100} />
         </View>
 
         {/* De zaaglijst zelf */}

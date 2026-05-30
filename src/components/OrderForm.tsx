@@ -18,6 +18,17 @@ function errorFor(issues: ValidationIssue[], field: string): string | null {
 // Types waarvoor de gebruiker een aangepaste lengte kan invoeren.
 const ADJUSTABLE_HANDLE_KINDS = new Set(['l_grip', 'horizontal_bar', 't_grip', 'custom'])
 
+/**
+ * Veilige mm-conversie voor paneel-velden. Lege input → `fallback` i.p.v.
+ * NaN, anders propageert NaN naar bladeHoriz/bladeVert in cutList.ts
+ * en krijg je "NaN mm" in de zaaglijst en de opgeslagen order.
+ */
+function clampPanelMm(raw: string, fallback: number): number {
+  const n = Number(raw)
+  if (!Number.isFinite(n) || n <= 0) return fallback
+  return Math.round(n)
+}
+
 export function OrderForm({ order, set, issues }: Props) {
   const { t } = useT()
   const { data: settings } = useAppSettings()
@@ -228,7 +239,7 @@ export function OrderForm({ order, set, issues }: Props) {
                 min={100}
                 max={1200}
                 value={order.leftPanelWidth}
-                onChange={(e) => set('leftPanelWidth', Number(e.target.value))}
+                onChange={(e) => set('leftPanelWidth', clampPanelMm(e.target.value, 100))}
               />
             ) : null}
             {order.sidePanels.includes('right') ? (
@@ -239,7 +250,7 @@ export function OrderForm({ order, set, issues }: Props) {
                 min={100}
                 max={1200}
                 value={order.rightPanelWidth}
-                onChange={(e) => set('rightPanelWidth', Number(e.target.value))}
+                onChange={(e) => set('rightPanelWidth', clampPanelMm(e.target.value, 100))}
               />
             ) : null}
             {order.sidePanels.includes('top') ? (
@@ -250,7 +261,7 @@ export function OrderForm({ order, set, issues }: Props) {
                 min={100}
                 max={1500}
                 value={order.topPanelHeight}
-                onChange={(e) => set('topPanelHeight', Number(e.target.value))}
+                onChange={(e) => set('topPanelHeight', clampPanelMm(e.target.value, 100))}
               />
             ) : null}
             <div className="font-mono text-xs text-[--color-muted]">

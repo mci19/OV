@@ -792,8 +792,9 @@ function CreateUserDialog({ onClose, onCreated }: { onClose: () => void; onCreat
 function CredentialsDialog({ credentials, onClose }: { credentials: CreatedUserResult; onClose: () => void }) {
   const { t } = useT()
   const toast = useToast()
-  function copy() {
-    navigator.clipboard.writeText(credentials.password).then(() => toast.success(t('users.create.copied')))
+  function copyLink() {
+    if (!credentials.reset_link) return
+    navigator.clipboard.writeText(credentials.reset_link).then(() => toast.success(t('users.create.copied')))
   }
   return (
     <Dialog
@@ -812,15 +813,19 @@ function CredentialsDialog({ credentials, onClose }: { credentials: CreatedUserR
             <div className="font-mono text-sm">{credentials.email}</div>
           </div>
           <div>
-            <div className="font-mono text-[10px] uppercase tracking-wider text-[--color-muted]">{t('login.password')}</div>
-            <div className="flex gap-2 items-center">
-              <code className="font-mono text-sm bg-white px-2 py-1 rounded border border-soft-2 flex-1 break-all">
-                {credentials.password}
-              </code>
-              <button type="button" className="btn btn-sm" onClick={copy}>
-                {t('users.create.copyPassword')}
-              </button>
-            </div>
+            <div className="font-mono text-[10px] uppercase tracking-wider text-[--color-muted]">{t('users.create.resetLinkLabel')}</div>
+            {credentials.reset_link ? (
+              <div className="flex gap-2 items-center">
+                <code className="font-mono text-xs bg-white px-2 py-1 rounded border border-soft-2 flex-1 break-all">
+                  {credentials.reset_link}
+                </code>
+                <button type="button" className="btn btn-sm" onClick={copyLink}>
+                  {t('users.create.copyLink')}
+                </button>
+              </div>
+            ) : (
+              <div className="text-sm text-[--color-muted]">{t('users.create.resetLinkUnavailable')}</div>
+            )}
           </div>
         </div>
       </div>

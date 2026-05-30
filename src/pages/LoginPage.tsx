@@ -11,10 +11,10 @@ import { LANGUAGES, useT, type Lang } from '../lib/i18n'
 const SELF_SIGNUP_ENABLED = import.meta.env.VITE_ALLOW_SIGNUP === 'true'
 
 export function LoginPage() {
-  const { user, signIn, signUp, loading } = useAuth()
+  const { user, signIn, signUp, resetPassword, loading } = useAuth()
   const navigate = useNavigate()
   const { t, lang, setLang } = useT()
-  const [mode, setMode] = useState<'signin' | 'signup'>('signin')
+  const [mode, setMode] = useState<'signin' | 'signup' | 'reset'>('signin')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [fullName, setFullName] = useState('')
@@ -30,16 +30,24 @@ export function LoginPage() {
     setError(null)
     setInfo(null)
     setBusy(true)
-    const fn = mode === 'signin' ? signIn(email, password) : signUp(email, password, fullName)
+    const fn = mode === 'signin'
+      ? signIn(email, password)
+      : mode === 'signup'
+        ? signUp(email, password, fullName)
+        : resetPassword(email)
     const { error } = await fn
     setBusy(false)
     if (error) {
       setError(error)
     } else if (mode === 'signin') {
       navigate('/')
-    } else {
+    } else if (mode === 'signup') {
       setMode('signin')
       setInfo(t('login.accountCreated'))
+    } else {
+      // reset
+      setMode('signin')
+      setInfo(t('login.resetSent'))
     }
   }
 
@@ -113,15 +121,17 @@ export function LoginPage() {
             autoComplete="email"
             autoFocus
           />
-          <Field
-            label={t('login.password')}
-            type="password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            required
-            autoComplete={mode === 'signin' ? 'current-password' : 'new-password'}
-            minLength={8}
-          />
+          {mode !== 'reset' ? (
+            <Field
+              label={t('login.password')}
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              required
+              autoComplete={mode === 'signin' ? 'current-password' : 'new-password'}
+              minLength={8}
+            />
+          ) : null}
 
           {error ? (
             <div className="text-accent font-mono text-xs">{error}</div>
@@ -131,25 +141,45 @@ export function LoginPage() {
           ) : null}
 
           <button type="submit" className="btn btn-primary btn-lg w-full" disabled={busy}>
-            {busy ? '…' : mode === 'signin' ? t('login.signin') : t('login.signup')}
+            {busy ? '…' : mode === 'signin' ? t('login.signin') : mode === 'signup' ? t('login.signup') : t('login.resetSubmit')}
           </button>
         </form>
 
-        {SELF_SIGNUP_ENABLED ? (
-          <div className="mt-5 text-center">
+        <div className="mt-5 text-center space-y-2">
+          {mode === 'signin' ? (
             <button
               type="button"
               className="btn btn-ghost btn-sm"
-              onClick={() => { setMode(mode === 'signin' ? 'signup' : 'signin'); setError(null); setInfo(null) }}
+              onClick={() => { setMode('reset'); setError(null); setInfo(null) }}
             >
-              {mode === 'signin' ? t('login.toSignup') : t('login.toSignin')}
+              {t('login.forgot')}
             </button>
-          </div>
-        ) : (
-          <div className="mt-5 text-center font-mono text-[11px] text-[--color-muted]">
-            {t('login.contactAdmin')}
-          </div>
-        )}
+          ) : (
+            <button
+              type="button"
+              className="btn btn-ghost btn-sm"
+              onClick={() => { setMode('signin'); setError(null); setInfo(null) }}
+            >
+              {t('login.backToSignin')}
+            </button>
+          )}
+          {SELF_SIGNUP_ENABLED && mode !== 'reset' ? (
+            <div>
+              <button
+                type="button"
+                className="btn btn-ghost btn-sm"
+                onClick={() => { setMode(mode === 'signin' ? 'signup' : 'signin'); setError(null); setInfo(null) }}
+              >
+                {mode === 'signin' ? t('login.toSignup') : t('login.toSignin')}
+              </button>
+            </div>
+          ) : null}
+          {!SELF_SIGNUP_ENABLED && mode === 'signin' ? (
+            <div className="font-mono text-[11px] text-[--color-muted]">
+              {t('login.contactAdmin')}
+            </div>
+          ) : null}
+        </div>
         </div>
       </div>
     </div>

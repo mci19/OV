@@ -85,13 +85,17 @@ export function generateCutList(order: OrderData, formulas: CutFormulas = DEFAUL
 
   // ─── Geometrie deurblad (verkleind voor panelen) ────────
   // bladeHoriz wordt verminderd met paneel-breedtes + 1× divider per
-  // side panel. bladeVert wordt verminderd bij top-paneel.
-  const bladeVert = hoogte - f.blade_vert_aftrek - (hasTop ? th + DIVIDER_W : 0)
-  const bladeHoriz = breedte - f.blade_horiz_aftrek - lw - rw - nSideDividers * DIVIDER_W
-  const glassKaderVertGelaste = bladeVert - f.glaslijst_vert_aftrek
-  const glassKaderHorizGelaste = bladeHoriz - f.glaslijst_horiz_aftrek
-  const glassKaderVertPoederlak = glassKaderVertGelaste - poederlakTotalMarge
-  const glassKaderHorizPoederlak = glassKaderHorizGelaste - poederlakTotalMarge
+  // side panel. bladeVert wordt verminderd bij top-paneel. We klampen
+  // beide op 0 als de panelen breder zijn dan het kozijn toelaat —
+  // anders propageren negatieve waardes naar de glaslijst-segmenten en
+  // krijg je negatieve "lengte" rows in de PDF. validateOrder waarschuwt
+  // los van deze clamp.
+  const bladeVert = Math.max(0, hoogte - f.blade_vert_aftrek - (hasTop ? th + DIVIDER_W : 0))
+  const bladeHoriz = Math.max(0, breedte - f.blade_horiz_aftrek - lw - rw - nSideDividers * DIVIDER_W)
+  const glassKaderVertGelaste = Math.max(0, bladeVert - f.glaslijst_vert_aftrek)
+  const glassKaderHorizGelaste = Math.max(0, bladeHoriz - f.glaslijst_horiz_aftrek)
+  const glassKaderVertPoederlak = Math.max(0, glassKaderVertGelaste - poederlakTotalMarge)
+  const glassKaderHorizPoederlak = Math.max(0, glassKaderHorizGelaste - poederlakTotalMarge)
 
   // Door-blade glas-zone in door-coords (voor sketch-line filtering).
   // Het deurblad zit IN het kozijn, met links de outer kozijn (40mm) +

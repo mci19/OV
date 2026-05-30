@@ -12,8 +12,12 @@ export function validateOrder(order: OrderData): ValidationIssue[] {
     issues.push({ field: 'hoogte', message: 'Hoogte maximaal 3500 mm', severity: 'error' })
   if (!Number.isFinite(breedte) || breedte < 600)
     issues.push({ field: 'breedte', message: 'Breedte minimaal 600 mm', severity: 'error' })
-  if (breedte > 1500)
-    issues.push({ field: 'breedte', message: 'Breedte maximaal 1500 mm', severity: 'error' })
+  // Cap matcht OrderForm (max 2400) en de productie-regel in
+  // validDoorConfigsFor: > 1500 mm = dubbele deur. Eerder stond hier
+  // 1500, waardoor legitieme dubbele-deur orders een hard-validation
+  // error gaven.
+  if (breedte > 2400)
+    issues.push({ field: 'breedte', message: 'Breedte maximaal 2400 mm', severity: 'error' })
   if (!Number.isFinite(aantalDeuren) || aantalDeuren < 1)
     issues.push({ field: 'aantalDeuren', message: 'Minimaal 1 deur', severity: 'error' })
   if (!order.klantNaam.trim())
@@ -32,6 +36,24 @@ export function validateOrder(order: OrderData): ValidationIssue[] {
     issues.push({ field: 'sketch', message: 'Te veel verticale lijnen (max 5)', severity: 'error' })
   if (sketch.horizontalLines.length > 5)
     issues.push({ field: 'sketch', message: 'Te veel horizontale lijnen (max 5)', severity: 'error' })
+
+  // Paneel-overflow: detecteer wanneer paneelbreedtes + dividers het
+  // deurblad onmogelijk maken. cutList clampt naar 0 maar de gebruiker
+  // moet weten dat de geometrie niet meer klopt.
+  if (order.doorConfig === 'side_panel') {
+    const panels = order.sidePanels
+    const lw = panels.includes('left') ? order.leftPanelWidth : 0
+    const rw = panels.includes('right') ? order.rightPanelWidth : 0
+    const th = panels.includes('top') ? order.topPanelHeight : 0
+    const nSideDividers = (panels.includes('left') ? 1 : 0) + (panels.includes('right') ? 1 : 0)
+    // 88 = blade_horiz_aftrek, 30 = blade_vert_aftrek, 40 = divider
+    const minBladeHoriz = breedte - 88 - lw - rw - nSideDividers * 40
+    const minBladeVert = hoogte - 30 - (th ? th + 40 : 0)
+    if (minBladeHoriz < 200)
+      issues.push({ field: 'sidePanels', message: 'Panelen + kozijn laten te weinig ruimte voor het deurblad (min. 200 mm breed)', severity: 'error' })
+    if (minBladeVert < 800)
+      issues.push({ field: 'topPanelHeight', message: 'Top-paneel laat te weinig ruimte voor het deurblad (min. 800 mm hoog)', severity: 'error' })
+  }
 
   return issues
 }

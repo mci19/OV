@@ -3,7 +3,7 @@ import { Clock, MessageSquarePlus, RefreshCcw, FileText, Save } from 'lucide-rea
 import { useActivities, useLogActivity } from '../lib/queries'
 import { relativeTime } from '../lib/format'
 import type { Activity } from '../lib/db'
-import { useT } from '../lib/i18n'
+import { stageLabel, useT, type Lang } from '../lib/i18n'
 
 interface Props {
   opportunityId: string
@@ -61,7 +61,7 @@ export function ActivityTimeline({ opportunityId }: Props) {
 }
 
 function ActivityRow({ a }: { a: Activity }) {
-  const { lang } = useT()
+  const { t, lang } = useT()
   const Icon = ICON[a.kind] ?? Clock
   const locale = lang === 'en' ? 'en-GB' : 'nl-BE'
   return (
@@ -73,11 +73,39 @@ function ActivityRow({ a }: { a: Activity }) {
         <div className="w-px flex-1 bg-soft-2 mt-1" />
       </div>
       <div className="flex-1 pb-3">
-        <div className="font-mono text-sm">{a.message}</div>
+        <div className="font-mono text-sm">{renderActivity(a, lang, t)}</div>
         <div className="font-mono text-[11px] text-[--color-muted] mt-0.5">
           {relativeTime(a.created_at, lang)} · {new Date(a.created_at).toLocaleString(locale)}
         </div>
       </div>
     </li>
   )
+}
+
+/**
+ * Lokaliseer een activity-tekst. Voor system-events (kind='stage_change',
+ * 'order_saved', enz.) bouwen we de tekst client-side op uit kind+meta
+ * zodat NL én EN gebruikers het juist zien. Voor user-notes (kind='note')
+ * tonen we het opgegeven message ongewijzigd.
+ *
+ * Legacy data (records van vóór migratie 0013 die NL-message hadden in
+ * de DB) blijven werken: als `kind` geen rendering-regel matcht, vallen
+ * we terug op `a.message`.
+ */
+function renderActivity(
+  a: Activity,
+  lang: Lang,
+  t: (key: import('../lib/i18n').TranslationKey, vars?: Record<string, string | number>) => string,
+): string {
+  if (a.kind === 'stage_change') {
+    const meta = a.meta as { from?: string; to?: string } | null
+    const from = meta?.from ? stageLabel(meta.from as never, lang) : '?'
+    const to = meta?.to ? stageLabel(meta.to as never, lang) : '?'
+    return t('activity.stageChange', { from, to })
+  }
+  // Voor andere kinds: gebruik het opgeslagen message (notities, etc.).
+  // Als message leeg is (system-event zonder render-regel), val terug
+  // op de generieke kind-label.
+  if (a.message) return a.message
+  return a.kind
 }

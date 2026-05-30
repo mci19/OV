@@ -58,8 +58,19 @@ export function instantiateSketch(tpl: SketchTemplate): SketchData {
   const stamp = Date.now().toString(36)
   return {
     templateId: undefined,
-    verticalLines: tpl.sketch.verticalLines.map((v, i) => ({ id: `v-${stamp}-${i}`, x: v.x })),
-    horizontalLines: tpl.sketch.horizontalLines.map((h, i) => ({ id: `h-${stamp}-${i}`, y: h.y })),
+    // Behoud `area` (default 'door' voor legacy templates zonder veld),
+    // anders verdwijnt de vlak-binding bij elke template-restore.
+    verticalLines: tpl.sketch.verticalLines.map((v, i) => ({
+      id: `v-${stamp}-${i}`, x: v.x, area: v.area ?? 'door',
+    })),
+    horizontalLines: tpl.sketch.horizontalLines.map((h, i) => ({
+      id: `h-${stamp}-${i}`, y: h.y, area: h.area ?? 'door',
+    })),
     freehand: tpl.sketch.freehand.map((s, i) => ({ id: `f-${stamp}-${i}`, d: s.d, width: s.width })),
+    // Curves expliciet emitten — anders blijft de PREVIOUS order zijn
+    // curves zien (de spread in updateSketch bewaart oude velden).
+    curves: (tpl.sketch.curves ?? []).map((c, i) => ({
+      id: `c-${stamp}-${i}`, d: c.d, width: c.width, area: c.area ?? 'door',
+    })),
   }
 }

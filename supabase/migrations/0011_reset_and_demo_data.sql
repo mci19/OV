@@ -169,30 +169,54 @@ insert into public.products (name, description, category, unit, default_price_ce
 -- ─── Demo data: customers ────────────────────────────────────
 -- Vijf Belgische klanten over verschillende segmenten (particulier,
 -- BVBA, architect, NV). Adressen zijn fictief maar realistisch
--- Belgisch geformatteerd.
+-- Belgisch geformatteerd. We koppelen alle demo-data aan de eerste
+-- admin (chronologisch) zodat de NULL-owner-bypass uit 0007 niet meer
+-- nodig is (0012 strippt die clausule). Als er nog géén admin is,
+-- wordt de oudste auth.user gepromoveerd (zelfde patroon als 0007).
+
+do $$
+declare
+  first_admin uuid;
+begin
+  select id into first_admin from public.profiles where role = 'admin' order by created_at asc limit 1;
+  if first_admin is null then
+    select id into first_admin from auth.users order by created_at asc limit 1;
+    if first_admin is not null then
+      update public.profiles set role = 'admin' where id = first_admin;
+    end if;
+  end if;
+  -- Sla het admin-id tijdelijk op in een session-var zodat de CTE-
+  -- chain hieronder het kan ophalen via current_setting.
+  perform set_config('mydoors.seed_owner', coalesce(first_admin::text, ''), true);
+end $$;
 
 with new_customers as (
-  insert into public.customers (id, name, email, phone, address_line1, address_city, address_postal, notes) values
+  insert into public.customers (id, name, email, phone, address_line1, address_city, address_postal, notes, created_by) values
     (gen_random_uuid(), 'Familie De Vos',
      'devos.familie@example.be', '+32 470 12 34 56',
      'Vlasmarkt 14', 'Antwerpen', '2000',
-     'Renovatie ouderlijk woonhuis · Renovation of family home — referral'),
+     'Renovatie ouderlijk woonhuis · Renovation of family home — referral',
+     nullif(current_setting('mydoors.seed_owner', true), '')::uuid),
     (gen_random_uuid(), 'BVBA Architectenbureau Janssens',
      'info@janssens-architecten.be', '+32 9 233 45 67',
      'Korenmarkt 8', 'Gent', '9000',
-     'Architect partner sinds 2024 · Architect partner since 2024 — multi-project'),
+     'Architect partner sinds 2024 · Architect partner since 2024 — multi-project',
+     nullif(current_setting('mydoors.seed_owner', true), '')::uuid),
     (gen_random_uuid(), 'Sarah Goossens',
      'sarah.goossens@example.be', '+32 475 98 76 54',
      'Tiensestraat 102', 'Leuven', '3000',
-     'Eerste contact via website · First contact via website form'),
+     'Eerste contact via website · First contact via website form',
+     nullif(current_setting('mydoors.seed_owner', true), '')::uuid),
     (gen_random_uuid(), 'The Loft Studio NV',
      'projects@theloftstudio.be', '+32 2 514 22 33',
      'Avenue Louise 250', 'Brussel', '1050',
-     'Commercial interior studio — English-speaking contact preferred'),
+     'Commercial interior studio — English-speaking contact preferred',
+     nullif(current_setting('mydoors.seed_owner', true), '')::uuid),
     (gen_random_uuid(), 'Renovatie Demo BVBA',
      'demo@renovatie-demo.be', '+32 11 28 67 89',
      'Maastrichterstraat 45', 'Hasselt', '3500',
-     'Aannemer · Building contractor — repeat customer')
+     'Aannemer · Building contractor — repeat customer',
+     nullif(current_setting('mydoors.seed_owner', true), '')::uuid)
   returning id, name
 )
 
@@ -201,9 +225,10 @@ with new_customers as (
 -- gevuld is voor de pilot-demo. expected_value_cents in EUR-cents.
 ,
 opps as (
-  insert into public.opportunities (id, customer_id, title, stage, expected_value_cents, notes)
+  insert into public.opportunities (id, customer_id, title, stage, expected_value_cents, notes, owner_id)
   select
-    gen_random_uuid(), c.id, t.title, t.stage::opportunity_stage, t.value, t.notes
+    gen_random_uuid(), c.id, t.title, t.stage::opportunity_stage, t.value, t.notes,
+    nullif(current_setting('mydoors.seed_owner', true), '')::uuid
   from new_customers c
   cross join lateral (values
     ('Familie De Vos',                       'Stalen scheidingsdeur woonkamer',           'lead',       180000,  'Inkomende lead via Instagram-advertentie · Inbound lead via Instagram ad'),
@@ -222,7 +247,7 @@ opps as (
 -- (de gebruiker maakt die zelf via de UI).
 ,
 demo_orders as (
-  insert into public.orders (id, opportunity_id, data, version)
+  insert into public.orders (id, opportunity_id, data, version, owner_id)
   select
     gen_random_uuid(),
     o.id,
@@ -266,7 +291,8 @@ demo_orders as (
                             'curves', '[]'::jsonb
                           )
     ),
-    1
+    1,
+    nullif(current_setting('mydoors.seed_owner', true), '')::uuid
   from opps o
   where o.stage = 'won'
   returning id, opportunity_id
@@ -279,7 +305,8 @@ insert into public.quotes (
   opportunity_id, order_id, reference,
   line_items,
   subtotal_cents, vat_rate, vat_cents, total_cents,
-  valid_until, status, sent_at, accepted_at
+  valid_until, status, sent_at, accepted_at,
+  owner_id
 )
 select
   o.id,
@@ -293,7 +320,8 @@ select
   q.valid_until::date,
   q.status::quote_status,
   q.sent_at::timestamptz,
-  q.accepted_at::timestamptz
+  q.accepted_at::timestamptz,
+  nullif(current_setting('mydoors.seed_owner', true), '')::uuid
 from opps o
 left join demo_orders do_ on do_.opportunity_id = o.id
 join lateral (values

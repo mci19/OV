@@ -26,8 +26,9 @@ export function relativeTime(iso: string, lang: Lang = 'nl'): string {
 /** Backwards-compat alias: oude code blijft werken. */
 export const relativeTimeNl = (iso: string) => relativeTime(iso, 'nl')
 
-export function formatEur(cents: number): string {
-  return new Intl.NumberFormat('nl-BE', { style: 'currency', currency: 'EUR' }).format(cents / 100)
+export function formatEur(cents: number, lang: Lang = 'nl'): string {
+  const locale = lang === 'en' ? 'en-IE' : 'nl-BE' // en-IE = Engels + EUR (Ierland)
+  return new Intl.NumberFormat(locale, { style: 'currency', currency: 'EUR' }).format(cents / 100)
 }
 
 /** Kap lange strings af voor gebruik in PDF-titels, header-velden of

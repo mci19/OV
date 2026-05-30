@@ -216,36 +216,41 @@ Interpreteer de strokes als grid-lijnen. Negeer wiebelige of irrelevante strokes
 
 // ─── Handler ────────────────────────────────────────────────────
 export const handler: Handler = async (event: HandlerEvent) => {
+  const reqOrigin = event.headers.origin || event.headers.Origin
+  const origin = allowedOrigin(reqOrigin)
   if (event.httpMethod === 'OPTIONS') {
-    return { statusCode: 204, headers: corsHeaders(), body: '' }
+    if (!origin) return { statusCode: 403, headers: {}, body: '' }
+    return { statusCode: 204, headers: corsHeaders(origin), body: '' }
   }
   if (event.httpMethod !== 'POST') {
-    return json(405, { error: 'Method not allowed' })
+    return json(405, { error: 'Method not allowed' }, origin)
   }
+  // CSRF-mitigatie: blokkeer requests van niet-toegestane origins.
+  if (!origin) return json(403, { error: 'Origin not allowed' }, null)
   if (!process.env.ANTHROPIC_API_KEY) {
-    return json(500, { error: 'AI niet geconfigureerd op de server (ANTHROPIC_API_KEY ontbreekt)' })
+    return json(500, { error: 'AI niet geconfigureerd op de server (ANTHROPIC_API_KEY ontbreekt)' }, origin)
   }
 
   // Hard auth: vereis een geldig Supabase JWT zodat alleen ingelogde
   // gebruikers (en geen anonieme bots) Anthropic-credits kunnen verbruiken.
   const auth = event.headers.authorization || event.headers.Authorization
   if (!auth || !auth.toLowerCase().startsWith('bearer ')) {
-    return json(401, { error: 'Authorization header ontbreekt' })
+    return json(401, { error: 'Authorization header ontbreekt' }, origin)
   }
   const token = auth.slice(7).trim()
   const authOk = await verifySupabaseJwt(token)
   if (!authOk) {
-    return json(401, { error: 'Ongeldige of verlopen sessie' })
+    return json(401, { error: 'Ongeldige of verlopen sessie' }, origin)
   }
 
   let body: unknown
   try {
     body = JSON.parse(event.body || '{}')
   } catch {
-    return json(400, { error: 'Ongeldige JSON' })
+    return json(400, { error: 'Ongeldige JSON' }, origin)
   }
   const v = validate(body)
-  if (!v.ok) return json(400, { error: v.error })
+  if (!v.ok) return json(400, { error: v.error }, origin)
 
   const userMessage = buildUserMessage(v.body)
 
@@ -266,7 +271,7 @@ export const handler: Handler = async (event: HandlerEvent) => {
       (b): b is Anthropic.ToolUseBlock => b.type === 'tool_use',
     )
     if (!toolUse) {
-      return json(502, { error: 'Model gaf geen tool-output' })
+      return json(502, { error: 'Model gaf geen tool-output' }, origin)
     }
 
     const result = toolUse.input as {
@@ -284,9 +289,11 @@ export const handler: Handler = async (event: HandlerEvent) => {
     const safeH = (result.horizontalLines || []).slice(0, 5).map((l) => ({
       y: clamp(Math.round(l.y), 50, doorHeight - 50),
     }))
-    // Curves: alleen M..Q..-paden toelaten, geen rare characters
+    // Curves: alleen M..Q..-paden toelaten, geen rare characters, max
+    // 200 chars zodat een model dat veel coördinaten genereert geen
+    // client-DoS via een mega-polyline kan veroorzaken.
     const safeCurves = (result.curves || []).slice(0, 8)
-      .map((c) => (c?.d ?? '').trim())
+      .map((c) => (c?.d ?? '').trim().slice(0, 200))
       .filter((d) => /^M\s+[-\d.\s]+Q\s+[-\d.\s]+$/i.test(d))
       .map((d) => ({ d }))
 
@@ -301,17 +308,24 @@ export const handler: Handler = async (event: HandlerEvent) => {
         cache_read: response.usage.cache_read_input_tokens ?? 0,
         cache_create: response.usage.cache_creation_input_tokens ?? 0,
       },
-    })
+    }, origin)
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err)
     if (err instanceof Anthropic.RateLimitError) {
-      return json(429, { error: 'Rate limit bereikt; probeer over enkele seconden opnieuw' })
+      return json(429, { error: 'Rate limit bereikt; probeer over enkele seconden opnieuw' }, origin)
     }
     if (err instanceof Anthropic.AuthenticationError) {
-      return json(500, { error: 'AI niet correct geconfigureerd (auth-fout)' })
+      return json(500, { error: 'AI niet correct geconfigureerd (auth-fout)' }, origin)
     }
-    return json(500, { error: `AI-aanroep mislukt: ${message}` })
+    return json(500, { error: `AI-aanroep mislukt: ${message}` }, origin)
   }
+}
+
+function allowedOrigin(reqOrigin: string | undefined): string | null {
+  const allowList = [process.env.URL, process.env.DEPLOY_PRIME_URL].filter(Boolean) as string[]
+  if (reqOrigin && /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(reqOrigin)) return reqOrigin
+  if (reqOrigin && allowList.includes(reqOrigin)) return reqOrigin
+  return null
 }
 
 function clamp(v: number, lo: number, hi: number): number {
@@ -347,18 +361,20 @@ async function verifySupabaseJwt(token: string): Promise<boolean> {
   }
 }
 
-function corsHeaders() {
+function corsHeaders(origin: string | null) {
   return {
-    'Access-Control-Allow-Origin': '*',
+    'Access-Control-Allow-Origin': origin ?? 'null',
+    'Vary': 'Origin',
     'Access-Control-Allow-Methods': 'POST, OPTIONS',
     'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+    'Access-Control-Allow-Credentials': 'true',
   }
 }
 
-function json(statusCode: number, body: unknown) {
+function json(statusCode: number, body: unknown, origin: string | null) {
   return {
     statusCode,
-    headers: { 'Content-Type': 'application/json', ...corsHeaders() },
+    headers: { 'Content-Type': 'application/json', ...corsHeaders(origin) },
     body: JSON.stringify(body),
   }
 }

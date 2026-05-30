@@ -535,7 +535,11 @@ export function useUpdateProfile() {
 export interface CreatedUserResult {
   id: string
   email: string
-  password: string
+  /** Eenmalige password-reset-link (magic link) waarmee de nieuwe
+   *  gebruiker zijn eigen wachtwoord kan zetten. Het oude formaat met
+   *  plaintext `password` is verwijderd zodat het wachtwoord niet in
+   *  Netlify access logs / Sentry / netwerk-logs belandt. */
+  reset_link: string | null
   generated_password: boolean
 }
 
