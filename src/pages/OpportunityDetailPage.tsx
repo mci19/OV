@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
-import { ChevronLeft, Save, Trash2, Plus, FileText, Pencil, Scissors, Copy, Maximize2 } from 'lucide-react'
+import { ChevronLeft, Save, Trash2, Plus, FileText, Pencil, Scissors, Copy } from 'lucide-react'
 import { PageContainer } from '../components/Layout'
 import { Chips } from '../components/Field'
 import { OrderForm } from '../components/OrderForm'
@@ -37,32 +37,11 @@ export function OpportunityDetailPage() {
 
   const [order, setOrder] = useState<OrderData>(DEFAULT_ORDER)
   const [tab, setTab] = useState<Tab>('order')
-  // Fullscreen-sketch mode voor mobiel: strip alle chrome (sub-header,
-  // tabs, action-bar, layout bottom-nav) zodat het canvas de volle
-  // viewport krijgt. Toggleable via knop op mobiel; persistent in
-  // localStorage zodat hij open blijft bij navigeren tussen opps.
-  const [fullscreenSketch, setFullscreenSketch] = useState<boolean>(() => {
-    // Default AAN op mobiel zodat eerste-keer-gebruikers niet door een
-    // toolbar-stapel hoeven om de schets te zien. Op desktop/tablet
-    // (≥lg) altijd uit tenzij ze hem explicit aanzetten. localStorage
-    // overrules zodra de gebruiker een keuze maakt ('0' = expliciet uit).
-    try {
-      const stored = localStorage.getItem('mydoors:sketch:fullscreen')
-      if (stored === '1') return true
-      if (stored === '0') return false
-      // Geen voorkeur opgeslagen: kies op basis van viewport.
-      return typeof window !== 'undefined' && window.innerWidth < 1024
-    } catch {
-      return typeof window !== 'undefined' && window.innerWidth < 1024
-    }
-  })
-  useEffect(() => {
-    try { localStorage.setItem('mydoors:sketch:fullscreen', fullscreenSketch ? '1' : '0') } catch { /* */ }
-    // Body-data attribuut zodat Layout's bottom-nav weet dat we
-    // immersive zijn (zie Layout.tsx — verbergt zichzelf in deze modus).
-    document.body.dataset.sketchImmersive = fullscreenSketch ? '1' : '0'
-    return () => { delete document.body.dataset.sketchImmersive }
-  }, [fullscreenSketch])
+  // Mobiel-only mini-view binnen de immersive container: 'sketch'
+  // (canvas full-screen) of 'form' (OrderForm full-screen). Geen
+  // tabs, geen secondary toolbar — alleen deze twee modi. Desktop
+  // gebruikt de normale split-view en negeert deze state.
+  const [mobileView, setMobileView] = useState<'sketch' | 'form'>('sketch')
   // isWide volgt de viewport-breedte reactief — tablet draaien of
   // window-resize past de layout meteen aan i.p.v. alleen bij mount.
   // isXl = ≥1280px → derde pane (activity + quotes mini) verschijnt
@@ -81,6 +60,14 @@ export function OpportunityDetailPage() {
     window.addEventListener('resize', onResize)
     return () => window.removeEventListener('resize', onResize)
   }, [])
+
+  // Zorg dat de Layout's mobile top-bar + bottom-nav verdwijnen
+  // zodra we op deze pagina staan op mobiel — de immersive view
+  // claimt de volle viewport. Op desktop blijft alles normaal.
+  useEffect(() => {
+    if (!isWide) document.body.dataset.sketchImmersive = '1'
+    return () => { delete document.body.dataset.sketchImmersive }
+  }, [isWide])
   const [view, setView] = useState<View>(() =>
     typeof window !== 'undefined' && window.innerWidth >= 1024 ? 'split' : 'schets',
   )
@@ -208,28 +195,38 @@ export function OpportunityDetailPage() {
   if (isLoading) return <PageContainer><div className="text-[--color-muted] font-mono text-sm">{t('common.loading')}</div></PageContainer>
   if (!opp) return <PageContainer><EmptyState title={t('opps.notFound')} /></PageContainer>
 
-  // Mobiel-immersive: render alleen de sketch + een mini-top-bar voor
-  // back/save. Alle andere chrome (sub-header, tabs, action-bar, bottom-
-  // nav) wordt overgeslagen zodat het canvas de volle viewport krijgt.
-  if (fullscreenSketch && tab === 'order') {
+  // Mobiel (<lg): ALTIJD immersive — alleen schets of formulier,
+  // plus een mini-top-bar. Geen tabs, geen secondary toolbar, geen
+  // action-bar, geen bottom-nav. Wisselt tussen 'sketch' en 'form'
+  // via één knop in de top-bar. Per user-spec: "voor mobiel alleen
+  // schermvullend en daarna een knop naar formulier, meer niet nodig".
+  if (!isWide) {
+    const showingSketch = mobileView === 'sketch'
     return (
       <div className="fixed inset-0 z-40 bg-paper flex flex-col">
         <div className="border-b border-soft-2 bg-paper/95 backdrop-blur px-2 py-1.5 flex items-center gap-2">
-          <button
-            type="button"
+          <Link
+            to="/opportunities"
             className="btn btn-ghost btn-icon btn-sm"
-            onClick={() => setFullscreenSketch(false)}
-            aria-label={t('opps.detail.exitFullscreen')}
-            title={t('opps.detail.exitFullscreen')}
+            aria-label={t('opps.detail.pipeline')}
+            title={t('opps.detail.pipeline')}
           >
             <ChevronLeft size={18} />
-          </button>
+          </Link>
           <div className="flex-1 min-w-0">
             <div className="font-bold text-sm truncate">{opp.title}</div>
             <div className="font-mono text-[10px] text-[--color-muted] truncate">
               {opp.customer_name} · {stageLabel(opp.stage, lang)}
             </div>
           </div>
+          <button
+            type="button"
+            className="btn btn-sm"
+            onClick={() => setMobileView(showingSketch ? 'form' : 'sketch')}
+            title={showingSketch ? t('opps.detail.view.form') : t('opps.detail.view.sketch')}
+          >
+            {showingSketch ? t('opps.detail.view.form') : t('opps.detail.view.sketch')}
+          </button>
           <button
             type="button"
             className="btn btn-primary btn-sm"
@@ -240,7 +237,13 @@ export function OpportunityDetailPage() {
           </button>
         </div>
         <div className="flex-1 min-h-0 overflow-hidden">
-          <SketchEditor order={order} onChange={updateOrder} />
+          {showingSketch ? (
+            <SketchEditor order={order} onChange={updateOrder} />
+          ) : (
+            <div className="h-full overflow-y-auto p-4">
+              <OrderForm order={order} set={set} issues={issues} />
+            </div>
+          )}
         </div>
         {editingCutList ? (
           <CutListEditDialog
@@ -317,16 +320,6 @@ export function OpportunityDetailPage() {
               ]}
               onChange={(v) => setView(v)}
             />
-            {/* Mobiel-only: maximaliseer-knop. Op desktop/tablet (lg+)
-                is er ruimte genoeg, daar niet nodig. */}
-            <button
-              type="button"
-              className="chip lg:hidden"
-              onClick={() => setFullscreenSketch(true)}
-              title={t('opps.detail.enterFullscreen')}
-            >
-              <Maximize2 size={14} /> {t('opps.detail.enterFullscreen')}
-            </button>
             {/* Rail-toggle alleen tonen op xl+ in split-view; daarop draait
                 het 3-pane-design (form/sketch/context). Onder xl draaien
                 gebruikers automatisch terug naar tabs voor activity/quotes. */}
