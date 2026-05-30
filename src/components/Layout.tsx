@@ -63,7 +63,7 @@ export function Layout() {
         </aside>
 
         {/* Mobile top bar */}
-        <div className="lg:hidden border-b border-soft-2 bg-paper/80 backdrop-blur sticky top-0 z-20 flex items-center justify-between px-3 py-2">
+        <div className="mobile-top-bar lg:hidden border-b border-soft-2 bg-paper/80 backdrop-blur sticky top-0 z-20 flex items-center justify-between px-3 py-2">
           <button className="btn btn-ghost btn-icon" onClick={() => setDrawer(true)} aria-label="Menu">
             <Menu size={20} />
           </button>

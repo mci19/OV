@@ -487,7 +487,8 @@ textarea.field-input { font-family: var(--font-sans); resize: vertical; min-heig
 /* OpportunityDetailPage zet body[data-sketch-immersive='1'] zodra de
    gebruiker fullscreen-sketch aanzet. We verbergen dan de mobile
    bottom-nav zodat het canvas de volle viewport krijgt. */
-body[data-sketch-immersive="1"] .mobile-bottom-nav { display: none !important; }
+body[data-sketch-immersive="1"] .mobile-bottom-nav,
+body[data-sketch-immersive="1"] .mobile-top-bar { display: none !important; }
 
 /* ─── Print ──────────────────────────────────────────────── */
 @media print {
