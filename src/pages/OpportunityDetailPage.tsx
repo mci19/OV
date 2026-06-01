@@ -45,18 +45,12 @@ export function OpportunityDetailPage() {
   const [mobileView, setMobileView] = useState<'sketch' | 'form'>('form')
   // isWide volgt de viewport-breedte reactief — tablet draaien of
   // window-resize past de layout meteen aan i.p.v. alleen bij mount.
-  // isXl = ≥1280px → derde pane (activity + quotes mini) verschijnt
-  // rechts naast de sketch zodat alles op één scherm staat.
   const [isWide, setIsWide] = useState<boolean>(() =>
     typeof window !== 'undefined' && window.innerWidth >= 1024,
-  )
-  const [isXl, setIsXl] = useState<boolean>(() =>
-    typeof window !== 'undefined' && window.innerWidth >= 1280,
   )
   useEffect(() => {
     function onResize() {
       setIsWide(window.innerWidth >= 1024)
-      setIsXl(window.innerWidth >= 1280)
     }
     window.addEventListener('resize', onResize)
     return () => window.removeEventListener('resize', onResize)
@@ -74,7 +68,6 @@ export function OpportunityDetailPage() {
   )
   // Op xl+ is de rail standaard open (er is genoeg ruimte). Op kleinere
   // schermen blijven we de bestaande full-screen tabs gebruiken.
-  const [railTab, setRailTab] = useState<'activity' | 'quotes'>('activity')
   const [dirty, setDirty] = useState(false)
   const [editingOpp, setEditingOpp] = useState(false)
   const [editingCutList, setEditingCutList] = useState(false)
@@ -372,7 +365,7 @@ export function OpportunityDetailPage() {
           style={{
             display: 'grid',
             gridTemplateRows: 'minmax(0, 1fr)',
-            gridTemplateColumns: gridColumnsFor(view, isWide, isXl),
+            gridTemplateColumns: gridColumnsFor(view, isWide),
           }}
         >
           {view === 'split' || view === 'form' ? (
@@ -384,13 +377,6 @@ export function OpportunityDetailPage() {
             <main className="overflow-hidden min-h-0">
               <SketchEditor order={order} onChange={updateOrder} />
             </main>
-          ) : null}
-          {isXl && view === 'split' ? (
-            <ContextRail
-              opportunityId={id!}
-              activeTab={railTab}
-              onTabChange={setRailTab}
-            />
           ) : null}
         </div>
       ) : tab === 'quote' ? (
@@ -436,96 +422,15 @@ export function OpportunityDetailPage() {
 }
 
 /**
- * Compute grid-template-columns op basis van view (single/split/form),
- * viewport-breedte (wide / xl) en of de context-rail open is. Centraal
- * hier zodat de JSX leesbaar blijft.
- *
- * Layout-budgetten:
- *  - form: 420 px (genoeg voor labels + 2-koloms grid binnen het form)
- *  - sketch: 1fr (groeit met beschikbare ruimte — kerngebied)
- *  - rail: 320 px (activity + quotes preview, schaalt mee bij scrollen)
+ * Grid columns voor de split-view. Op desktop (lg+) form+sketch
+ * naast elkaar, op mobiel valt alles naar één kolom. De vroegere
+ * xl context-rail is verwijderd — activity/quotes alleen via tabs.
  */
-function gridColumnsFor(view: 'split' | 'schets' | 'form', isWide: boolean, isXl: boolean): string {
+function gridColumnsFor(view: 'split' | 'schets' | 'form', isWide: boolean): string {
   if (view === 'form') return '1fr'
   if (view === 'schets') return '1fr'
-  // split
   if (!isWide) return '1fr'
-  if (isXl) return '380px 1fr 320px'
   return '420px 1fr'
-}
-
-interface ContextRailProps {
-  opportunityId: string
-  activeTab: 'activity' | 'quotes'
-  onTabChange: (t: 'activity' | 'quotes') => void
-}
-
-/**
- * Rechter-rail die activity timeline + quotes preview tegelijk in beeld
- * houdt op xl+ schermen. De bestaande full-screen Tabs blijven werken
- * voor diepere actie (offerte editen, alle activiteit zien).
- */
-function ContextRail({ opportunityId, activeTab, onTabChange }: ContextRailProps) {
-  const { t, lang } = useT()
-  const { data: quotes = [] } = useQuotes(opportunityId)
-  const locale = lang === 'en' ? 'en-GB' : 'nl-BE'
-  return (
-    <aside className="border-l border-soft-2 bg-paper/40 flex flex-col min-h-0">
-      <div className="border-b border-soft-2 px-3 py-2 flex items-center justify-between gap-2">
-        <div className="flex gap-1">
-          <button
-            className="chip"
-            data-active={activeTab === 'activity'}
-            onClick={() => onTabChange('activity')}
-          >
-            {t('opps.detail.tab.activity')}
-          </button>
-          <button
-            className="chip"
-            data-active={activeTab === 'quotes'}
-            onClick={() => onTabChange('quotes')}
-          >
-            {t('opps.detail.tab.quotes')} {quotes.length ? `(${quotes.length})` : ''}
-          </button>
-        </div>
-      </div>
-      <div className="flex-1 overflow-y-auto min-h-0 p-3">
-        {activeTab === 'activity' ? (
-          <ActivityTimeline opportunityId={opportunityId} />
-        ) : (
-          <div className="space-y-2">
-            {quotes.length === 0 ? (
-              <div className="text-[--color-muted] font-mono text-sm py-4">
-                {t('opps.quotes.empty.title')}
-              </div>
-            ) : (
-              quotes.map((q) => (
-                <Link
-                  key={q.id}
-                  to={`/opportunities/${opportunityId}/quote/${q.id}`}
-                  className="card card-interactive !p-3 block"
-                >
-                  <div className="flex items-center justify-between gap-2">
-                    <div className="font-mono text-xs font-bold truncate">{q.reference}</div>
-                    <div className="font-mono text-xs font-bold tabular-nums shrink-0">{formatEur(q.total_cents, lang)}</div>
-                  </div>
-                  <div className="text-[10px] text-[--color-muted] mt-1">
-                    {t('opps.quotes.lines', { n: q.line_items.length })} · {new Date(q.created_at).toLocaleDateString(locale)}
-                  </div>
-                </Link>
-              ))
-            )}
-            <Link
-              to={`/opportunities/${opportunityId}/quote/new`}
-              className="btn btn-primary w-full justify-center mt-3"
-            >
-              <Plus size={14} /> {t('opps.quotes.newButton')}
-            </Link>
-          </div>
-        )}
-      </div>
-    </aside>
-  )
 }
 
 function QuotesTab({ opportunityId }: { opportunityId: string; orderData: OrderData }) {

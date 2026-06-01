@@ -68,13 +68,12 @@ export function validDoorConfigsFor(breedte: number): DoorConfig[] {
 
 /**
  * Welke paneel-posities zijn toegestaan bij een gegeven breedte?
- * Top is altijd OK (verticale uitbreiding); links/rechts vereisen
- * extra horizontale ruimte naast het deurblad — alleen bij
- * 1000-1500 mm (anders blijft er geen werkbaar deurblad over).
+ * Alle drie altijd: een smalle deur kan nog steeds een klein zij-
+ * paneel hebben (de gebruiker kiest zelf de breedtes). Als de
+ * paneel-breedtes het deurblad onder 200 mm drukken, vangt
+ * validateOrder dat af met een error.
  */
-export function validSidePanelPositionsFor(breedte: number): ('left' | 'right' | 'top')[] {
-  if (!Number.isFinite(breedte)) return ['top']
-  if (breedte < 1000 || breedte > 1500) return ['top']
+export function validSidePanelPositionsFor(_breedte: number): ('left' | 'right' | 'top')[] {
   return ['left', 'right', 'top']
 }
 

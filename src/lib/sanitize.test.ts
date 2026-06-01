@@ -26,17 +26,12 @@ describe('validDoorConfigsFor — MY DOORS productie-regels', () => {
   })
 })
 
-describe('validSidePanelPositionsFor — paneel-positie per breedte', () => {
-  it('< 1000 mm → alleen top toegestaan', () => {
-    expect(validSidePanelPositionsFor(900)).toEqual(['top'])
-  })
-  it('1000-1500 mm → alle posities', () => {
-    expect(validSidePanelPositionsFor(1000)).toEqual(['left', 'right', 'top'])
+describe('validSidePanelPositionsFor — paneel-posities altijd alle 3', () => {
+  it('geeft links/rechts/top terug ongeacht breedte', () => {
+    expect(validSidePanelPositionsFor(600)).toEqual(['left', 'right', 'top'])
+    expect(validSidePanelPositionsFor(900)).toEqual(['left', 'right', 'top'])
     expect(validSidePanelPositionsFor(1200)).toEqual(['left', 'right', 'top'])
-    expect(validSidePanelPositionsFor(1500)).toEqual(['left', 'right', 'top'])
-  })
-  it('> 1500 mm → alleen top (dubbele deur claimt de breedte)', () => {
-    expect(validSidePanelPositionsFor(1800)).toEqual(['top'])
+    expect(validSidePanelPositionsFor(2400)).toEqual(['left', 'right', 'top'])
   })
 })
 
