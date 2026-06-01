@@ -17,7 +17,6 @@ import { CurveEditOverlay } from './CurveEditOverlay'
 import { DragLoupe } from './DragLoupe'
 import { ElementOptionsPanel } from './ElementOptionsPanel'
 import { TemplateGallery } from './TemplateGallery'
-import { DetailsStrip } from './DetailsStrip'
 // Snap-mode dropdown is verwijderd; we hanteren een vaste 10 mm grid.
 const FIXED_SNAP_MODE = '10' as const
 import { useT } from '../../lib/i18n'
@@ -29,8 +28,6 @@ interface Props {
 
 const MARGIN = 200 // mm margin around door for dimension labels
 
-const DETAILS_KEY = 'mydoors:sketch:details'
-
 export function SketchEditor({ order, onChange }: Props) {
   const { t, lang } = useT()
   const [mode, setMode] = useState<SketchMode>('lijnen')
@@ -39,25 +36,8 @@ export function SketchEditor({ order, onChange }: Props) {
   const [aiError, setAiError] = useState<string | null>(null)
   const [aiHint, setAiHint] = useState<string | null>(null)
   const [aiOpen, setAiOpen] = useState(false)
-  const [showDetails, setShowDetails] = useState<boolean>(() => {
-    // Default OFF op mobiel (DetailsStrip eet 40vh — gewoon te veel op
-    // een phone-scherm). Op desktop/tablet default ON tenzij eerder
-    // expliciet uitgezet via de toolbar.
-    const isMobile = typeof window !== 'undefined' && window.innerWidth < 1024
-    try {
-      const stored = localStorage.getItem(DETAILS_KEY)
-      if (stored === '1') return true
-      if (stored === '0') return false
-      return !isMobile
-    } catch { return !isMobile }
-  })
   const [savingTemplate, setSavingTemplate] = useState(false)
   const [browsingTemplates, setBrowsingTemplates] = useState(false)
-  // handleExact + exactInput zijn vervangen door 'selected' + ElementOptionsPanel
-
-  useEffect(() => {
-    try { localStorage.setItem(DETAILS_KEY, showDetails ? '1' : '0') } catch { /* */ }
-  }, [showDetails])
   const snapMode = FIXED_SNAP_MODE
   const [clientView, setClientView] = useState(false)
   // Drag-loupe: toont een 3× gezoomde inset rondom het sleep-punt
@@ -116,7 +96,6 @@ export function SketchEditor({ order, onChange }: Props) {
   }
 
   function addVertical() {
-    setShowDetails(false)
     // Start de nieuwe lijn in het midden van het actieve vlak — niet
     // langer per definitie midden-deur — anders verschijnt hij visueel
     // buiten het paneel waar de gebruiker hem hebben wil.
@@ -131,7 +110,6 @@ export function SketchEditor({ order, onChange }: Props) {
     })
   }
   function addHorizontal() {
-    setShowDetails(false)
     const bounds = computeAreaBounds(order)
     const b = bounds[activeArea].active ? bounds[activeArea] : bounds.door
     // Y is "vanaf onder" in onze data; bounds.y is "vanaf boven" in svg-
@@ -419,15 +397,6 @@ export function SketchEditor({ order, onChange }: Props) {
         <button
           type="button"
           className="chip"
-          data-active={showDetails}
-          onClick={() => setShowDetails((v) => !v)}
-          title={t('sketch.detailsTooltip')}
-        >
-          {t('sketch.details')}
-        </button>
-        <button
-          type="button"
-          className="chip"
           data-active={clientView}
           onClick={() => setClientView((v) => !v)}
         >
@@ -526,7 +495,6 @@ export function SketchEditor({ order, onChange }: Props) {
         <div
           className="flex-1 min-h-0 overflow-hidden relative"
           style={{ touchAction: 'none' }}
-          onPointerDownCapture={() => setShowDetails(false)}
         >
           {/* Pulse overlay: remount via key triggert CSS animation opnieuw */}
           <div key={pulseKey} className="door-pulse-overlay" aria-hidden />
@@ -741,7 +709,6 @@ export function SketchEditor({ order, onChange }: Props) {
                   },
                 })}
                 onRequestExact={() => setSelected({ kind: 'handle' })}
-                onDragStart={() => setShowDetails(false)}
                 onDragMove={(pos) => setLoupe(pos)}
                 onDragEnd={() => setLoupe(null)}
                 toUserX={toUserX}
@@ -918,13 +885,6 @@ export function SketchEditor({ order, onChange }: Props) {
           })() : null}
         </div>
       )}
-
-      {/* Detail-aanzichten onder het hoofdcanvas, alleen tekening-mode */}
-      {mode !== 'snel' && !clientView && showDetails ? (
-        <div className="max-h-[40vh] overflow-y-auto">
-          <DetailsStrip order={order} />
-        </div>
-      ) : null}
 
       {savingTemplate ? (
         <SaveTemplateDialog

@@ -74,7 +74,6 @@ export function OpportunityDetailPage() {
   )
   // Op xl+ is de rail standaard open (er is genoeg ruimte). Op kleinere
   // schermen blijven we de bestaande full-screen tabs gebruiken.
-  const [railOpen, setRailOpen] = useState<boolean>(true)
   const [railTab, setRailTab] = useState<'activity' | 'quotes'>('activity')
   const [dirty, setDirty] = useState(false)
   const [editingOpp, setEditingOpp] = useState(false)
@@ -341,20 +340,6 @@ export function OpportunityDetailPage() {
               ]}
               onChange={(v) => setView(v)}
             />
-            {/* Rail-toggle alleen tonen op xl+ in split-view; daarop draait
-                het 3-pane-design (form/sketch/context). Onder xl draaien
-                gebruikers automatisch terug naar tabs voor activity/quotes. */}
-            {isXl && view === 'split' ? (
-              <button
-                type="button"
-                className="chip"
-                data-active={railOpen}
-                onClick={() => setRailOpen((v) => !v)}
-                title={t('opps.detail.toggleRail')}
-              >
-                {railOpen ? t('opps.detail.hideRail') : t('opps.detail.showRail')}
-              </button>
-            ) : null}
             <button
               className="btn"
               onClick={() => setEditingCutList(true)}
@@ -387,7 +372,7 @@ export function OpportunityDetailPage() {
           style={{
             display: 'grid',
             gridTemplateRows: 'minmax(0, 1fr)',
-            gridTemplateColumns: gridColumnsFor(view, isWide, isXl, railOpen),
+            gridTemplateColumns: gridColumnsFor(view, isWide, isXl),
           }}
         >
           {view === 'split' || view === 'form' ? (
@@ -400,12 +385,11 @@ export function OpportunityDetailPage() {
               <SketchEditor order={order} onChange={updateOrder} />
             </main>
           ) : null}
-          {isXl && view === 'split' && railOpen ? (
+          {isXl && view === 'split' ? (
             <ContextRail
               opportunityId={id!}
               activeTab={railTab}
               onTabChange={setRailTab}
-              onClose={() => setRailOpen(false)}
             />
           ) : null}
         </div>
@@ -461,12 +445,12 @@ export function OpportunityDetailPage() {
  *  - sketch: 1fr (groeit met beschikbare ruimte — kerngebied)
  *  - rail: 320 px (activity + quotes preview, schaalt mee bij scrollen)
  */
-function gridColumnsFor(view: 'split' | 'schets' | 'form', isWide: boolean, isXl: boolean, railOpen: boolean): string {
+function gridColumnsFor(view: 'split' | 'schets' | 'form', isWide: boolean, isXl: boolean): string {
   if (view === 'form') return '1fr'
   if (view === 'schets') return '1fr'
   // split
   if (!isWide) return '1fr'
-  if (isXl && railOpen) return '380px 1fr 320px'
+  if (isXl) return '380px 1fr 320px'
   return '420px 1fr'
 }
 
@@ -474,7 +458,6 @@ interface ContextRailProps {
   opportunityId: string
   activeTab: 'activity' | 'quotes'
   onTabChange: (t: 'activity' | 'quotes') => void
-  onClose: () => void
 }
 
 /**
@@ -482,7 +465,7 @@ interface ContextRailProps {
  * houdt op xl+ schermen. De bestaande full-screen Tabs blijven werken
  * voor diepere actie (offerte editen, alle activiteit zien).
  */
-function ContextRail({ opportunityId, activeTab, onTabChange, onClose }: ContextRailProps) {
+function ContextRail({ opportunityId, activeTab, onTabChange }: ContextRailProps) {
   const { t, lang } = useT()
   const { data: quotes = [] } = useQuotes(opportunityId)
   const locale = lang === 'en' ? 'en-GB' : 'nl-BE'
@@ -505,15 +488,6 @@ function ContextRail({ opportunityId, activeTab, onTabChange, onClose }: Context
             {t('opps.detail.tab.quotes')} {quotes.length ? `(${quotes.length})` : ''}
           </button>
         </div>
-        <button
-          type="button"
-          className="btn btn-ghost btn-icon btn-sm"
-          onClick={onClose}
-          aria-label={t('common.close')}
-          title={t('opps.detail.hideRail')}
-        >
-          <ChevronLeft size={14} style={{ transform: 'rotate(180deg)' }} />
-        </button>
       </div>
       <div className="flex-1 overflow-y-auto min-h-0 p-3">
         {activeTab === 'activity' ? (
