@@ -48,13 +48,34 @@ export type DoorConfig =
  * Top-paneel valt buiten de breedte-regel: dat is een hoogte-keuze.
  */
 export function validDoorConfigsFor(breedte: number): DoorConfig[] {
+  // Door-blade-type wordt door de breedte bepaald:
+  //   < 1000 mm  → enkele deur
+  //   1000-1500  → enkele deur (eventueel met zij-paneel)
+  //   > 1500 mm  → dubbele deur
+  //   pivot is altijd een geldige klant-keuze.
+  // 'side_panel' is altijd selecteerbaar omdat een top-paneel (boven
+  // de deur) géén breedte-afhankelijke regel heeft — die mag bij elk
+  // door-blade-type. De OrderForm verbergt links/rechts in het
+  // multi-select wanneer de breedte dat niet toelaat.
   if (!Number.isFinite(breedte) || breedte < 1000) {
-    return ['single', 'pivot']
+    return ['single', 'side_panel', 'pivot']
   }
   if (breedte > 1500) {
-    return ['double', 'pivot']
+    return ['double', 'side_panel', 'pivot']
   }
   return ['single', 'side_panel', 'pivot']
+}
+
+/**
+ * Welke paneel-posities zijn toegestaan bij een gegeven breedte?
+ * Top is altijd OK (verticale uitbreiding); links/rechts vereisen
+ * extra horizontale ruimte naast het deurblad — alleen bij
+ * 1000-1500 mm (anders blijft er geen werkbaar deurblad over).
+ */
+export function validSidePanelPositionsFor(breedte: number): ('left' | 'right' | 'top')[] {
+  if (!Number.isFinite(breedte)) return ['top']
+  if (breedte < 1000 || breedte > 1500) return ['top']
+  return ['left', 'right', 'top']
 }
 
 export type Finishing = 'glasslist_10' | 'glasslist_15' | 'soudal_mastiek'
@@ -345,7 +366,17 @@ export function sanitizeOrderData(raw: Partial<OrderData>): OrderData {
   delete merged.sidePanelWidth
   // Bij side_panel-config zonder gekozen positie → default links
   if (merged.doorConfig === 'side_panel' && merged.sidePanels.length === 0) {
-    merged.sidePanels = ['left']
+    // Default-positie hangt af van wat de breedte toelaat: kan geen
+    // 'left' kiezen als de deur smaller dan 1000 is → val terug op top.
+    const allowed = validSidePanelPositionsFor(merged.breedte)
+    merged.sidePanels = [allowed.includes('left') ? 'left' : 'top']
+  }
+  // Wis posities die niet (meer) bij de breedte passen. Bv. user had
+  // een 1200×2300 deur met left+top, en verandert de breedte naar 800;
+  // 'left' moet dan weg, 'top' blijft.
+  {
+    const allowed = new Set(validSidePanelPositionsFor(merged.breedte))
+    merged.sidePanels = merged.sidePanels.filter((p) => allowed.has(p))
   }
 
   // hingeSide → handlePosition.side correctie. Eerder draaide dit als

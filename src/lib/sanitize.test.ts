@@ -1,10 +1,13 @@
 import { describe, expect, it } from 'vitest'
-import { DEFAULT_ORDER, sanitizeOrderData, validDoorConfigsFor } from './types'
+import { DEFAULT_ORDER, sanitizeOrderData, validDoorConfigsFor, validSidePanelPositionsFor } from './types'
 
 describe('validDoorConfigsFor — MY DOORS productie-regels', () => {
-  it('< 1000 mm → enkele deur of pivot', () => {
-    expect(validDoorConfigsFor(900)).toEqual(['single', 'pivot'])
-    expect(validDoorConfigsFor(600)).toEqual(['single', 'pivot'])
+  // 'side_panel' is altijd selecteerbaar: een top-paneel heeft geen
+  // breedte-regel. validSidePanelPositionsFor regelt welke posities
+  // (links/rechts/top) toegestaan zijn binnen die config.
+  it('< 1000 mm → enkele deur, paneel (top-only) of pivot', () => {
+    expect(validDoorConfigsFor(900)).toEqual(['single', 'side_panel', 'pivot'])
+    expect(validDoorConfigsFor(600)).toEqual(['single', 'side_panel', 'pivot'])
   })
 
   it('1000-1500 mm → enkele deur, paneel of pivot', () => {
@@ -13,13 +16,27 @@ describe('validDoorConfigsFor — MY DOORS productie-regels', () => {
     expect(validDoorConfigsFor(1500)).toEqual(['single', 'side_panel', 'pivot'])
   })
 
-  it('> 1500 mm → dubbele deur of pivot', () => {
-    expect(validDoorConfigsFor(1501)).toEqual(['double', 'pivot'])
-    expect(validDoorConfigsFor(2000)).toEqual(['double', 'pivot'])
+  it('> 1500 mm → dubbele deur, paneel (top-only) of pivot', () => {
+    expect(validDoorConfigsFor(1501)).toEqual(['double', 'side_panel', 'pivot'])
+    expect(validDoorConfigsFor(2000)).toEqual(['double', 'side_panel', 'pivot'])
   })
 
   it('NaN/ongeldig → behandelt als <1000', () => {
-    expect(validDoorConfigsFor(NaN)).toEqual(['single', 'pivot'])
+    expect(validDoorConfigsFor(NaN)).toEqual(['single', 'side_panel', 'pivot'])
+  })
+})
+
+describe('validSidePanelPositionsFor — paneel-positie per breedte', () => {
+  it('< 1000 mm → alleen top toegestaan', () => {
+    expect(validSidePanelPositionsFor(900)).toEqual(['top'])
+  })
+  it('1000-1500 mm → alle posities', () => {
+    expect(validSidePanelPositionsFor(1000)).toEqual(['left', 'right', 'top'])
+    expect(validSidePanelPositionsFor(1200)).toEqual(['left', 'right', 'top'])
+    expect(validSidePanelPositionsFor(1500)).toEqual(['left', 'right', 'top'])
+  })
+  it('> 1500 mm → alleen top (dubbele deur claimt de breedte)', () => {
+    expect(validSidePanelPositionsFor(1800)).toEqual(['top'])
   })
 })
 

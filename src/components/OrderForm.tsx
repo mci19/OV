@@ -1,4 +1,4 @@
-import { validDoorConfigsFor, type DoorConfig, type OrderData, type ValidationIssue } from '../lib/types'
+import { validDoorConfigsFor, validSidePanelPositionsFor, type DoorConfig, type OrderData, type ValidationIssue } from '../lib/types'
 import { Chips, Field, FieldRow, MultiChips, SelectField } from './Field'
 import { useT } from '../lib/i18n'
 import { useAppSettings, useOptionList } from '../lib/queries'
@@ -218,19 +218,29 @@ export function OrderForm({ order, set, issues }: Props) {
             </>
           )
         })()}
-        {/* Multi-select positie + breedte/hoogte alleen bij side_panel */}
-        {order.doorConfig === 'side_panel' ? (
+        {/* Multi-select positie + breedte/hoogte alleen bij side_panel.
+            Links/rechts vragen 1000-1500 mm breedte; top mag bij elke
+            breedte (verticale uitbreiding). */}
+        {order.doorConfig === 'side_panel' ? (() => {
+          const allowed = validSidePanelPositionsFor(order.breedte)
+          const allOptions: { value: 'left' | 'right' | 'top'; label: string }[] = [
+            { value: 'left', label: t('order.sidePanelLeft') },
+            { value: 'right', label: t('order.sidePanelRight') },
+            { value: 'top', label: t('order.sidePanelTop') },
+          ]
+          return (
           <div className="mt-3 space-y-3">
             <MultiChips
               label={t('order.sidePanels')}
               values={order.sidePanels}
-              options={[
-                { value: 'left', label: t('order.sidePanelLeft') },
-                { value: 'right', label: t('order.sidePanelRight') },
-                { value: 'top', label: t('order.sidePanelTop') },
-              ]}
+              options={allOptions.filter((o) => allowed.includes(o.value))}
               onChange={(v) => set('sidePanels', v)}
             />
+            {allowed.length < 3 ? (
+              <div className="font-mono text-[11px] text-[--color-muted]">
+                {t('order.sidePanelsBreedteHint')}
+              </div>
+            ) : null}
             {order.sidePanels.includes('left') ? (
               <Field
                 label={`${t('order.sidePanelLeft')} — ${t('order.sidePanelWidth')}`}
@@ -268,7 +278,8 @@ export function OrderForm({ order, set, issues }: Props) {
               {t('order.sidePanelsHint')}
             </div>
           </div>
-        ) : null}
+          )
+        })() : null}
 
         <div className="mt-3 flex gap-6 font-mono text-sm">
           <label className="flex items-center gap-2">
